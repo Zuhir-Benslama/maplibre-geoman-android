@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MapLibre Geoman</string>
+    <string name="draw_marker">Marker</string>
+    <string name="draw_line">Line</string>
+    <string name="draw_polygon">Polygon</string>
+    <string name="draw_circle">Circle</string>
+    <string name="draw_rectangle">Rectangle</string>
+    <string name="edit_drag">Drag</string>
+    <string name="edit_change">Change</string>
+    <string name="edit_rotate">Rotate</string>
+    <string name="edit_delete">Delete</string>
+    <string name="helper_snap">Snap</string>
+</resources>
