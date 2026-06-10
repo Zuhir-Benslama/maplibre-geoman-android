@@ -1,13 +1,12 @@
 plugins {
     alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kotlin.compose)
 }
 
 android {
     namespace = "com.geoman.maplibre.geoman"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 24
