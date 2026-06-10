@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.geoman.maplibre.geoman"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         minSdk = 24
