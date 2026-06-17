@@ -17,17 +17,8 @@ import com.geoman.maplibre.geoman.core.features.Features
 import com.geoman.maplibre.geoman.core.options.GmOptions
 import com.geoman.maplibre.geoman.core.options.GmOptionsData
 import com.geoman.maplibre.geoman.modes.draw.BaseDraw
-import com.geoman.maplibre.geoman.modes.draw.CircleDrawer
-import com.geoman.maplibre.geoman.modes.draw.LineDrawer
-import com.geoman.maplibre.geoman.modes.draw.MarkerDrawer
-import com.geoman.maplibre.geoman.modes.draw.PolygonDrawer
-import com.geoman.maplibre.geoman.modes.draw.RectangleDrawer
 import com.geoman.maplibre.geoman.modes.edit.BaseEdit
 import com.geoman.maplibre.geoman.modes.edit.ChangeEditor
-import com.geoman.maplibre.geoman.modes.edit.DeleteEditor
-import com.geoman.maplibre.geoman.modes.edit.DragEditor
-import com.geoman.maplibre.geoman.modes.edit.RotateEditor
-import com.geoman.maplibre.geoman.modes.helpers.SnapHelper
 import com.geoman.maplibre.geoman.types.DrawModeName
 import com.geoman.maplibre.geoman.types.EditModeName
 import com.geoman.maplibre.geoman.types.HelperModeName
@@ -53,29 +44,6 @@ import kotlinx.coroutines.launch
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
-
-/**
- * Constants - Deprecated: Use GeomanCoreConstants instead
- */
-@Deprecated("Use GeomanCoreConstants instead", ReplaceWith("GeomanCoreConstants"))
-object GeomanConstants {
-    const val PREFIX = GeomanCoreConstants.GM_PREFIX
-    const val EVENT_LOADED = GeomanCoreConstants.Events.LOADED
-    const val EVENT_DESTROYED = GeomanCoreConstants.Events.DESTROYED
-
-    // Feature properties prefix
-    const val FEATURE_PROPERTY_PREFIX = GeomanCoreConstants.FEATURE_PROPERTY_PREFIX
-    const val FEATURE_ID_PROPERTY = GeomanCoreConstants.FEATURE_ID_PROPERTY
-
-    // Source names (legacy - kept for backward compatibility)
-    const val SOURCE_MARKERS = "gm_markers"
-    const val SOURCE_LINES = "gm_lines"
-    const val SOURCE_POLYGONS = "gm_polygons"
-    const val SOURCE_CIRCLES = "gm_circles"
-    const val SOURCE_RECTANGLES = "gm_rectangles"
-    const val SOURCE_EDIT = "gm_edit"
-    const val SOURCE_HELPER = "gm_helper"
-}
 
 /**
  * Main Geoman class for MapLibre Android
@@ -106,6 +74,9 @@ class Geoman(
     val control: GmControl
         get() = _control ?: throw IllegalStateException("Control not initialized")
     
+    // Mode factory
+    private val modeFactory = ModeFactory(this)
+
     // Action instances (modes)
     private val actionInstances = mutableMapOf<String, BaseAction>()
     
@@ -238,7 +209,7 @@ class Geoman(
         }
 
         // Create and enable the mode
-        val action = createAction(type, name)
+        val action = modeFactory.create(type, name)
         action?.let {
             actionInstances[key] = it
             it.enable()
@@ -320,46 +291,6 @@ class Geoman(
         // Also clear control's active modes
         _control?.activeModes?.clear()
         android.util.Log.d("Geoman", "disableAllModes called, activeModes cleared")
-    }
-    
-    /**
-     * Create an action instance based on type and name
-     */
-    private fun createAction(type: ModeType, name: String): BaseAction? {
-        return when (type) {
-            ModeType.DRAW -> createDrawAction(name)
-            ModeType.EDIT -> createEditAction(name)
-            ModeType.HELPER -> createHelperAction(name)
-        }
-    }
-    
-    private fun createDrawAction(name: String): BaseDraw? {
-        return when (name) {
-            DrawModeName.MARKER.name -> MarkerDrawer(this)
-            DrawModeName.LINE.name -> LineDrawer(this)
-            DrawModeName.POLYGON.name -> PolygonDrawer(this)
-            DrawModeName.CIRCLE.name -> CircleDrawer(this)
-            DrawModeName.RECTANGLE.name -> RectangleDrawer(this)
-            else -> null
-        }
-    }
-    
-    private fun createEditAction(name: String): BaseEdit? {
-        return when (name) {
-            EditModeName.DRAG.name -> DragEditor(this)
-            EditModeName.CHANGE.name -> ChangeEditor(this)
-            EditModeName.ROTATE.name -> RotateEditor(this)
-            EditModeName.CUT.name -> null // TODO: Implement CutEditor
-            EditModeName.DELETE.name -> DeleteEditor(this)
-            else -> null
-        }
-    }
-    
-    private fun createHelperAction(name: String): BaseAction? {
-        return when (name) {
-            HelperModeName.SNAP.name -> SnapHelper(this)
-            else -> null
-        }
     }
     
     /**
@@ -550,28 +481,4 @@ class Geoman(
     fun disableHelper(mode: HelperModeName) = disableMode(ModeType.HELPER, mode.name)
     fun toggleHelper(mode: HelperModeName) = toggleMode(ModeType.HELPER, mode.name)
     fun helperEnabled(mode: HelperModeName) = isModeEnabled(ModeType.HELPER, mode.name)
-}
-
-/**
- * Base action class for all modes
- */
-abstract class BaseAction(
-    protected val geoman: Geoman
-) {
-    protected var enabled = false
-
-    abstract val modeName: String
-    abstract val modeType: ModeType
-
-    open fun enable() {
-        enabled = true
-        android.util.Log.d("BaseAction", "enable() called for $modeName, now enabled=$enabled")
-    }
-
-    open fun disable() {
-        android.util.Log.d("BaseAction", "disable() called for $modeName, was enabled=$enabled")
-        enabled = false
-    }
-
-    open fun isEnabled(): Boolean = enabled
 }
