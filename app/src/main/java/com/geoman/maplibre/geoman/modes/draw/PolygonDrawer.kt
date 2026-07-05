@@ -14,12 +14,12 @@ import org.maplibre.android.geometry.LatLng
  * Polygon drawing mode
  */
 class PolygonDrawer(geoman: Geoman) : BaseDraw(geoman) {
-    
+
     override val modeName: String = DrawModeName.POLYGON.name
-    
+
     private val coordinates = mutableListOf<LngLat>()
     private var currentFeature: FeatureData? = null
-    
+
     override fun onMapClick(point: LatLng) {
         android.util.Log.d("PolygonDrawer", "onMapClick called: point=$point, enabled=$enabled")
         if (!enabled) {
@@ -28,21 +28,30 @@ class PolygonDrawer(geoman: Geoman) : BaseDraw(geoman) {
         }
 
         coordinates.add(LngLat(point.longitude, point.latitude))
-        android.util.Log.d("PolygonDrawer", "Coordinate added: ${point.longitude}, ${point.latitude}, total=${coordinates.size}")
+        android.util.Log.d(
+            "PolygonDrawer",
+            "Coordinate added: ${point.longitude}, ${point.latitude}, total=${coordinates.size}",
+        )
 
         // Update or create the polygon feature
         updatePolygonFeature()
     }
 
     override fun onMapLongClick(point: LatLng) {
-        android.util.Log.d("PolygonDrawer", "onMapLongClick called: point=$point, enabled=$enabled, coordinates.size=${coordinates.size}")
+        android.util.Log.d(
+            "PolygonDrawer",
+            "onMapLongClick called: point=$point, enabled=$enabled, coordinates.size=${coordinates.size}",
+        )
         if (!enabled || coordinates.size < 3) return
 
         finishDrawing()
     }
-    
+
     override fun finishDrawing() {
-        android.util.Log.d("PolygonDrawer", "finishDrawing called: coordinates.size=${coordinates.size}, currentFeature=${currentFeature != null}")
+        android.util.Log.d(
+            "PolygonDrawer",
+            "finishDrawing called: coordinates.size=${coordinates.size}, currentFeature=${currentFeature != null}",
+        )
         if (coordinates.size >= 3 && currentFeature != null) {
             coordinates.add(coordinates.first())
             updatePolygonFeature()
@@ -54,7 +63,10 @@ class PolygonDrawer(geoman: Geoman) : BaseDraw(geoman) {
                 fireCreateEvent(featureToFire)
             }
         } else {
-            android.util.Log.e("PolygonDrawer", "finishDrawing: coordinates.size=${coordinates.size}, currentFeature=${currentFeature != null} - SKIPPING")
+            android.util.Log.e(
+                "PolygonDrawer",
+                "finishDrawing: coordinates.size=${coordinates.size}, currentFeature=${currentFeature != null} - SKIPPING",
+            )
         }
 
         coordinates.clear()
@@ -83,8 +95,8 @@ class PolygonDrawer(geoman: Geoman) : BaseDraw(geoman) {
             geometry = geometry,
             properties = mapOf(
                 GeomanCoreConstants.FEATURE_ID_PROPERTY to "polygon_${System.currentTimeMillis()}",
-                "shapeType" to "polygon"
-            )
+                "shapeType" to "polygon",
+            ),
         )
 
         currentFeature?.let {

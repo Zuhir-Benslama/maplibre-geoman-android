@@ -11,9 +11,7 @@ import org.maplibre.android.geometry.LatLng
 /**
  * Base class for all edit modes
  */
-abstract class BaseEdit(
-    geoman: Geoman
-) : BaseAction(geoman) {
+abstract class BaseEdit(geoman: Geoman) : BaseAction(geoman) {
 
     override val modeType: ModeType = ModeType.EDIT
 

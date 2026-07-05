@@ -12,9 +12,9 @@ import kotlinx.coroutines.flow.asSharedFlow
 class GmEventBus {
     private val _events = MutableSharedFlow<GmEvent>(extraBufferCapacity = 64)
     val events: SharedFlow<GmEvent> = _events.asSharedFlow()
-    
+
     private val eventListeners = mutableMapOf<String, MutableList<(GmEvent) -> Unit>>()
-    
+
     /**
      * Emit an event to all listeners
      */
@@ -29,14 +29,14 @@ class GmEventBus {
             }
         }
     }
-    
+
     /**
      * Subscribe to a specific event type
      */
     fun on(eventType: String, listener: (GmEvent) -> Unit) {
         eventListeners.getOrPut(eventType) { mutableListOf() }.add(listener)
     }
-    
+
     /**
      * Subscribe to a specific event type (once)
      */
@@ -53,7 +53,7 @@ class GmEventBus {
         }
         on(eventType, wrappedListener)
     }
-    
+
     /**
      * Unsubscribe from an event type
      */
@@ -63,14 +63,14 @@ class GmEventBus {
             eventListeners.remove(eventType)
         }
     }
-    
+
     /**
      * Clear all event listeners
      */
     fun removeAllListeners() {
         eventListeners.clear()
     }
-    
+
     /**
      * Clear listeners for a specific event type
      */

@@ -14,12 +14,12 @@ import org.maplibre.android.geometry.LatLng
  * Line drawing mode
  */
 class LineDrawer(geoman: Geoman) : BaseDraw(geoman) {
-    
+
     override val modeName: String = DrawModeName.LINE.name
-    
+
     private val coordinates = mutableListOf<LngLat>()
     private var currentFeature: FeatureData? = null
-    
+
     override fun onMapClick(point: LatLng) {
         if (!enabled) return
 
@@ -28,13 +28,13 @@ class LineDrawer(geoman: Geoman) : BaseDraw(geoman) {
         // Update or create the line feature
         updateLineFeature()
     }
-    
+
     override fun onMapLongClick(point: LatLng) {
         if (!enabled || coordinates.size < 2) return
-        
+
         finishDrawing()
     }
-    
+
     override fun finishDrawing() {
         if (coordinates.size >= 2 && currentFeature != null) {
             // Capture the feature before launching coroutine to avoid race condition
@@ -59,8 +59,8 @@ class LineDrawer(geoman: Geoman) : BaseDraw(geoman) {
             geometry = geometry,
             properties = mapOf(
                 GeomanCoreConstants.FEATURE_ID_PROPERTY to "line_${System.currentTimeMillis()}",
-                "shapeType" to "line"
-            )
+                "shapeType" to "line",
+            ),
         )
 
         currentFeature?.let {

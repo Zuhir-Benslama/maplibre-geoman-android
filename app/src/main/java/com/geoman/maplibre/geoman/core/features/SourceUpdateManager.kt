@@ -16,15 +16,15 @@ import kotlinx.coroutines.launch
  * Similar to the web version's source-update-manager.ts
  */
 class SourceUpdateManager(private val geoman: Geoman) {
-    
+
     private val scope = CoroutineScope(Dispatchers.Main)
     private val pendingUpdates = mutableMapOf<String, UpdateJob>()
     private val updateDelays = mapOf(
         "high" to 0L,
         "normal" to 50L,
-        "low" to 200L
+        "low" to 200L,
     )
-    
+
     /**
      * Update job data class
      */
@@ -32,22 +32,18 @@ class SourceUpdateManager(private val geoman: Geoman) {
         val sourceId: String,
         val featureCollection: FeatureCollection,
         val priority: String = "normal",
-        var job: Job? = null
+        var job: Job? = null,
     )
-    
+
     /**
      * Schedule a source update with debouncing
      */
-    fun scheduleUpdate(
-        sourceId: String,
-        features: List<Feature>,
-        priority: String = "normal"
-    ) {
+    fun scheduleUpdate(sourceId: String, features: List<Feature>, priority: String = "normal") {
         val featureCollection = FeatureCollection(features = features)
-        
+
         // Cancel existing update for this source
         pendingUpdates[sourceId]?.job?.cancel()
-        
+
         // Schedule new update
         val delayMs = updateDelays[priority] ?: updateDelays["normal"]!!
         val job = scope.launch {
@@ -55,10 +51,10 @@ class SourceUpdateManager(private val geoman: Geoman) {
             executeUpdate(sourceId, featureCollection)
             pendingUpdates.remove(sourceId)
         }
-        
+
         pendingUpdates[sourceId] = UpdateJob(sourceId, featureCollection, priority, job)
     }
-    
+
     /**
      * Execute source update immediately
      */
@@ -73,7 +69,7 @@ class SourceUpdateManager(private val geoman: Geoman) {
             android.util.Log.e("SourceUpdateManager", "Failed to update source $sourceId: ${e.message}")
         }
     }
-    
+
     /**
      * Execute source update with GeoJSON string
      */
@@ -87,7 +83,7 @@ class SourceUpdateManager(private val geoman: Geoman) {
             android.util.Log.e("SourceUpdateManager", "Failed to update source $sourceId: ${e.message}")
         }
     }
-    
+
     /**
      * Flush all pending updates immediately
      */
@@ -98,7 +94,7 @@ class SourceUpdateManager(private val geoman: Geoman) {
         }
         pendingUpdates.clear()
     }
-    
+
     /**
      * Cancel all pending updates
      */
@@ -106,17 +102,17 @@ class SourceUpdateManager(private val geoman: Geoman) {
         pendingUpdates.values.forEach { it.job?.cancel() }
         pendingUpdates.clear()
     }
-    
+
     /**
      * Get pending update count
      */
     fun getPendingCount(): Int = pendingUpdates.size
-    
+
     /**
      * Check if source has pending update
      */
     fun hasPendingUpdate(sourceId: String): Boolean = pendingUpdates.containsKey(sourceId)
-    
+
     /**
      * Destroy the manager and cancel all updates
      */

@@ -14,28 +14,28 @@ import org.maplibre.android.geometry.LatLng
  * Marker drawing mode
  */
 class MarkerDrawer(geoman: Geoman) : BaseDraw(geoman) {
-    
+
     override val modeName: String = DrawModeName.MARKER.name
-    
+
     private var lastClickTime = 0L
-    
+
     override fun onMapClick(point: LatLng) {
         if (!enabled) return
 
         val currentTime = System.currentTimeMillis()
 
         val feature = Feature(
-            id = "marker_${currentTime}",
+            id = "marker_$currentTime",
             geometry = Point.fromLngLat(LngLat(point.longitude, point.latitude)),
             properties = mapOf(
-                GeomanCoreConstants.FEATURE_ID_PROPERTY to "marker_${currentTime}",
-                "markerType" to "default"
-            )
+                GeomanCoreConstants.FEATURE_ID_PROPERTY to "marker_$currentTime",
+                "markerType" to "default",
+            ),
         )
 
         val featureData = geomanInstance.features.addGeoJsonFeature(
             feature,
-            GeomanCoreConstants.SOURCE_MARKERS
+            GeomanCoreConstants.SOURCE_MARKERS,
         )
 
         temporaryFeatures.add(featureData)

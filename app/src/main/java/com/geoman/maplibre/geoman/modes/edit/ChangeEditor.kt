@@ -1,8 +1,8 @@
 package com.geoman.maplibre.geoman.modes.edit
 
 import com.geoman.maplibre.geoman.Geoman
-import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.adapter.DomMarkerOptions
+import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.core.features.FeatureData
 import com.geoman.maplibre.geoman.types.EditModeName
 import com.geoman.maplibre.geoman.types.geojson.LngLat
@@ -23,10 +23,7 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
     /**
      * Wrapper holding a DOM marker and its vertex index
      */
-    private data class VertexMarker(
-        val index: Int,
-        val domMarker: com.geoman.maplibre.geoman.adapter.DomMarker
-    )
+    private data class VertexMarker(val index: Int, val domMarker: com.geoman.maplibre.geoman.adapter.DomMarker)
 
     override fun enable() {
         super.enable()
@@ -63,7 +60,7 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
             val targetSources = setOf(
                 GeomanCoreConstants.SOURCE_LINES,
                 GeomanCoreConstants.SOURCE_POLYGONS,
-                GeomanCoreConstants.SOURCE_CIRCLES
+                GeomanCoreConstants.SOURCE_CIRCLES,
             )
 
             var closestFeature: FeatureData? = null
@@ -97,12 +94,14 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
                 val featurePoint = LatLng(c[1], c[0])
                 point.distanceTo(featurePoint)
             }
+
             is com.geoman.maplibre.geoman.types.geojson.LineString -> {
                 geometry.coordinates.minOf { coord ->
                     val featurePoint = LatLng(coord[1], coord[0])
                     point.distanceTo(featurePoint)
                 }
             }
+
             is com.geoman.maplibre.geoman.types.geojson.Polygon -> {
                 if (geometry.coordinates.isNotEmpty()) {
                     val ring = geometry.coordinates[0]
@@ -110,8 +109,11 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
                         val featurePoint = LatLng(coord[1], coord[0])
                         point.distanceTo(featurePoint)
                     }
-                } else Double.MAX_VALUE
+                } else {
+                    Double.MAX_VALUE
+                }
             }
+
             else -> Double.MAX_VALUE
         }
     }
@@ -149,6 +151,7 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
                     VertexMarkerData(index, LngLat(coord[0], coord[1]))
                 }
             }
+
             is com.geoman.maplibre.geoman.types.geojson.Polygon -> {
                 if (geometry.coordinates.isNotEmpty()) {
                     val ring = geometry.coordinates[0]
@@ -160,6 +163,7 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
                     emptyList()
                 }
             }
+
             else -> emptyList()
         }
 
@@ -167,7 +171,7 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
             val markerOptions = DomMarkerOptions(
                 element = createVertexMarkerView(),
                 anchor = com.geoman.maplibre.geoman.adapter.MarkerAnchor.CENTER,
-                draggable = true
+                draggable = true,
             )
 
             val domMarker = geomanInstance.mapAdapter.createDomMarker(markerOptions, vertex.lngLat)
@@ -231,6 +235,7 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
                     updateFeatureGeometry(feature, newGeometry)
                 }
             }
+
             is com.geoman.maplibre.geoman.types.geojson.Polygon -> {
                 if (geometry.coordinates.isNotEmpty()) {
                     val rings = geometry.coordinates.map { ring -> ring.toMutableList() }
@@ -242,6 +247,7 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
                     }
                 }
             }
+
             else -> {
                 // Unsupported geometry type for vertex movement
             }
@@ -262,6 +268,7 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
                 val newGeometry = com.geoman.maplibre.geoman.types.geojson.LineString(coordinates = coords)
                 updateFeatureGeometry(feature, newGeometry)
             }
+
             is com.geoman.maplibre.geoman.types.geojson.Polygon -> {
                 if (geometry.coordinates.isNotEmpty()) {
                     val rings = geometry.coordinates.map { ring -> ring.toMutableList() }
@@ -271,6 +278,7 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
                     updateFeatureGeometry(feature, newGeometry)
                 }
             }
+
             else -> {
                 // Unsupported geometry type for adding vertices
             }
@@ -292,6 +300,7 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
                 val newGeometry = com.geoman.maplibre.geoman.types.geojson.LineString(coordinates = coords)
                 updateFeatureGeometry(feature, newGeometry)
             }
+
             is com.geoman.maplibre.geoman.types.geojson.Polygon -> {
                 if (geometry.coordinates.isNotEmpty()) {
                     val rings = geometry.coordinates.map { ring -> ring.toMutableList() }
@@ -302,6 +311,7 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
                     updateFeatureGeometry(feature, newGeometry)
                 }
             }
+
             else -> {
                 // Unsupported geometry type for vertex removal
             }
@@ -310,10 +320,10 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
 
     private fun updateFeatureGeometry(
         feature: FeatureData,
-        newGeometry: com.geoman.maplibre.geoman.types.geojson.Geometry
+        newGeometry: com.geoman.maplibre.geoman.types.geojson.Geometry,
     ) {
         val updatedFeature = feature.copy(
-            feature = feature.feature.copy(geometry = newGeometry)
+            feature = feature.feature.copy(geometry = newGeometry),
         )
 
         geomanInstance.features.updateFeature(feature.sourceName, feature.id) {
@@ -324,8 +334,5 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
     /**
      * Simple data class for vertex info
      */
-    private data class VertexMarkerData(
-        val index: Int,
-        val lngLat: LngLat
-    )
+    private data class VertexMarkerData(val index: Int, val lngLat: LngLat)
 }

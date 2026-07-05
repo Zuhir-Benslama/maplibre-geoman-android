@@ -13,11 +13,8 @@ import org.maplibre.android.style.sources.GeoJsonSource
 /**
  * MapLibre layer implementation for SDK 11.x
  */
-class MapLibreLayer(
-    private val geoman: Geoman,
-    private val options: LayerOptions,
-    private val map: MapLibreMap
-) : MapLayer {
+class MapLibreLayer(private val geoman: Geoman, private val options: LayerOptions, private val map: MapLibreMap) :
+    MapLayer {
 
     override val layerId: String = options.id
 
@@ -41,7 +38,7 @@ class MapLibreLayer(
         layer ?: return
 
         // Apply source layer if specified (SDK 11.x uses sourceLayer property)
-        options.sourceLayer?.let { 
+        options.sourceLayer?.let {
             when (layer) {
                 is FillLayer -> layer.sourceLayer = it
                 is LineLayer -> layer.sourceLayer = it
@@ -111,17 +108,15 @@ class MapLibreLayer(
         }
     }
 
-    private fun valueToPropertyValue(name: String, value: Any): PropertyValue<*>? {
-        return when (value) {
-            is String -> PropertyValue(name, value)
-            is Int -> PropertyValue(name, value.toFloat())
-            is Float -> PropertyValue(name, value)
-            is Double -> PropertyValue(name, value.toFloat())
-            is Boolean -> PropertyValue(name, value.toString())
-            is Array<*> -> PropertyValue(name, value.map { it?.toString() ?: "" }.toTypedArray())
-            is List<*> -> PropertyValue(name, value.map { it?.toString() ?: "" }.toTypedArray())
-            else -> PropertyValue(name, value.toString())
-        }
+    private fun valueToPropertyValue(name: String, value: Any): PropertyValue<*>? = when (value) {
+        is String -> PropertyValue(name, value)
+        is Int -> PropertyValue(name, value.toFloat())
+        is Float -> PropertyValue(name, value)
+        is Double -> PropertyValue(name, value.toFloat())
+        is Boolean -> PropertyValue(name, value.toString())
+        is Array<*> -> PropertyValue(name, value.map { it?.toString() ?: "" }.toTypedArray())
+        is List<*> -> PropertyValue(name, value.map { it?.toString() ?: "" }.toTypedArray())
+        else -> PropertyValue(name, value.toString())
     }
 
     private fun parseExpression(filter: Any): Expression? {
@@ -136,7 +131,7 @@ class MapLibreLayer(
     override fun setPaintProperty(name: String, value: Any) {
         val style = map.style ?: return
         val layer = style.getLayer(layerId) ?: return
-        
+
         val property = valueToPropertyValue(name, value) ?: return
         @Suppress("UNCHECKED_CAST")
         when (layer) {

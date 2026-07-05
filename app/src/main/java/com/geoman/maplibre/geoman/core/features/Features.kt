@@ -18,7 +18,7 @@ data class FeatureData(
     val id: String,
     val sourceName: String,
     val feature: Feature,
-    val properties: MutableMap<String, Any?> = mutableMapOf()
+    val properties: MutableMap<String, Any?> = mutableMapOf(),
 ) {
     val geometry: Geometry get() = feature.geometry
 }
@@ -42,8 +42,9 @@ object FeatureSources {
  * Features manager for handling GeoJSON features
  */
 class Features {
-    private val _features = mutableMapOf<String, MutableMap<String, FeatureData>>()
+    private val featuresMap = mutableMapOf<String, MutableMap<String, FeatureData>>()
     private val _featuresFlow = MutableStateFlow<Map<String, Map<String, FeatureData>>>(emptyMap())
+
     val featuresFlow: StateFlow<Map<String, Map<String, FeatureData>>> = _featuresFlow.asStateFlow()
 
     // Map adapter reference for rendering
@@ -59,27 +60,23 @@ class Features {
     /**
      * Get all features
      */
-    fun getAllFeatures(): Map<String, Map<String, FeatureData>> = _features.toMap()
+    fun getAllFeatures(): Map<String, Map<String, FeatureData>> = featuresMap.toMap()
 
     /**
      * Get features by source name
      */
-    fun getFeatures(sourceName: String): Map<String, FeatureData> {
-        return _features[sourceName]?.toMap() ?: emptyMap()
-    }
+    fun getFeatures(sourceName: String): Map<String, FeatureData> = featuresMap[sourceName]?.toMap() ?: emptyMap()
 
     /**
      * Get a specific feature
      */
-    fun getFeature(sourceName: String, featureId: String): FeatureData? {
-        return _features[sourceName]?.get(featureId)
-    }
+    fun getFeature(sourceName: String, featureId: String): FeatureData? = featuresMap[sourceName]?.get(featureId)
 
     /**
      * Add a feature
      */
     fun addFeature(featureData: FeatureData) {
-        val sourceFeatures = _features.getOrPut(featureData.sourceName) { mutableMapOf() }
+        val sourceFeatures = featuresMap.getOrPut(featureData.sourceName) { mutableMapOf() }
         sourceFeatures[featureData.id] = featureData
         updateFeaturesFlow()
     }
@@ -87,16 +84,13 @@ class Features {
     /**
      * Add a GeoJSON feature
      */
-    fun addGeoJsonFeature(
-        feature: Feature,
-        sourceName: String = FeatureSources.POLYGON
-    ): FeatureData {
+    fun addGeoJsonFeature(feature: Feature, sourceName: String = FeatureSources.POLYGON): FeatureData {
         val featureId = feature.id ?: generateFeatureId()
         val featureData = FeatureData(
             id = featureId,
             sourceName = sourceName,
             feature = feature.copy(id = featureId),
-            properties = feature.properties.toMutableMap()
+            properties = feature.properties.toMutableMap(),
         )
         addFeature(featureData)
 
@@ -110,9 +104,9 @@ class Features {
      * Update a feature
      */
     fun updateFeature(sourceName: String, featureId: String, update: (FeatureData) -> FeatureData) {
-        _features[sourceName]?.get(featureId)?.let { existingFeature ->
+        featuresMap[sourceName]?.get(featureId)?.let { existingFeature ->
             val updatedFeature = update(existingFeature)
-            _features[sourceName]?.put(featureId, updatedFeature)
+            featuresMap[sourceName]?.put(featureId, updatedFeature)
             updateFeaturesFlow()
             // Re-sync the source to reflect changes
             syncSourceToMap(sourceName)
@@ -123,9 +117,9 @@ class Features {
      * Remove a feature
      */
     fun removeFeature(sourceName: String, featureId: String): FeatureData? {
-        val removedFeature = _features[sourceName]?.remove(featureId)
-        if (_features[sourceName]?.isEmpty() == true) {
-            _features.remove(sourceName)
+        val removedFeature = featuresMap[sourceName]?.remove(featureId)
+        if (featuresMap[sourceName]?.isEmpty() == true) {
+            featuresMap.remove(sourceName)
         }
         updateFeaturesFlow()
         // Re-sync the source
@@ -137,7 +131,7 @@ class Features {
      * Remove all features from a source
      */
     fun clearSource(sourceName: String) {
-        _features.remove(sourceName)
+        featuresMap.remove(sourceName)
         updateFeaturesFlow()
         syncSourceToMap(sourceName)
     }
@@ -146,8 +140,8 @@ class Features {
      * Clear all features
      */
     fun clearAll() {
-        val sourceNames = _features.keys.toList()
-        _features.clear()
+        val sourceNames = featuresMap.keys.toList()
+        featuresMap.clear()
         updateFeaturesFlow()
         // Re-sync all sources to clear them
         sourceNames.forEach { syncSourceToMap(it) }
@@ -156,13 +150,10 @@ class Features {
     /**
      * Get features within bounds
      */
-    fun getFeaturesInBounds(
-        bounds: List<LngLat>,
-        sourceNames: List<String>? = null
-    ): List<FeatureData> {
-        val sources = sourceNames ?: _features.keys.toList()
+    fun getFeaturesInBounds(bounds: List<LngLat>, sourceNames: List<String>? = null): List<FeatureData> {
+        val sources = sourceNames ?: featuresMap.keys.toList()
         return sources.flatMap { sourceName ->
-            _features[sourceName]?.values?.filter { feature ->
+            featuresMap[sourceName]?.values?.filter { feature ->
                 isGeometryInBounds(feature.geometry, bounds)
             } ?: emptyList()
         }
@@ -173,7 +164,7 @@ class Features {
      */
     fun getFeaturesAtPoint(
         @Suppress("UNUSED_PARAMETER") point: com.geoman.maplibre.geoman.types.geojson.ScreenPoint,
-        @Suppress("UNUSED_PARAMETER") sourceNames: List<String>? = null
+        @Suppress("UNUSED_PARAMETER") sourceNames: List<String>? = null,
     ): List<FeatureData> {
         // This will be implemented with map adapter query
         return emptyList()
@@ -184,11 +175,11 @@ class Features {
      */
     private fun syncSourceToMap(sourceName: String) {
         val adapter = mapAdapter ?: return
-        val sourceFeatures = _features[sourceName] ?: emptyMap()
+        val sourceFeatures = featuresMap[sourceName] ?: emptyMap()
 
         // Build FeatureCollection from in-memory features
         val featureCollection = FeatureCollection(
-            features = sourceFeatures.values.map { it.feature }.toList()
+            features = sourceFeatures.values.map { it.feature }.toList(),
         )
 
         // Create or update the source on the map
@@ -212,78 +203,92 @@ class Features {
         when (sourceName) {
             FeatureSources.MARKER -> {
                 try {
-                    adapter.addLayer(LayerOptions(
-                        id = "${sourceName}_symbol",
-                        type = LayerType.SYMBOL,
-                        source = sourceName,
-                        layout = mapOf(
-                            "icon-image" to "default-marker",
-                            "icon-size" to 0.5f,
-                            "icon-allow-overlap" to true
-                        )
-                    ))
+                    adapter.addLayer(
+                        LayerOptions(
+                            id = "${sourceName}_symbol",
+                            type = LayerType.SYMBOL,
+                            source = sourceName,
+                            layout = mapOf(
+                                "icon-image" to "default-marker",
+                                "icon-size" to 0.5f,
+                                "icon-allow-overlap" to true,
+                            ),
+                        ),
+                    )
                 } catch (e: Exception) {
                     android.util.Log.w("Features", "Error adding marker layer: ${e.message}")
                 }
             }
+
             FeatureSources.LINE -> {
                 try {
-                    adapter.addLayer(LayerOptions(
-                        id = "${sourceName}_line",
-                        type = LayerType.LINE,
-                        source = sourceName,
-                        paint = mapOf(
-                            "line-color" to "#3498db",
-                            "line-width" to 3f
-                        )
-                    ))
+                    adapter.addLayer(
+                        LayerOptions(
+                            id = "${sourceName}_line",
+                            type = LayerType.LINE,
+                            source = sourceName,
+                            paint = mapOf(
+                                "line-color" to "#3498db",
+                                "line-width" to 3f,
+                            ),
+                        ),
+                    )
                 } catch (e: Exception) {
                     android.util.Log.w("Features", "Error adding line layer: ${e.message}")
                 }
             }
+
             FeatureSources.POLYGON -> {
                 try {
                     // No fill layer - outline only
-                    adapter.addLayer(LayerOptions(
-                        id = "${sourceName}_stroke",
-                        type = LayerType.LINE,
-                        source = sourceName,
-                        paint = mapOf(
-                            "line-color" to "#8e44ad",
-                            "line-width" to 2f
-                        )
-                    ))
+                    adapter.addLayer(
+                        LayerOptions(
+                            id = "${sourceName}_stroke",
+                            type = LayerType.LINE,
+                            source = sourceName,
+                            paint = mapOf(
+                                "line-color" to "#8e44ad",
+                                "line-width" to 2f,
+                            ),
+                        ),
+                    )
                 } catch (e: Exception) {
                     android.util.Log.w("Features", "Error adding polygon layers: ${e.message}")
                 }
             }
+
             FeatureSources.CIRCLE -> {
                 try {
                     // No fill layer - outline only
-                    adapter.addLayer(LayerOptions(
-                        id = "${sourceName}_stroke",
-                        type = LayerType.LINE,
-                        source = sourceName,
-                        paint = mapOf(
-                            "line-color" to "#e74c3c",
-                            "line-width" to 2f
-                        )
-                    ))
+                    adapter.addLayer(
+                        LayerOptions(
+                            id = "${sourceName}_stroke",
+                            type = LayerType.LINE,
+                            source = sourceName,
+                            paint = mapOf(
+                                "line-color" to "#e74c3c",
+                                "line-width" to 2f,
+                            ),
+                        ),
+                    )
                 } catch (e: Exception) {
                     android.util.Log.w("Features", "Error adding circle layers: ${e.message}")
                 }
             }
+
             FeatureSources.RECTANGLE -> {
                 try {
-                    adapter.addLayer(LayerOptions(
-                        id = "${sourceName}_stroke",
-                        type = LayerType.LINE,
-                        source = sourceName,
-                        paint = mapOf(
-                            "line-color" to "#2ecc71",
-                            "line-width" to 2f
-                        )
-                    ))
+                    adapter.addLayer(
+                        LayerOptions(
+                            id = "${sourceName}_stroke",
+                            type = LayerType.LINE,
+                            source = sourceName,
+                            paint = mapOf(
+                                "line-color" to "#2ecc71",
+                                "line-width" to 2f,
+                            ),
+                        ),
+                    )
                 } catch (e: Exception) {
                     android.util.Log.w("Features", "Error adding rectangle layers: ${e.message}")
                 }
@@ -291,21 +296,18 @@ class Features {
         }
     }
 
-    private fun isGeometryInBounds(geometry: Geometry, bounds: List<LngLat>): Boolean {
-        return when (geometry) {
-            is com.geoman.maplibre.geoman.types.geojson.Point -> {
-                val point = geometry.toLngLat()
-                bounds.any { it.latitude == point.latitude && it.longitude == point.longitude }
-            }
-            else -> true
+    private fun isGeometryInBounds(geometry: Geometry, bounds: List<LngLat>): Boolean = when (geometry) {
+        is com.geoman.maplibre.geoman.types.geojson.Point -> {
+            val point = geometry.toLngLat()
+            bounds.any { it.latitude == point.latitude && it.longitude == point.longitude }
         }
+
+        else -> true
     }
 
     private fun updateFeaturesFlow() {
-        _featuresFlow.value = _features.mapValues { it.value.toMap() }
+        _featuresFlow.value = featuresMap.mapValues { it.value.toMap() }
     }
 
-    private fun generateFeatureId(): String {
-        return "feature_${System.currentTimeMillis()}_${(Math.random() * 10000).toInt()}"
-    }
+    private fun generateFeatureId(): String = "feature_${System.currentTimeMillis()}_${(Math.random() * 10000).toInt()}"
 }

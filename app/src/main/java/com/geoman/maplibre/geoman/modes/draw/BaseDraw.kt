@@ -14,9 +14,7 @@ import org.maplibre.android.geometry.LatLng
 /**
  * Base class for all draw modes
  */
-abstract class BaseDraw(
-    geoman: Geoman
-) : BaseAction(geoman) {
+abstract class BaseDraw(geoman: Geoman) : BaseAction(geoman) {
 
     override val modeType: ModeType = ModeType.DRAW
 
@@ -45,7 +43,7 @@ abstract class BaseDraw(
             android.util.Log.w("BaseDraw", "fireCreateEvent called with null feature")
             return
         }
-        
+
         android.util.Log.d("BaseDraw", "fireCreateEvent called: feature=${featureRef.id}, modeName=$modeName")
         geomanInstance.events.emit(GmDrawEvent.Create(modeName, featureRef))
         android.util.Log.d("BaseDraw", "fireCreateEvent: event emitted")

@@ -47,39 +47,35 @@ import org.maplibre.android.maps.MapView
 
 /**
  * Main Geoman class for MapLibre Android
- * 
+ *
  * Provides drawing, editing, and helper functionality for geographic features.
- * 
+ *
  * @param mapView The MapView instance
  * @param map The MapLibreMap instance
  * @param options Initial configuration options
  */
-class Geoman(
-    internal val mapView: MapView,
-    private val map: MapLibreMap,
-    options: GmOptionsData = GmOptionsData()
-) {
+class Geoman(internal val mapView: MapView, private val map: MapLibreMap, options: GmOptionsData = GmOptionsData()) {
     // Core components
     val options: GmOptions = GmOptions(options)
     val features: Features = Features()
     val events: GmEventBus = GmEventBus()
-    
+
     // Map adapter
     private var _mapAdapter: BaseMapAdapter<MapLibreMap>? = null
     val mapAdapter: BaseMapAdapter<MapLibreMap>
         get() = _mapAdapter ?: throw IllegalStateException("Map adapter not initialized")
-    
+
     // Control
     private var _control: GmControl? = null
     val control: GmControl
         get() = _control ?: throw IllegalStateException("Control not initialized")
-    
+
     // Mode factory
     private val modeFactory = ModeFactory(this)
 
     // Action instances (modes)
     private val actionInstances = mutableMapOf<String, BaseAction>()
-    
+
     // State
     private val _loaded = MutableStateFlow(false)
     val loaded: Boolean get() = _loaded.value
@@ -90,28 +86,28 @@ class Geoman(
 
     // Coroutine scope - internal for use by modes
     internal val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    
+
     // Pending base map wait
     private var pendingBaseMapWait: kotlinx.coroutines.Job? = null
-    
+
     init {
         initialize()
     }
-    
+
     /**
      * Initialize Geoman
      */
     private fun initialize() {
         // Create map adapter
         _mapAdapter = MapLibreAdapter(map, this, mapView)
-        
+
         // Create control
         _control = GmControl(this)
-        
+
         // Wait for map to load
         waitForBaseMap()
     }
-    
+
     /**
      * Wait for the base map to be loaded
      */
@@ -120,11 +116,11 @@ class Geoman(
             init()
             return
         }
-        
+
         pendingBaseMapWait = scope.launch {
             var attempts = 0
             val maxAttempts = 50 // 5 seconds total
-            
+
             while (attempts < maxAttempts && !_destroyed.value) {
                 if (mapAdapter.isLoaded()) {
                     init()
@@ -133,13 +129,13 @@ class Geoman(
                 delay(100)
                 attempts++
             }
-            
+
             if (!_destroyed.value) {
                 android.util.Log.e("Geoman", "Map failed to load within timeout")
             }
         }
     }
-    
+
     /**
      * Initialize Geoman after map is loaded
      */
@@ -154,7 +150,7 @@ class Geoman(
             addControls()
         }
     }
-    
+
     /**
      * Add controls to the map
      */
@@ -162,35 +158,35 @@ class Geoman(
         if (options.settings.useControlsUi) {
             mapAdapter.addControl(control)
         }
-        
+
         // Fire loaded event
         onMapLoad()
     }
-    
+
     /**
      * Handle map load event
      */
     private suspend fun onMapLoad() {
         if (_loaded.value || _destroyed.value) return
-        
+
         // Load default marker image
         try {
             val context = mapView.context
             val markerBitmap = android.graphics.BitmapFactory.decodeResource(
                 context.resources,
-                android.R.drawable.ic_menu_mylocation
+                android.R.drawable.ic_menu_mylocation,
             )
             mapAdapter.loadImage("default-marker", markerBitmap)
         } catch (e: Exception) {
             android.util.Log.e("Geoman", "Failed to load default marker", e)
         }
-        
+
         _loaded.value = true
-        
+
         // Fire loaded event
         events.emit(GmMapEvent.Loaded)
     }
-    
+
     /**
      * Enable a mode
      */
@@ -227,7 +223,7 @@ class Geoman(
             android.util.Log.e("Geoman", "Failed to create action for $type.$name")
         }
     }
-    
+
     /**
      * Disable a mode
      */
@@ -248,7 +244,7 @@ class Geoman(
             }
         }
     }
-    
+
     /**
      * Toggle a mode
      */
@@ -262,26 +258,22 @@ class Geoman(
             true
         }
     }
-    
+
     /**
      * Check if a mode is enabled
      */
-    fun isModeEnabled(type: ModeType, name: String): Boolean {
-        return actionInstances.containsKey("${type.name}__$name")
-    }
-    
+    fun isModeEnabled(type: ModeType, name: String): Boolean = actionInstances.containsKey("${type.name}__$name")
+
     /**
      * Get all enabled modes
      */
-    fun getEnabledModes(): List<Pair<ModeType, String>> {
-        return actionInstances.keys.map { key ->
-            val parts = key.split("__")
-            val type = ModeType.valueOf(parts[0])
-            val name = parts[1]
-            type to name
-        }
+    fun getEnabledModes(): List<Pair<ModeType, String>> = actionInstances.keys.map { key ->
+        val parts = key.split("__")
+        val type = ModeType.valueOf(parts[0])
+        val name = parts[1]
+        type to name
     }
-    
+
     /**
      * Disable all modes
      */
@@ -292,7 +284,7 @@ class Geoman(
         _control?.activeModes?.clear()
         android.util.Log.d("Geoman", "disableAllModes called, activeModes cleared")
     }
-    
+
     /**
      * Handle draw mode click
      */
@@ -348,21 +340,18 @@ class Geoman(
      */
     fun handleHelperClick(modeName: String, @Suppress("UNUSED_PARAMETER") point: LatLng) {
         val key = "${ModeType.HELPER.name}__$modeName"
+
         @Suppress("UNUSED_VARIABLE")
         val action = actionInstances[key]
         // Helper actions may handle clicks differently
     }
-    
+
     /**
      * Add a GeoJSON feature
      */
-    fun addGeoJsonFeature(
-        feature: Feature,
-        sourceName: String = GeomanCoreConstants.SOURCE_POLYGONS
-    ): FeatureData {
-        return features.addGeoJsonFeature(feature, sourceName)
-    }
-    
+    fun addGeoJsonFeature(feature: Feature, sourceName: String = GeomanCoreConstants.SOURCE_POLYGONS): FeatureData =
+        features.addGeoJsonFeature(feature, sourceName)
+
     /**
      * Add a GeoJSON feature collection
      */
@@ -371,35 +360,31 @@ class Geoman(
             addGeoJsonFeature(feature)
         }
     }
-    
+
     /**
      * Get a feature by ID
      */
-    fun getFeature(sourceName: String, featureId: String): FeatureData? {
-        return features.getFeature(sourceName, featureId)
-    }
-    
+    fun getFeature(sourceName: String, featureId: String): FeatureData? = features.getFeature(sourceName, featureId)
+
     /**
      * Get all features
      */
-    fun getAllFeatures(): Map<String, Map<String, FeatureData>> {
-        return features.getAllFeatures()
-    }
-    
+    fun getAllFeatures(): Map<String, Map<String, FeatureData>> = features.getAllFeatures()
+
     /**
      * Remove a feature
      */
     fun removeFeature(sourceName: String, featureId: String) {
         features.removeFeature(sourceName, featureId)
     }
-    
+
     /**
      * Clear all features
      */
     fun clearAllFeatures() {
         features.clearAll()
     }
-    
+
     /**
      * Wait for Geoman to be loaded
      */
@@ -426,56 +411,56 @@ class Geoman(
             null
         }
     }
-    
+
     /**
      * Destroy the Geoman instance and clean up resources
      */
     fun destroy() {
         if (_destroyed.value) return
         _destroyed.value = true
-        
+
         // Cancel pending operations
         pendingBaseMapWait?.cancel()
-        
+
         // Disable all modes
         disableAllModes()
-        
+
         // Remove controls
         scope.launch {
             if (options.settings.useControlsUi) {
                 mapAdapter.removeControl(control)
             }
         }
-        
+
         // Clean up map adapter
         if (_mapAdapter is MapLibreAdapter) {
             (_mapAdapter as MapLibreAdapter).cleanup()
         }
-        
+
         // Remove event listeners
         events.removeAllListeners()
-        
+
         // Cancel scope
         scope.cancel()
-        
+
         // Fire destroyed event
         scope.launch {
             events.emit(GmMapEvent.Destroyed)
         }
     }
-    
+
     // Convenience methods for draw modes
     fun enableDraw(mode: DrawModeName) = enableMode(ModeType.DRAW, mode.name)
     fun disableDraw(mode: DrawModeName) = disableMode(ModeType.DRAW, mode.name)
     fun toggleDraw(mode: DrawModeName) = toggleMode(ModeType.DRAW, mode.name)
     fun drawEnabled(mode: DrawModeName) = isModeEnabled(ModeType.DRAW, mode.name)
-    
+
     // Convenience methods for edit modes
     fun enableEdit(mode: EditModeName) = enableMode(ModeType.EDIT, mode.name)
     fun disableEdit(mode: EditModeName) = disableMode(ModeType.EDIT, mode.name)
     fun toggleEdit(mode: EditModeName) = toggleMode(ModeType.EDIT, mode.name)
     fun editEnabled(mode: EditModeName) = isModeEnabled(ModeType.EDIT, mode.name)
-    
+
     // Convenience methods for helper modes
     fun enableHelper(mode: HelperModeName) = enableMode(ModeType.HELPER, mode.name)
     fun disableHelper(mode: HelperModeName) = disableMode(ModeType.HELPER, mode.name)

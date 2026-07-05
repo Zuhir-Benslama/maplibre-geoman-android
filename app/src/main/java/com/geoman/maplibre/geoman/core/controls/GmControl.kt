@@ -48,84 +48,105 @@ import org.maplibre.android.geometry.LatLng
  * Geoman control panel for map editing
  * Implements both traditional Android View and Jetpack Compose versions
  */
-class GmControl(
-    private val geoman: Geoman
-) {
+class GmControl(private val geoman: Geoman) {
     private var controlView: View? = null
+
     // Make activeModes public so external code can see which modes are active
     val activeModes = mutableSetOf<Pair<ModeType, String>>()
-    
+
     /**
      * Create the control panel UI using traditional Android Views
      */
     fun createControls(parent: ViewGroup): View {
         val context = parent.context
-        
+
         val layout = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
+                ViewGroup.LayoutParams.WRAP_CONTENT,
             )
             setPadding(16, 16, 16, 16)
             background = context.getDrawable(android.R.drawable.dialog_holo_light_frame)
         }
-        
+
         // Draw controls section
         val drawSection = createSection(layout.context, "Draw")
-        drawSection.addView(createButton(layout.context, "Marker", Icons.Default.Place) {
-            toggleMode(ModeType.DRAW, DrawModeName.MARKER.name)
-        })
-        drawSection.addView(createButton(layout.context, "Line", Icons.Default.Polyline) {
-            toggleMode(ModeType.DRAW, DrawModeName.LINE.name)
-        })
-        drawSection.addView(createButton(layout.context, "Polygon", Icons.Default.CenterFocusStrong) {
-            toggleMode(ModeType.DRAW, DrawModeName.POLYGON.name)
-        })
-        drawSection.addView(createButton(layout.context, "Circle", Icons.Default.Circle) {
-            toggleMode(ModeType.DRAW, DrawModeName.CIRCLE.name)
-        })
-        drawSection.addView(createButton(layout.context, "Rectangle", Icons.Default.Square) {
-            toggleMode(ModeType.DRAW, DrawModeName.RECTANGLE.name)
-        })
+        drawSection.addView(
+            createButton(layout.context, "Marker", Icons.Default.Place) {
+                toggleMode(ModeType.DRAW, DrawModeName.MARKER.name)
+            },
+        )
+        drawSection.addView(
+            createButton(layout.context, "Line", Icons.Default.Polyline) {
+                toggleMode(ModeType.DRAW, DrawModeName.LINE.name)
+            },
+        )
+        drawSection.addView(
+            createButton(layout.context, "Polygon", Icons.Default.CenterFocusStrong) {
+                toggleMode(ModeType.DRAW, DrawModeName.POLYGON.name)
+            },
+        )
+        drawSection.addView(
+            createButton(layout.context, "Circle", Icons.Default.Circle) {
+                toggleMode(ModeType.DRAW, DrawModeName.CIRCLE.name)
+            },
+        )
+        drawSection.addView(
+            createButton(layout.context, "Rectangle", Icons.Default.Square) {
+                toggleMode(ModeType.DRAW, DrawModeName.RECTANGLE.name)
+            },
+        )
         layout.addView(drawSection)
-        
+
         // Edit controls section
         val editSection = createSection(layout.context, "Edit")
-        editSection.addView(createButton(layout.context, "Drag", Icons.Default.PanTool) {
-            toggleMode(ModeType.EDIT, EditModeName.DRAG.name)
-        })
-        editSection.addView(createButton(layout.context, "Change", Icons.Default.Edit) {
-            toggleMode(ModeType.EDIT, EditModeName.CHANGE.name)
-        })
-        editSection.addView(createButton(layout.context, "Rotate", Icons.Default.Refresh) {
-            toggleMode(ModeType.EDIT, EditModeName.ROTATE.name)
-        })
-        editSection.addView(createButton(layout.context, "Cut", Icons.Default.Remove) {
-            toggleMode(ModeType.EDIT, EditModeName.CUT.name)
-        })
-        editSection.addView(createButton(layout.context, "Delete", Icons.Default.Remove) {
-            toggleMode(ModeType.EDIT, EditModeName.DELETE.name)
-        })
+        editSection.addView(
+            createButton(layout.context, "Drag", Icons.Default.PanTool) {
+                toggleMode(ModeType.EDIT, EditModeName.DRAG.name)
+            },
+        )
+        editSection.addView(
+            createButton(layout.context, "Change", Icons.Default.Edit) {
+                toggleMode(ModeType.EDIT, EditModeName.CHANGE.name)
+            },
+        )
+        editSection.addView(
+            createButton(layout.context, "Rotate", Icons.Default.Refresh) {
+                toggleMode(ModeType.EDIT, EditModeName.ROTATE.name)
+            },
+        )
+        editSection.addView(
+            createButton(layout.context, "Cut", Icons.Default.Remove) {
+                toggleMode(ModeType.EDIT, EditModeName.CUT.name)
+            },
+        )
+        editSection.addView(
+            createButton(layout.context, "Delete", Icons.Default.Remove) {
+                toggleMode(ModeType.EDIT, EditModeName.DELETE.name)
+            },
+        )
         layout.addView(editSection)
-        
+
         // Helper controls section
         val helperSection = createSection(layout.context, "Helpers")
-        helperSection.addView(createButton(layout.context, "Snap", Icons.Default.CenterFocusStrong) {
-            toggleMode(ModeType.HELPER, HelperModeName.SNAP.name)
-        })
+        helperSection.addView(
+            createButton(layout.context, "Snap", Icons.Default.CenterFocusStrong) {
+                toggleMode(ModeType.HELPER, HelperModeName.SNAP.name)
+            },
+        )
         layout.addView(helperSection)
-        
+
         controlView = layout
         return layout
     }
-    
+
     private fun createSection(context: android.content.Context, title: String): LinearLayout {
         val layout = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
+                ViewGroup.LayoutParams.WRAP_CONTENT,
             )
         }
 
@@ -138,22 +159,20 @@ class GmControl(
 
         return layout
     }
-    
+
     private fun createButton(
         context: android.content.Context,
         label: String,
         @Suppress("UNUSED_PARAMETER") icon: ImageVector,
-        onClick: () -> Unit
-    ): View {
-        return ImageButton(context).apply {
-            @Suppress("DEPRECATION")
-            setImageDrawable(android.graphics.drawable.BitmapDrawable())
-            layoutParams = ViewGroup.LayoutParams(48, 48)
-            setOnClickListener { onClick() }
-            contentDescription = label
-        }
+        onClick: () -> Unit,
+    ): View = ImageButton(context).apply {
+        @Suppress("DEPRECATION")
+        setImageDrawable(android.graphics.drawable.BitmapDrawable())
+        layoutParams = ViewGroup.LayoutParams(48, 48)
+        setOnClickListener { onClick() }
+        contentDescription = label
     }
-    
+
     /**
      * Remove controls
      */
@@ -163,7 +182,7 @@ class GmControl(
         }
         controlView = null
     }
-    
+
     /**
      * Called when map is clicked
      */
@@ -195,7 +214,7 @@ class GmControl(
         }
         return false
     }
-    
+
     /**
      * Called for touch events
      */
@@ -203,17 +222,17 @@ class GmControl(
         // Handle touch events for dragging, etc.
         return false
     }
-    
+
     /**
      * Called when control is detached
      */
     fun onDetach() {
         removeControls()
     }
-    
+
     private fun toggleMode(type: ModeType, name: String) {
         val wasEnabled = activeModes.any { it.first == type && it.second == name }
-        
+
         if (wasEnabled) {
             activeModes.remove(type to name)
             geoman.disableMode(type, name)
@@ -230,30 +249,27 @@ class GmControl(
  * Compose version of the Geoman control panel
  */
 @Composable
-fun GeomanControls(
-    geoman: Geoman,
-    modifier: Modifier = Modifier
-) {
+fun GeomanControls(geoman: Geoman, modifier: Modifier = Modifier) {
     var activeDrawMode by remember { mutableStateOf<DrawModeName?>(null) }
     var activeEditMode by remember { mutableStateOf<EditModeName?>(null) }
     var activeHelperMode by remember { mutableStateOf<HelperModeName?>(null) }
-    
+
     Box(
         modifier = modifier
-            .padding(16.dp)
+            .padding(16.dp),
     ) {
         Column(
             modifier = Modifier
                 .clip(RoundedCornerShape(8.dp))
                 .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f))
-                .padding(8.dp)
+                .padding(8.dp),
         ) {
             // Draw controls
             ControlSection(title = "Draw") {
                 ControlButton(
                     icon = Icons.Default.Place,
                     contentDescription = "Marker",
-                    isActive = activeDrawMode == DrawModeName.MARKER
+                    isActive = activeDrawMode == DrawModeName.MARKER,
                 ) {
                     activeDrawMode = if (activeDrawMode == DrawModeName.MARKER) null else DrawModeName.MARKER
                     activeEditMode = null
@@ -263,7 +279,7 @@ fun GeomanControls(
                 ControlButton(
                     icon = Icons.Default.Polyline,
                     contentDescription = "Line",
-                    isActive = activeDrawMode == DrawModeName.LINE
+                    isActive = activeDrawMode == DrawModeName.LINE,
                 ) {
                     activeDrawMode = if (activeDrawMode == DrawModeName.LINE) null else DrawModeName.LINE
                     activeEditMode = null
@@ -273,7 +289,7 @@ fun GeomanControls(
                 ControlButton(
                     icon = Icons.Default.CenterFocusStrong,
                     contentDescription = "Polygon",
-                    isActive = activeDrawMode == DrawModeName.POLYGON
+                    isActive = activeDrawMode == DrawModeName.POLYGON,
                 ) {
                     activeDrawMode = if (activeDrawMode == DrawModeName.POLYGON) null else DrawModeName.POLYGON
                     activeEditMode = null
@@ -283,7 +299,7 @@ fun GeomanControls(
                 ControlButton(
                     icon = Icons.Default.Circle,
                     contentDescription = "Circle",
-                    isActive = activeDrawMode == DrawModeName.CIRCLE
+                    isActive = activeDrawMode == DrawModeName.CIRCLE,
                 ) {
                     activeDrawMode = if (activeDrawMode == DrawModeName.CIRCLE) null else DrawModeName.CIRCLE
                     activeEditMode = null
@@ -293,7 +309,7 @@ fun GeomanControls(
                 ControlButton(
                     icon = Icons.Default.Square,
                     contentDescription = "Rectangle",
-                    isActive = activeDrawMode == DrawModeName.RECTANGLE
+                    isActive = activeDrawMode == DrawModeName.RECTANGLE,
                 ) {
                     activeDrawMode = if (activeDrawMode == DrawModeName.RECTANGLE) null else DrawModeName.RECTANGLE
                     activeEditMode = null
@@ -301,13 +317,13 @@ fun GeomanControls(
                     geoman.enableMode(ModeType.DRAW, DrawModeName.RECTANGLE.name)
                 }
             }
-            
+
             // Edit controls
             ControlSection(title = "Edit") {
                 ControlButton(
                     icon = Icons.Default.PanTool,
                     contentDescription = "Drag",
-                    isActive = activeEditMode == EditModeName.DRAG
+                    isActive = activeEditMode == EditModeName.DRAG,
                 ) {
                     activeEditMode = if (activeEditMode == EditModeName.DRAG) null else EditModeName.DRAG
                     activeDrawMode = null
@@ -317,7 +333,7 @@ fun GeomanControls(
                 ControlButton(
                     icon = Icons.Default.Edit,
                     contentDescription = "Change",
-                    isActive = activeEditMode == EditModeName.CHANGE
+                    isActive = activeEditMode == EditModeName.CHANGE,
                 ) {
                     activeEditMode = if (activeEditMode == EditModeName.CHANGE) null else EditModeName.CHANGE
                     activeDrawMode = null
@@ -327,7 +343,7 @@ fun GeomanControls(
                 ControlButton(
                     icon = Icons.Default.Refresh,
                     contentDescription = "Rotate",
-                    isActive = activeEditMode == EditModeName.ROTATE
+                    isActive = activeEditMode == EditModeName.ROTATE,
                 ) {
                     activeEditMode = if (activeEditMode == EditModeName.ROTATE) null else EditModeName.ROTATE
                     activeDrawMode = null
@@ -337,7 +353,7 @@ fun GeomanControls(
                 ControlButton(
                     icon = Icons.Default.Remove,
                     contentDescription = "Delete",
-                    isActive = activeEditMode == EditModeName.DELETE
+                    isActive = activeEditMode == EditModeName.DELETE,
                 ) {
                     activeEditMode = if (activeEditMode == EditModeName.DELETE) null else EditModeName.DELETE
                     activeDrawMode = null
@@ -345,13 +361,13 @@ fun GeomanControls(
                     geoman.enableMode(ModeType.EDIT, EditModeName.DELETE.name)
                 }
             }
-            
+
             // Helper controls
             ControlSection(title = "Helpers") {
                 ControlButton(
                     icon = Icons.Default.CenterFocusStrong,
                     contentDescription = "Snap",
-                    isActive = activeHelperMode == HelperModeName.SNAP
+                    isActive = activeHelperMode == HelperModeName.SNAP,
                 ) {
                     activeHelperMode = if (activeHelperMode == HelperModeName.SNAP) null else HelperModeName.SNAP
                     activeDrawMode = null
@@ -364,16 +380,13 @@ fun GeomanControls(
 }
 
 @Composable
-private fun ControlSection(
-    title: String,
-    content: @Composable () -> Unit
-) {
+private fun ControlSection(title: String, content: @Composable () -> Unit) {
     Column {
         androidx.compose.material3.Text(
             text = title,
             fontSize = 10.sp,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Row {
             content()
@@ -382,34 +395,31 @@ private fun ControlSection(
 }
 
 @Composable
-private fun ControlButton(
-    icon: ImageVector,
-    contentDescription: String,
-    isActive: Boolean,
-    onClick: () -> Unit
-) {
+private fun ControlButton(icon: ImageVector, contentDescription: String, isActive: Boolean, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .size(40.dp)
             .clip(RoundedCornerShape(4.dp))
             .background(
-                if (isActive)
+                if (isActive) {
                     MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                else
+                } else {
                     MaterialTheme.colorScheme.surface
+                },
             )
             .clickable(onClick = onClick)
             .padding(8.dp),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = if (isActive)
+            tint = if (isActive) {
                 MaterialTheme.colorScheme.primary
-            else
-                MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.size(24.dp)
+            } else {
+                MaterialTheme.colorScheme.onSurface
+            },
+            modifier = Modifier.size(24.dp),
         )
     }
 }

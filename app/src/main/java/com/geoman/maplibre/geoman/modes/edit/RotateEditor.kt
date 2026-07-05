@@ -52,8 +52,8 @@ class RotateEditor(geoman: Geoman) : BaseEdit(geoman) {
                     GeomanCoreConstants.SOURCE_LINES,
                     GeomanCoreConstants.SOURCE_POLYGONS,
                     GeomanCoreConstants.SOURCE_CIRCLES,
-                    GeomanCoreConstants.SOURCE_RECTANGLES
-                )
+                    GeomanCoreConstants.SOURCE_RECTANGLES,
+                ),
             )
 
             if (features.isNotEmpty()) {
@@ -102,18 +102,24 @@ class RotateEditor(geoman: Geoman) : BaseEdit(geoman) {
 
         return when (geometry) {
             is Point -> geometry.toLngLat()
+
             is LineString -> {
                 val coords = geometry.toLngLats()
-                if (coords.isEmpty()) LngLat(0.0, 0.0)
-                else LngLat(
-                    coords.map { it.longitude }.average(),
-                    coords.map { it.latitude }.average()
-                )
+                if (coords.isEmpty()) {
+                    LngLat(0.0, 0.0)
+                } else {
+                    LngLat(
+                        coords.map { it.longitude }.average(),
+                        coords.map { it.latitude }.average(),
+                    )
+                }
             }
+
             is Polygon -> {
                 val ring = geometry.getExteriorRing()
                 GeometryUtils.calculateCentroid(ring)
             }
+
             else -> LngLat(0.0, 0.0)
         }
     }
@@ -136,15 +142,18 @@ class RotateEditor(geoman: Geoman) : BaseEdit(geoman) {
                 val newGeometry = LineString(coordinates = newCoords.map { listOf(it.longitude, it.latitude) })
                 updateFeatureGeometry(feature, newGeometry)
             }
+
             is Polygon -> {
                 val newRings = geometry.coordinates.map { ring ->
                     ring.map { coord ->
                         rotatePoint(LngLat(coord[0], coord[1]), center, angleRad)
                     }
                 }
-                val newGeometry = Polygon(coordinates = newRings.map { ring -> ring.map { listOf(it.longitude, it.latitude) } })
+                val newGeometry =
+                    Polygon(coordinates = newRings.map { ring -> ring.map { listOf(it.longitude, it.latitude) } })
                 updateFeatureGeometry(feature, newGeometry)
             }
+
             else -> {
                 // Unsupported geometry type for rotation
             }
@@ -163,16 +172,16 @@ class RotateEditor(geoman: Geoman) : BaseEdit(geoman) {
 
         return LngLat(
             longitude = center.longitude + rotatedDx,
-            latitude = center.latitude + rotatedDy
+            latitude = center.latitude + rotatedDy,
         )
     }
 
     private fun updateFeatureGeometry(
         feature: FeatureData,
-        newGeometry: com.geoman.maplibre.geoman.types.geojson.Geometry
+        newGeometry: com.geoman.maplibre.geoman.types.geojson.Geometry,
     ) {
         val updatedFeature = feature.copy(
-            feature = feature.feature.copy(geometry = newGeometry)
+            feature = feature.feature.copy(geometry = newGeometry),
         )
 
         geomanInstance.features.updateFeature(feature.sourceName, feature.id) {

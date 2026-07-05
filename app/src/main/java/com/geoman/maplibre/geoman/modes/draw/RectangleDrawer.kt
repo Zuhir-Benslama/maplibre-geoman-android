@@ -15,12 +15,12 @@ import org.maplibre.android.geometry.LatLng
  * First click sets one corner, second click sets opposite corner
  */
 class RectangleDrawer(geoman: Geoman) : BaseDraw(geoman) {
-    
+
     override val modeName: String = DrawModeName.RECTANGLE.name
-    
+
     private var firstCorner: LngLat? = null
     private var currentFeature: FeatureData? = null
-    
+
     override fun onMapClick(point: LatLng) {
         if (!enabled) return
 
@@ -58,7 +58,7 @@ class RectangleDrawer(geoman: Geoman) : BaseDraw(geoman) {
             LngLat(corner2.longitude, corner1.latitude),
             LngLat(corner2.longitude, corner2.latitude),
             LngLat(corner1.longitude, corner2.latitude),
-            LngLat(corner1.longitude, corner1.latitude) // Close the polygon
+            LngLat(corner1.longitude, corner1.latitude), // Close the polygon
         )
 
         val geometry = Polygon.fromLngLats(listOf(corners))
@@ -70,8 +70,8 @@ class RectangleDrawer(geoman: Geoman) : BaseDraw(geoman) {
                 GeomanCoreConstants.FEATURE_ID_PROPERTY to "rectangle_${System.currentTimeMillis()}",
                 "shapeType" to "rectangle",
                 "corner1" to corner1,
-                "corner2" to corner2
-            )
+                "corner2" to corner2,
+            ),
         )
 
         currentFeature = geomanInstance.features.addGeoJsonFeature(feature, GeomanCoreConstants.SOURCE_RECTANGLES)

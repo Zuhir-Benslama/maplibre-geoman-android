@@ -14,7 +14,7 @@ data class GmOptionsData(
     val drawOptions: DrawOptions = DrawOptions(),
     val editOptions: EditOptions = EditOptions(),
     val helperOptions: HelperOptions = HelperOptions(),
-    val layerStyles: LayerStyles = LayerStyles()
+    val layerStyles: LayerStyles = LayerStyles(),
 )
 
 /**
@@ -29,7 +29,7 @@ data class SettingsOptions(
     val enablePinning: Boolean = false,
     val preventMarkerRemoval: Boolean = false,
     val removeLayerBelowOtherLayers: Boolean = true,
-    val hideMiddleMarkers: Boolean = false
+    val hideMiddleMarkers: Boolean = false,
 )
 
 /**
@@ -39,7 +39,7 @@ enum class ControlsPosition {
     TOP_LEFT,
     TOP_RIGHT,
     BOTTOM_LEFT,
-    BOTTOM_RIGHT
+    BOTTOM_RIGHT,
 }
 
 /**
@@ -57,7 +57,7 @@ data class DrawOptions(
     val showTooltipOnPoint: Boolean = false,
     val tooltipText: String = "",
     val repeatMode: Boolean = false,
-    val draggable: Boolean = true
+    val draggable: Boolean = true,
 )
 
 /**
@@ -66,7 +66,7 @@ data class DrawOptions(
 enum class FinishOn {
     DOUBLE_CLICK,
     SINGLE_CLICK,
-    LONG_PRESS
+    LONG_PRESS,
 }
 
 /**
@@ -82,7 +82,7 @@ data class EditOptions(
     val preventMarkerRemoval: Boolean = false,
     val removeLayerBelowOtherLayers: Boolean = true,
     val hideMiddleMarkers: Boolean = false,
-    val snapSegment: Boolean = true
+    val snapSegment: Boolean = true,
 )
 
 /**
@@ -93,7 +93,7 @@ data class HelperOptions(
     val snapDistance: Float = 20f,
     val shapeMarkersEnabled: Boolean = true,
     val zoomToFeaturesEnabled: Boolean = false,
-    val showSnapGuides: Boolean = true
+    val showSnapGuides: Boolean = true,
 )
 
 /**
@@ -106,17 +106,13 @@ data class LayerStyles(
     val circle: CircleStyle = CircleStyle(),
     val rectangle: RectangleStyle = RectangleStyle(),
     val circleMarker: CircleMarkerStyle = CircleMarkerStyle(),
-    val editMarkers: EditMarkersStyle = EditMarkersStyle()
+    val editMarkers: EditMarkersStyle = EditMarkersStyle(),
 )
 
 /**
  * Marker style
  */
-data class MarkerStyle(
-    val color: Color = Color(0xFF3388FF),
-    val opacity: Float = 1.0f,
-    val size: Float = 24f
-)
+data class MarkerStyle(val color: Color = Color(0xFF3388FF), val opacity: Float = 1.0f, val size: Float = 24f)
 
 /**
  * Line style
@@ -125,7 +121,7 @@ data class LineStyle(
     val color: Color = Color(0xFF3388FF),
     val width: Float = 4f,
     val opacity: Float = 1.0f,
-    val dashArray: List<Float>? = null
+    val dashArray: List<Float>? = null,
 )
 
 /**
@@ -136,7 +132,7 @@ data class PolygonStyle(
     val color: Color = Color(0xFF3388FF),
     val width: Float = 4f,
     val opacity: Float = 1.0f,
-    val fillOpacity: Float = 0.3f
+    val fillOpacity: Float = 0.3f,
 )
 
 /**
@@ -147,7 +143,7 @@ data class CircleStyle(
     val color: Color = Color(0xFF3388FF),
     val width: Float = 4f,
     val opacity: Float = 1.0f,
-    val fillOpacity: Float = 0.3f
+    val fillOpacity: Float = 0.3f,
 )
 
 /**
@@ -158,7 +154,7 @@ data class RectangleStyle(
     val color: Color = Color(0xFF3388FF),
     val width: Float = 4f,
     val opacity: Float = 1.0f,
-    val fillOpacity: Float = 0.3f
+    val fillOpacity: Float = 0.3f,
 )
 
 /**
@@ -169,7 +165,7 @@ data class CircleMarkerStyle(
     val color: Color = Color(0xFFFFFFFF),
     val radius: Float = 10f,
     val width: Float = 2f,
-    val opacity: Float = 1.0f
+    val opacity: Float = 1.0f,
 )
 
 /**
@@ -181,89 +177,83 @@ data class EditMarkersStyle(
     val middleMarkerColor: Color = Color(0xFF3388FF),
     val middleMarkerRadius: Float = 4f,
     val dragMarkerColor: Color = Color(0xFF3388FF),
-    val rotationMarkerColor: Color = Color(0xFF3388FF)
+    val rotationMarkerColor: Color = Color(0xFF3388FF),
 )
 
 /**
  * GmOptions class that manages the current state of options
  */
-class GmOptions(
-    initialData: GmOptionsData = GmOptionsData()
-) {
+class GmOptions(initialData: GmOptionsData = GmOptionsData()) {
     private var _data = initialData
     val data: GmOptionsData get() = _data
-    
+
     val settings: SettingsOptions get() = _data.settings
     val draw: DrawOptions get() = _data.drawOptions
     val edit: EditOptions get() = _data.editOptions
     val helper: HelperOptions get() = _data.helperOptions
     val layerStyles: LayerStyles get() = _data.layerStyles
-    
+
     private val enabledModes = mutableSetOf<Pair<ModeType, String>>()
-    
+
     /**
      * Update options
      */
     fun update(update: GmOptionsData.() -> GmOptionsData) {
         _data = _data.update()
     }
-    
+
     /**
      * Enable a mode
      */
     fun enableMode(type: ModeType, name: String) {
         enabledModes.add(type to name)
     }
-    
+
     /**
      * Disable a mode
      */
     fun disableMode(type: ModeType, name: String) {
         enabledModes.remove(type to name)
     }
-    
+
     /**
      * Toggle a mode
      */
-    fun toggleMode(type: ModeType, name: String): Boolean {
-        return if (isModeEnabled(type, name)) {
-            disableMode(type, name)
-            false
-        } else {
-            enableMode(type, name)
-            true
-        }
+    fun toggleMode(type: ModeType, name: String): Boolean = if (isModeEnabled(type, name)) {
+        disableMode(type, name)
+        false
+    } else {
+        enableMode(type, name)
+        true
     }
-    
+
     /**
      * Check if a mode is enabled
      */
-    fun isModeEnabled(type: ModeType, name: String): Boolean {
-        return enabledModes.contains(type to name)
-    }
-    
+    fun isModeEnabled(type: ModeType, name: String): Boolean = enabledModes.contains(type to name)
+
     /**
      * Get all enabled modes
      */
     fun getEnabledModes(): List<Pair<ModeType, String>> = enabledModes.toList()
-    
+
     /**
      * Disable all modes
      */
     fun disableAllModes() {
         enabledModes.clear()
     }
-    
+
     // Convenience methods for draw modes
     fun enableDraw(mode: DrawModeName) = enableMode(ModeType.DRAW, mode.name)
     fun disableDraw(mode: DrawModeName) = disableMode(ModeType.DRAW, mode.name)
     fun drawEnabled(mode: DrawModeName) = isModeEnabled(ModeType.DRAW, mode.name)
-    
+
     // Convenience methods for edit modes
     fun enableEdit(mode: EditModeName) = enableMode(ModeType.EDIT, mode.name)
     fun disableEdit(mode: EditModeName) = disableMode(ModeType.EDIT, mode.name)
     fun editEnabled(mode: EditModeName) = isModeEnabled(ModeType.EDIT, mode.name)
-    
+
     // Convenience methods for helper modes
     fun enableHelper(mode: HelperModeName) = enableMode(ModeType.HELPER, mode.name)
     fun disableHelper(mode: HelperModeName) = disableMode(ModeType.HELPER, mode.name)

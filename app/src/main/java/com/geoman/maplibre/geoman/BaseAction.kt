@@ -2,9 +2,7 @@ package com.geoman.maplibre.geoman
 
 import com.geoman.maplibre.geoman.types.ModeType
 
-abstract class BaseAction(
-    protected val geoman: Geoman
-) {
+abstract class BaseAction(protected val geoman: Geoman) {
     protected var enabled = false
 
     abstract val modeName: String

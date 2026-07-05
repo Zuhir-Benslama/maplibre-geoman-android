@@ -15,12 +15,10 @@ import org.maplibre.android.geometry.LatLng
 /**
  * Base class for all helper modes
  */
-abstract class BaseHelper(
-    geoman: Geoman
-) : BaseAction(geoman) {
+abstract class BaseHelper(geoman: Geoman) : BaseAction(geoman) {
 
     override val modeType: ModeType = ModeType.HELPER
-    
+
     // Expose geoman to subclasses
     protected val geomanInstance: Geoman = geoman
 }
@@ -58,7 +56,7 @@ class SnapHelper(geoman: Geoman) : BaseHelper(geoman) {
             GeomanCoreConstants.SOURCE_LINES,
             GeomanCoreConstants.SOURCE_POLYGONS,
             GeomanCoreConstants.SOURCE_CIRCLES,
-            GeomanCoreConstants.SOURCE_RECTANGLES
+            GeomanCoreConstants.SOURCE_RECTANGLES,
         )
 
         geomanInstance.mapAdapter.project(LngLat(point.longitude, point.latitude))
@@ -75,7 +73,7 @@ class SnapHelper(geoman: Geoman) : BaseHelper(geoman) {
             if (snapped != null) {
                 val distance = GeometryUtils.calculateDistance(
                     LngLat(point.longitude, point.latitude),
-                    snapped
+                    snapped,
                 )
 
                 if (distance < minDistance) {
@@ -98,45 +96,48 @@ class SnapHelper(geoman: Geoman) : BaseHelper(geoman) {
 
         return null
     }
-    
+
     /**
      * Snap a point to a specific feature
      */
     private fun snapToFeature(point: LatLng, feature: FeatureData): LngLat? {
         val geometry = feature.geometry
-        
+
         return when (geometry) {
             is com.geoman.maplibre.geoman.types.geojson.Point -> {
                 geometry.toLngLat()
             }
+
             is com.geoman.maplibre.geoman.types.geojson.LineString -> {
                 val coords = geometry.toLngLats()
                 GeometryUtils.nearestPointOnPolyline(
                     LngLat(point.longitude, point.latitude),
-                    coords
+                    coords,
                 )
             }
+
             is com.geoman.maplibre.geoman.types.geojson.Polygon -> {
                 val ring = geometry.getExteriorRing()
                 GeometryUtils.nearestPointOnPolyline(
                     LngLat(point.longitude, point.latitude),
-                    ring
+                    ring,
                 )
             }
+
             else -> null
         }
     }
-    
+
     /**
      * Get the currently snapped coordinate
      */
     fun getSnappedCoordinate(): LngLat? = snappedCoordinate
-    
+
     /**
      * Get the currently snapped feature
      */
     fun getSnappedFeature(): FeatureData? = snappedFeature
-    
+
     /**
      * Clear snap state
      */
@@ -149,7 +150,7 @@ class SnapHelper(geoman: Geoman) : BaseHelper(geoman) {
         snappedFeature = null
         snappedCoordinate = null
     }
-    
+
     /**
      * Convert pixels to meters (approximate at current zoom level)
      */
@@ -159,14 +160,12 @@ class SnapHelper(geoman: Geoman) : BaseHelper(geoman) {
         val metersPerPixel = 1.0 // Simplified
         return pixels * metersPerPixel
     }
-    
+
     /**
      * Check if a point is snappable
      */
-    fun isSnappable(point: LatLng): Boolean {
-        return snap(point) != null
-    }
-    
+    fun isSnappable(point: LatLng): Boolean = snap(point) != null
+
     /**
      * Show snap guides (visual indicators)
      */
@@ -174,7 +173,7 @@ class SnapHelper(geoman: Geoman) : BaseHelper(geoman) {
         // Draw visual guides showing snap targets
         // This would create temporary line layers
     }
-    
+
     /**
      * Hide snap guides
      */

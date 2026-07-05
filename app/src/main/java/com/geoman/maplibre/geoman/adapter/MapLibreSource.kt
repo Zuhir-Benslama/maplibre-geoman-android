@@ -17,7 +17,7 @@ class MapLibreSource(
     private val geoman: Geoman,
     override val sourceId: String,
     private var geoJson: FeatureCollection? = null,
-    private val map: MapLibreMap
+    private val map: MapLibreMap,
 ) : MapSource {
 
     private var maplibreSource: GeoJsonSource? = null
@@ -53,9 +53,7 @@ class MapLibreSource(
         }
     }
 
-    override fun getData(): FeatureCollection? {
-        return geoJson
-    }
+    override fun getData(): FeatureCollection? = geoJson
 
     override fun remove() {
         try {
@@ -80,36 +78,36 @@ class MapLibreSource(
     /**
      * Convert Feature to JSON string using org.json
      */
-    private fun featureToJson(feature: GeoJsonFeature): JSONObject {
-        return JSONObject().apply {
-            put("type", "Feature")
-            feature.id?.let { put("id", it) }
-            put("geometry", geometryToJson(feature.geometry))
-            val props = JSONObject()
-            feature.properties.forEach { (k, v) ->
-                if (v != null) props.put(k, v.toString()) else props.put(k, JSONObject.NULL)
-            }
-            put("properties", props)
+    private fun featureToJson(feature: GeoJsonFeature): JSONObject = JSONObject().apply {
+        put("type", "Feature")
+        feature.id?.let { put("id", it) }
+        put("geometry", geometryToJson(feature.geometry))
+        val props = JSONObject()
+        feature.properties.forEach { (k, v) ->
+            if (v != null) props.put(k, v.toString()) else props.put(k, JSONObject.NULL)
         }
+        put("properties", props)
     }
 
     /**
      * Convert Geometry to JSON using org.json
      */
-    private fun geometryToJson(geometry: com.geoman.maplibre.geoman.types.geojson.Geometry): JSONObject {
-        return when (geometry) {
+    private fun geometryToJson(geometry: com.geoman.maplibre.geoman.types.geojson.Geometry): JSONObject =
+        when (geometry) {
             is com.geoman.maplibre.geoman.types.geojson.Point -> {
                 JSONObject().apply {
                     put("type", "Point")
                     put("coordinates", JSONArray(geometry.coordinates))
                 }
             }
+
             is com.geoman.maplibre.geoman.types.geojson.LineString -> {
                 JSONObject().apply {
                     put("type", "LineString")
                     put("coordinates", JSONArray(geometry.coordinates.map { JSONArray(it) }))
                 }
             }
+
             is com.geoman.maplibre.geoman.types.geojson.Polygon -> {
                 JSONObject().apply {
                     put("type", "Polygon")
@@ -120,6 +118,7 @@ class MapLibreSource(
                     put("coordinates", rings)
                 }
             }
+
             is com.geoman.maplibre.geoman.types.geojson.MultiPolygon -> {
                 JSONObject().apply {
                     put("type", "MultiPolygon")
@@ -134,12 +133,14 @@ class MapLibreSource(
                     put("coordinates", polygons)
                 }
             }
+
             is com.geoman.maplibre.geoman.types.geojson.MultiPoint -> {
                 JSONObject().apply {
                     put("type", "MultiPoint")
                     put("coordinates", JSONArray(geometry.coordinates.map { JSONArray(it) }))
                 }
             }
+
             is com.geoman.maplibre.geoman.types.geojson.MultiLineString -> {
                 JSONObject().apply {
                     put("type", "MultiLineString")
@@ -150,6 +151,7 @@ class MapLibreSource(
                     put("coordinates", lines)
                 }
             }
+
             is com.geoman.maplibre.geoman.types.geojson.GeometryCollection -> {
                 JSONObject().apply {
                     put("type", "GeometryCollection")
@@ -157,13 +159,10 @@ class MapLibreSource(
                 }
             }
         }
-    }
 
     /**
      * Get features at a screen point
      * Note: ChangeEditor now uses in-memory feature lookup instead.
      */
-    fun getFeaturesAtPoint(@Suppress("UNUSED_PARAMETER") point: ScreenPoint): List<GeoJsonFeature>? {
-        return emptyList()
-    }
+    fun getFeaturesAtPoint(@Suppress("UNUSED_PARAMETER") point: ScreenPoint): List<GeoJsonFeature>? = emptyList()
 }

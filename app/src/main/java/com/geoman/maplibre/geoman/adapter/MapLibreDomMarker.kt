@@ -25,7 +25,7 @@ class MapLibreDomMarker(
     private val options: DomMarkerOptions,
     initialLngLat: LngLat,
     private val mapView: android.view.ViewGroup,
-    private val geoman: Geoman
+    private val geoman: Geoman,
 ) : DomMarker(map) {
 
     private val mapLibreMap: MapLibreMap = map as MapLibreMap
@@ -55,11 +55,12 @@ class MapLibreDomMarker(
                         onDragStart?.invoke()
                         true
                     }
+
                     MotionEvent.ACTION_MOVE -> {
                         if (isDraggingInternal) {
                             val screenPoint = PointF(
                                 event.x + ((view?.left ?: 0).toFloat()),
-                                event.y + ((view?.top ?: 0).toFloat())
+                                event.y + ((view?.top ?: 0).toFloat()),
                             )
                             val newLatLng = mapLibreMap.projection.fromScreenLocation(screenPoint)
                             val newLngLat = LngLat(newLatLng.longitude, newLatLng.latitude)
@@ -69,6 +70,7 @@ class MapLibreDomMarker(
                         }
                         true
                     }
+
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                         if (isDraggingInternal) {
                             isDraggingInternal = false
@@ -76,6 +78,7 @@ class MapLibreDomMarker(
                         }
                         true
                     }
+
                     else -> false
                 }
             }
@@ -87,7 +90,7 @@ class MapLibreDomMarker(
         val markerView = View(context)
         markerView.layoutParams = FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.WRAP_CONTENT,
-            FrameLayout.LayoutParams.WRAP_CONTENT
+            FrameLayout.LayoutParams.WRAP_CONTENT,
         )
         markerView.setBackgroundResource(android.R.drawable.ic_dialog_map)
         markerView.minimumWidth = 48
@@ -95,9 +98,7 @@ class MapLibreDomMarker(
         return markerView
     }
 
-    override fun getLngLat(): LngLat {
-        return currentLngLat
-    }
+    override fun getLngLat(): LngLat = currentLngLat
 
     override fun setLngLat(lngLat: LngLat) {
         currentLngLat = lngLat
@@ -106,9 +107,7 @@ class MapLibreDomMarker(
         }
     }
 
-    override fun getElement(): View {
-        return view ?: createDefaultMarkerView()
-    }
+    override fun getElement(): View = view ?: createDefaultMarkerView()
 
     override fun addToMap(): DomMarker {
         if (isAdded) return this
@@ -122,17 +121,26 @@ class MapLibreDomMarker(
         val featureJson = JSONObject().apply {
             put("type", "Feature")
             put("id", id)
-            put("geometry", JSONObject().apply {
-                put("type", "Point")
-                put("coordinates", JSONArray().apply {
-                    put(currentLngLat.longitude)
-                    put(currentLngLat.latitude)
-                })
-            })
-            put("properties", JSONObject().apply {
-                put(GeomanCoreConstants.FEATURE_ID_PROPERTY, id)
-                put("icon", iconId)
-            })
+            put(
+                "geometry",
+                JSONObject().apply {
+                    put("type", "Point")
+                    put(
+                        "coordinates",
+                        JSONArray().apply {
+                            put(currentLngLat.longitude)
+                            put(currentLngLat.latitude)
+                        },
+                    )
+                },
+            )
+            put(
+                "properties",
+                JSONObject().apply {
+                    put(GeomanCoreConstants.FEATURE_ID_PROPERTY, id)
+                    put("icon", iconId)
+                },
+            )
         }
 
         val featureCollection = JSONObject().apply {
@@ -146,7 +154,7 @@ class MapLibreDomMarker(
             mapLibreMap.style?.addSource(newSource)
         }
 
-        val layerId = "${sourceName}-layer"
+        val layerId = "$sourceName-layer"
         var layer = mapLibreMap.style?.getLayerAs<SymbolLayer>(layerId)
         if (layer == null) {
             layer = SymbolLayer(layerId, sourceName).apply {
@@ -155,7 +163,7 @@ class MapLibreDomMarker(
                     PropertyValue("icon-allow-overlap", true),
                     PropertyValue("icon-ignore-placement", true),
                     PropertyValue("text-allow-overlap", true),
-                    PropertyValue("text-ignore-placement", true)
+                    PropertyValue("text-ignore-placement", true),
                 )
             }
             mapLibreMap.style?.addLayer(layer)
@@ -169,14 +177,14 @@ class MapLibreDomMarker(
         val view = view ?: createDefaultMarkerView()
         view.measure(
             View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
-            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
         )
         view.layout(0, 0, view.measuredWidth, view.measuredHeight)
-        
+
         val bitmap = Bitmap.createBitmap(
             view.measuredWidth.coerceAtLeast(48),
             view.measuredHeight.coerceAtLeast(48),
-            Bitmap.Config.ARGB_8888
+            Bitmap.Config.ARGB_8888,
         )
         val canvas = Canvas(bitmap)
         view.draw(canvas)
@@ -190,17 +198,26 @@ class MapLibreDomMarker(
         val featureJson = JSONObject().apply {
             put("type", "Feature")
             put("id", id)
-            put("geometry", JSONObject().apply {
-                put("type", "Point")
-                put("coordinates", JSONArray().apply {
-                    put(currentLngLat.longitude)
-                    put(currentLngLat.latitude)
-                })
-            })
-            put("properties", JSONObject().apply {
-                put(GeomanCoreConstants.FEATURE_ID_PROPERTY, id)
-                put("icon", "marker-icon-$id")
-            })
+            put(
+                "geometry",
+                JSONObject().apply {
+                    put("type", "Point")
+                    put(
+                        "coordinates",
+                        JSONArray().apply {
+                            put(currentLngLat.longitude)
+                            put(currentLngLat.latitude)
+                        },
+                    )
+                },
+            )
+            put(
+                "properties",
+                JSONObject().apply {
+                    put(GeomanCoreConstants.FEATURE_ID_PROPERTY, id)
+                    put("icon", "marker-icon-$id")
+                },
+            )
         }
 
         val featureCollection = JSONObject().apply {
@@ -233,7 +250,5 @@ class MapLibreDomMarker(
         // Update draggable state
     }
 
-    override fun isDragging(): Boolean {
-        return isDraggingInternal
-    }
+    override fun isDragging(): Boolean = isDraggingInternal
 }

@@ -45,8 +45,8 @@ class DragEditor(geoman: Geoman) : BaseEdit(geoman) {
                 GeomanCoreConstants.SOURCE_LINES,
                 GeomanCoreConstants.SOURCE_POLYGONS,
                 GeomanCoreConstants.SOURCE_CIRCLES,
-                GeomanCoreConstants.SOURCE_RECTANGLES
-            )
+                GeomanCoreConstants.SOURCE_RECTANGLES,
+            ),
         )
 
         if (features.isNotEmpty()) {
@@ -116,6 +116,7 @@ class DragEditor(geoman: Geoman) : BaseEdit(geoman) {
                 val newGeometry = Point.fromLngLat(newLngLat)
                 updateFeatureGeometry(feature, newGeometry)
             }
+
             is LineString -> {
                 val newCoords = geometry.coordinates.map { coord ->
                     listOf(coord[0] + deltaLon, coord[1] + deltaLat)
@@ -123,6 +124,7 @@ class DragEditor(geoman: Geoman) : BaseEdit(geoman) {
                 val newGeometry = LineString(coordinates = newCoords)
                 updateFeatureGeometry(feature, newGeometry)
             }
+
             is Polygon -> {
                 val newRings = geometry.coordinates.map { ring ->
                     ring.map { coord ->
@@ -132,15 +134,19 @@ class DragEditor(geoman: Geoman) : BaseEdit(geoman) {
                 val newGeometry = Polygon(coordinates = newRings)
                 updateFeatureGeometry(feature, newGeometry)
             }
+
             else -> {
                 // Unsupported geometry type
             }
         }
     }
 
-    private fun updateFeatureGeometry(feature: FeatureData, newGeometry: com.geoman.maplibre.geoman.types.geojson.Geometry) {
+    private fun updateFeatureGeometry(
+        feature: FeatureData,
+        newGeometry: com.geoman.maplibre.geoman.types.geojson.Geometry,
+    ) {
         val updatedFeature = feature.copy(
-            feature = feature.feature.copy(geometry = newGeometry)
+            feature = feature.feature.copy(geometry = newGeometry),
         )
 
         geomanInstance.features.updateFeature(feature.sourceName, feature.id) {

@@ -19,40 +19,32 @@ import com.geoman.maplibre.geoman.types.ModeType
 
 class ModeFactory(private val geoman: Geoman) {
 
-    fun create(type: ModeType, name: String): BaseAction? {
-        return when (type) {
-            ModeType.DRAW -> createDraw(name)
-            ModeType.EDIT -> createEdit(name)
-            ModeType.HELPER -> createHelper(name)
-        }
+    fun create(type: ModeType, name: String): BaseAction? = when (type) {
+        ModeType.DRAW -> createDraw(name)
+        ModeType.EDIT -> createEdit(name)
+        ModeType.HELPER -> createHelper(name)
     }
 
-    private fun createDraw(name: String): BaseDraw? {
-        return when (name) {
-            DrawModeName.MARKER.name -> MarkerDrawer(geoman)
-            DrawModeName.LINE.name -> LineDrawer(geoman)
-            DrawModeName.POLYGON.name -> PolygonDrawer(geoman)
-            DrawModeName.CIRCLE.name -> CircleDrawer(geoman)
-            DrawModeName.RECTANGLE.name -> RectangleDrawer(geoman)
-            else -> null
-        }
+    private fun createDraw(name: String): BaseDraw? = when (name) {
+        DrawModeName.MARKER.name -> MarkerDrawer(geoman)
+        DrawModeName.LINE.name -> LineDrawer(geoman)
+        DrawModeName.POLYGON.name -> PolygonDrawer(geoman)
+        DrawModeName.CIRCLE.name -> CircleDrawer(geoman)
+        DrawModeName.RECTANGLE.name -> RectangleDrawer(geoman)
+        else -> null
     }
 
-    private fun createEdit(name: String): BaseEdit? {
-        return when (name) {
-            EditModeName.DRAG.name -> DragEditor(geoman)
-            EditModeName.CHANGE.name -> ChangeEditor(geoman)
-            EditModeName.ROTATE.name -> RotateEditor(geoman)
-            EditModeName.CUT.name -> null
-            EditModeName.DELETE.name -> DeleteEditor(geoman)
-            else -> null
-        }
+    private fun createEdit(name: String): BaseEdit? = when (name) {
+        EditModeName.DRAG.name -> DragEditor(geoman)
+        EditModeName.CHANGE.name -> ChangeEditor(geoman)
+        EditModeName.ROTATE.name -> RotateEditor(geoman)
+        EditModeName.CUT.name -> null
+        EditModeName.DELETE.name -> DeleteEditor(geoman)
+        else -> null
     }
 
-    private fun createHelper(name: String): BaseAction? {
-        return when (name) {
-            HelperModeName.SNAP.name -> SnapHelper(geoman)
-            else -> null
-        }
+    private fun createHelper(name: String): BaseAction? = when (name) {
+        HelperModeName.SNAP.name -> SnapHelper(geoman)
+        else -> null
     }
 }

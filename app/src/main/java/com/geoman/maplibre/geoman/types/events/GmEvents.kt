@@ -25,25 +25,13 @@ sealed class GmControlEvent(override val type: String) : GmEvent {
 sealed class GmDrawEvent(override val type: String, open val shape: String) : GmEvent {
     override var target: Any? = null
 
-    data class Create(
-        override val shape: String,
-        val feature: Any? = null
-    ) : GmDrawEvent("gm:draw:create", shape)
+    data class Create(override val shape: String, val feature: Any? = null) : GmDrawEvent("gm:draw:create", shape)
 
-    data class EditStart(
-        override val shape: String,
-        val feature: Any? = null
-    ) : GmDrawEvent("gm:draw:editstart", shape)
+    data class EditStart(override val shape: String, val feature: Any? = null) : GmDrawEvent("gm:draw:editstart", shape)
 
-    data class EditEnd(
-        override val shape: String,
-        val feature: Any? = null
-    ) : GmDrawEvent("gm:draw:editend", shape)
+    data class EditEnd(override val shape: String, val feature: Any? = null) : GmDrawEvent("gm:draw:editend", shape)
 
-    data class Remove(
-        override val shape: String,
-        val feature: Any? = null
-    ) : GmDrawEvent("gm:draw:remove", shape)
+    data class Remove(override val shape: String, val feature: Any? = null) : GmDrawEvent("gm:draw:remove", shape)
 }
 
 /**
@@ -52,41 +40,23 @@ sealed class GmDrawEvent(override val type: String, open val shape: String) : Gm
 sealed class GmEditEvent(override val type: String) : GmEvent {
     override var target: Any? = null
 
-    data class DragStart(
-        val feature: Any? = null
-    ) : GmEditEvent("gm:edit:dragstart")
+    data class DragStart(val feature: Any? = null) : GmEditEvent("gm:edit:dragstart")
 
-    data class DragEnd(
-        val feature: Any? = null
-    ) : GmEditEvent("gm:edit:dragend")
+    data class DragEnd(val feature: Any? = null) : GmEditEvent("gm:edit:dragend")
 
-    data class ChangeStart(
-        val feature: Any? = null
-    ) : GmEditEvent("gm:edit:changestart")
+    data class ChangeStart(val feature: Any? = null) : GmEditEvent("gm:edit:changestart")
 
-    data class ChangeEnd(
-        val feature: Any? = null
-    ) : GmEditEvent("gm:edit:changeend")
+    data class ChangeEnd(val feature: Any? = null) : GmEditEvent("gm:edit:changeend")
 
-    data class RotateStart(
-        val feature: Any? = null
-    ) : GmEditEvent("gm:edit:rotatestart")
+    data class RotateStart(val feature: Any? = null) : GmEditEvent("gm:edit:rotatestart")
 
-    data class RotateEnd(
-        val feature: Any? = null
-    ) : GmEditEvent("gm:edit:rotateend")
+    data class RotateEnd(val feature: Any? = null) : GmEditEvent("gm:edit:rotateend")
 
-    data class CutStart(
-        val feature: Any? = null
-    ) : GmEditEvent("gm:edit:cutstart")
+    data class CutStart(val feature: Any? = null) : GmEditEvent("gm:edit:cutstart")
 
-    data class CutEnd(
-        val feature: Any? = null
-    ) : GmEditEvent("gm:edit:cutend")
+    data class CutEnd(val feature: Any? = null) : GmEditEvent("gm:edit:cutend")
 
-    data class Delete(
-        val feature: Any? = null
-    ) : GmEditEvent("gm:edit:delete")
+    data class Delete(val feature: Any? = null) : GmEditEvent("gm:edit:delete")
 }
 
 /**
@@ -95,29 +65,17 @@ sealed class GmEditEvent(override val type: String) : GmEvent {
 sealed class GmFeatureEvent(override val type: String) : GmEvent {
     override var target: Any? = null
 
-    data class BeforeCreate(
-        val feature: Any? = null
-    ) : GmFeatureEvent("gm:feature:beforecreate")
+    data class BeforeCreate(val feature: Any? = null) : GmFeatureEvent("gm:feature:beforecreate")
 
-    data class Created(
-        val feature: Any? = null
-    ) : GmFeatureEvent("gm:feature:created")
+    data class Created(val feature: Any? = null) : GmFeatureEvent("gm:feature:created")
 
-    data class BeforeUpdate(
-        val feature: Any? = null
-    ) : GmFeatureEvent("gm:feature:beforeupdate")
+    data class BeforeUpdate(val feature: Any? = null) : GmFeatureEvent("gm:feature:beforeupdate")
 
-    data class Updated(
-        val feature: Any? = null
-    ) : GmFeatureEvent("gm:feature:updated")
+    data class Updated(val feature: Any? = null) : GmFeatureEvent("gm:feature:updated")
 
-    data class BeforeRemove(
-        val feature: Any? = null
-    ) : GmFeatureEvent("gm:feature:beforeremove")
+    data class BeforeRemove(val feature: Any? = null) : GmFeatureEvent("gm:feature:beforeremove")
 
-    data class Removed(
-        val feature: Any? = null
-    ) : GmFeatureEvent("gm:feature:removed")
+    data class Removed(val feature: Any? = null) : GmFeatureEvent("gm:feature:removed")
 }
 
 /**
@@ -126,13 +84,9 @@ sealed class GmFeatureEvent(override val type: String) : GmEvent {
 sealed class GmHelperEvent(override val type: String) : GmEvent {
     override var target: Any? = null
 
-    data class SnapStart(
-        val feature: Any? = null
-    ) : GmHelperEvent("gm:helper:snapstart")
+    data class SnapStart(val feature: Any? = null) : GmHelperEvent("gm:helper:snapstart")
 
-    data class SnapEnd(
-        val feature: Any? = null
-    ) : GmHelperEvent("gm:helper:snapend")
+    data class SnapEnd(val feature: Any? = null) : GmHelperEvent("gm:helper:snapend")
 }
 
 /**
@@ -141,20 +95,11 @@ sealed class GmHelperEvent(override val type: String) : GmEvent {
 sealed class GmModeEvent(override val type: String, open val modeName: String) : GmEvent {
     override var target: Any? = null
 
-    data class Enable(
-        override val modeName: String,
-        val modeType: String
-    ) : GmModeEvent("gm:mode:enable", modeName)
+    data class Enable(override val modeName: String, val modeType: String) : GmModeEvent("gm:mode:enable", modeName)
 
-    data class Disable(
-        override val modeName: String,
-        val modeType: String
-    ) : GmModeEvent("gm:mode:disable", modeName)
+    data class Disable(override val modeName: String, val modeType: String) : GmModeEvent("gm:mode:disable", modeName)
 
-    data class Toggle(
-        override val modeName: String,
-        val modeType: String
-    ) : GmModeEvent("gm:mode:toggle", modeName)
+    data class Toggle(override val modeName: String, val modeType: String) : GmModeEvent("gm:mode:toggle", modeName)
 }
 
 /**
