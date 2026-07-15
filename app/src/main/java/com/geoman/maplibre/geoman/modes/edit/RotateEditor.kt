@@ -66,8 +66,9 @@ class RotateEditor(geoman: Geoman) : BaseEdit(geoman) {
         rotatingFeature = feature
         isRotating = true
 
-        centroid = calculateCentroid(feature)
-        rotationStartAngle = calculateAngle(centroid!!, LngLat(startPoint.longitude, startPoint.latitude))
+        val c = calculateCentroid(feature)
+        centroid = c
+        rotationStartAngle = calculateAngle(c, LngLat(startPoint.longitude, startPoint.latitude))
         initialRotation = 0.0
 
         geomanInstance.scope.launch {
@@ -76,11 +77,12 @@ class RotateEditor(geoman: Geoman) : BaseEdit(geoman) {
     }
 
     private fun updateRotation(point: LatLng) {
-        if (!isRotating || rotatingFeature == null || centroid == null) return
+        val feature = rotatingFeature ?: return
+        val c = centroid ?: return
 
-        val currentAngle = calculateAngle(centroid!!, LngLat(point.longitude, point.latitude))
+        val currentAngle = calculateAngle(c, LngLat(point.longitude, point.latitude))
         val rotationDelta = currentAngle - rotationStartAngle
-        rotateFeature(rotatingFeature!!, centroid!!, initialRotation + rotationDelta)
+        rotateFeature(feature, c, initialRotation + rotationDelta)
     }
 
     private fun finishRotation() {
@@ -174,18 +176,5 @@ class RotateEditor(geoman: Geoman) : BaseEdit(geoman) {
             longitude = center.longitude + rotatedDx,
             latitude = center.latitude + rotatedDy,
         )
-    }
-
-    private fun updateFeatureGeometry(
-        feature: FeatureData,
-        newGeometry: com.geoman.maplibre.geoman.types.geojson.Geometry,
-    ) {
-        val updatedFeature = feature.copy(
-            feature = feature.feature.copy(geometry = newGeometry),
-        )
-
-        geomanInstance.features.updateFeature(feature.sourceName, feature.id) {
-            updatedFeature
-        }
     }
 }

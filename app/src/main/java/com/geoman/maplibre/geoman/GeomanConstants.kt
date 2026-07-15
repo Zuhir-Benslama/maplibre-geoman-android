@@ -11,11 +11,11 @@ object GeomanConstants {
     const val FEATURE_PROPERTY_PREFIX = GeomanCoreConstants.FEATURE_PROPERTY_PREFIX
     const val FEATURE_ID_PROPERTY = GeomanCoreConstants.FEATURE_ID_PROPERTY
 
-    const val SOURCE_MARKERS = "gm_markers"
-    const val SOURCE_LINES = "gm_lines"
-    const val SOURCE_POLYGONS = "gm_polygons"
-    const val SOURCE_CIRCLES = "gm_circles"
-    const val SOURCE_RECTANGLES = "gm_rectangles"
-    const val SOURCE_EDIT = "gm_edit"
-    const val SOURCE_HELPER = "gm_helper"
+    const val SOURCE_MARKERS = GeomanCoreConstants.SOURCE_MARKERS
+    const val SOURCE_LINES = GeomanCoreConstants.SOURCE_LINES
+    const val SOURCE_POLYGONS = GeomanCoreConstants.SOURCE_POLYGONS
+    const val SOURCE_CIRCLES = GeomanCoreConstants.SOURCE_CIRCLES
+    const val SOURCE_RECTANGLES = GeomanCoreConstants.SOURCE_RECTANGLES
+    const val SOURCE_EDIT = GeomanCoreConstants.SOURCE_EDIT
+    const val SOURCE_HELPER = GeomanCoreConstants.SOURCE_HELPER
 }

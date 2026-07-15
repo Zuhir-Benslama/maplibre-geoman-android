@@ -83,7 +83,8 @@ class DragEditor(geoman: Geoman) : BaseEdit(geoman) {
         val deltaLat = point.latitude - startPoint.latitude
 
         // Move the feature
-        moveFeature(selectedFeature!!, deltaLon, deltaLat)
+        val feature = selectedFeature ?: return
+        moveFeature(feature, deltaLon, deltaLat)
 
         dragStartPoint = point
     }
@@ -138,19 +139,6 @@ class DragEditor(geoman: Geoman) : BaseEdit(geoman) {
             else -> {
                 // Unsupported geometry type
             }
-        }
-    }
-
-    private fun updateFeatureGeometry(
-        feature: FeatureData,
-        newGeometry: com.geoman.maplibre.geoman.types.geojson.Geometry,
-    ) {
-        val updatedFeature = feature.copy(
-            feature = feature.feature.copy(geometry = newGeometry),
-        )
-
-        geomanInstance.features.updateFeature(feature.sourceName, feature.id) {
-            updatedFeature
         }
     }
 }

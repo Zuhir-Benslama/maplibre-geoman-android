@@ -62,4 +62,17 @@ abstract class BaseEdit(geoman: Geoman) : BaseAction(geoman) {
     protected suspend fun fireDeleteEvent(feature: FeatureData?) {
         geomanInstance.events.emit(GmEditEvent.Delete(feature))
     }
+
+    protected fun updateFeatureGeometry(
+        feature: FeatureData,
+        newGeometry: com.geoman.maplibre.geoman.types.geojson.Geometry,
+    ) {
+        val updatedFeature = feature.copy(
+            feature = feature.feature.copy(geometry = newGeometry),
+        )
+
+        geomanInstance.features.updateFeature(feature.sourceName, feature.id) {
+            updatedFeature
+        }
+    }
 }

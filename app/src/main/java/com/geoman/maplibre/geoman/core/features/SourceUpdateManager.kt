@@ -18,7 +18,7 @@ import kotlinx.coroutines.launch
 class SourceUpdateManager(private val geoman: Geoman) {
 
     private val scope = CoroutineScope(Dispatchers.Main)
-    private val pendingUpdates = mutableMapOf<String, UpdateJob>()
+    private val pendingUpdates = java.util.concurrent.ConcurrentHashMap<String, UpdateJob>()
     private val updateDelays = mapOf(
         "high" to 0L,
         "normal" to 50L,
@@ -75,13 +75,15 @@ class SourceUpdateManager(private val geoman: Geoman) {
      */
     fun executeUpdate(sourceId: String, geoJsonString: String) {
         try {
-            // Parse GeoJSON string and update
-            val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
             val featureCollection = json.decodeFromString<FeatureCollection>(geoJsonString)
             executeUpdate(sourceId, featureCollection)
         } catch (e: Exception) {
             android.util.Log.e("SourceUpdateManager", "Failed to update source $sourceId: ${e.message}")
         }
+    }
+
+    companion object {
+        private val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
     }
 
     /**

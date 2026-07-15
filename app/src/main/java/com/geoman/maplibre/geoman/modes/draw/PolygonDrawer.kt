@@ -90,11 +90,12 @@ class PolygonDrawer(geoman: Geoman) : BaseDraw(geoman) {
         val geometry = Polygon.fromLngLats(listOf(ring))
         android.util.Log.d("PolygonDrawer", "Created polygon geometry with ${ring.size} points")
 
+        val now = System.currentTimeMillis()
         val feature = Feature(
-            id = "polygon_${System.currentTimeMillis()}",
+            id = "polygon_$now",
             geometry = geometry,
             properties = mapOf(
-                GeomanCoreConstants.FEATURE_ID_PROPERTY to "polygon_${System.currentTimeMillis()}",
+                GeomanCoreConstants.FEATURE_ID_PROPERTY to "polygon_$now",
                 "shapeType" to "polygon",
             ),
         )

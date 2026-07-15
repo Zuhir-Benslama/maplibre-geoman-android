@@ -32,8 +32,9 @@ class CircleDrawer(geoman: Geoman) : BaseDraw(geoman) {
             center = clickLngLat
         } else {
             // Second click - set radius and finish
-            val radius = GeometryUtils.calculateDistance(center!!, clickLngLat)
-            createCircleFeature(center!!, radius)
+            val c = center ?: return
+            val radius = GeometryUtils.calculateDistance(c, clickLngLat)
+            createCircleFeature(c, radius)
             finishDrawing()
         }
     }
@@ -59,11 +60,12 @@ class CircleDrawer(geoman: Geoman) : BaseDraw(geoman) {
             listOf(circleCoordinates),
         )
 
+        val now = System.currentTimeMillis()
         val feature = Feature(
-            id = "circle_${System.currentTimeMillis()}",
+            id = "circle_$now",
             geometry = geometry,
             properties = mapOf(
-                GeomanCoreConstants.FEATURE_ID_PROPERTY to "circle_${System.currentTimeMillis()}",
+                GeomanCoreConstants.FEATURE_ID_PROPERTY to "circle_$now",
                 "shapeType" to "circle",
                 "center" to center,
                 "radius" to radius,

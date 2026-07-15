@@ -13,7 +13,10 @@ class GmEventBus {
     private val _events = MutableSharedFlow<GmEvent>(extraBufferCapacity = 64)
     val events: SharedFlow<GmEvent> = _events.asSharedFlow()
 
-    private val eventListeners = mutableMapOf<String, MutableList<(GmEvent) -> Unit>>()
+    private val eventListeners = java.util.concurrent.ConcurrentHashMap<
+        String,
+        java.util.concurrent.CopyOnWriteArrayList<(GmEvent) -> Unit>,
+        >()
 
     /**
      * Emit an event to all listeners
@@ -34,7 +37,7 @@ class GmEventBus {
      * Subscribe to a specific event type
      */
     fun on(eventType: String, listener: (GmEvent) -> Unit) {
-        eventListeners.getOrPut(eventType) { mutableListOf() }.add(listener)
+        eventListeners.getOrPut(eventType) { java.util.concurrent.CopyOnWriteArrayList() }.add(listener)
     }
 
     /**

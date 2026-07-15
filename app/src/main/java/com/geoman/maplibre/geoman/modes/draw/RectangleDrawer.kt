@@ -31,7 +31,8 @@ class RectangleDrawer(geoman: Geoman) : BaseDraw(geoman) {
             firstCorner = clickLngLat
         } else {
             // Second click - create rectangle and finish
-            createRectangleFeature(firstCorner!!, clickLngLat)
+            val corner = firstCorner ?: return
+            createRectangleFeature(corner, clickLngLat)
             finishDrawing()
         }
     }
@@ -63,11 +64,12 @@ class RectangleDrawer(geoman: Geoman) : BaseDraw(geoman) {
 
         val geometry = Polygon.fromLngLats(listOf(corners))
 
+        val now = System.currentTimeMillis()
         val feature = Feature(
-            id = "rectangle_${System.currentTimeMillis()}",
+            id = "rectangle_$now",
             geometry = geometry,
             properties = mapOf(
-                GeomanCoreConstants.FEATURE_ID_PROPERTY to "rectangle_${System.currentTimeMillis()}",
+                GeomanCoreConstants.FEATURE_ID_PROPERTY to "rectangle_$now",
                 "shapeType" to "rectangle",
                 "corner1" to corner1,
                 "corner2" to corner2,

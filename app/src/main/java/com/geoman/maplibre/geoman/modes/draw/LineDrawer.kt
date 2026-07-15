@@ -54,11 +54,12 @@ class LineDrawer(geoman: Geoman) : BaseDraw(geoman) {
 
         val geometry = LineString.fromLngLats(coordinates)
 
+        val now = System.currentTimeMillis()
         val feature = Feature(
-            id = "line_${System.currentTimeMillis()}",
+            id = "line_$now",
             geometry = geometry,
             properties = mapOf(
-                GeomanCoreConstants.FEATURE_ID_PROPERTY to "line_${System.currentTimeMillis()}",
+                GeomanCoreConstants.FEATURE_ID_PROPERTY to "line_$now",
                 "shapeType" to "line",
             ),
         )

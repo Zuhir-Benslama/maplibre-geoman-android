@@ -3,6 +3,7 @@ package com.geoman.maplibre.geoman.core.features
 import com.geoman.maplibre.geoman.adapter.BaseMapAdapter
 import com.geoman.maplibre.geoman.adapter.LayerOptions
 import com.geoman.maplibre.geoman.adapter.LayerType
+import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.types.geojson.Feature
 import com.geoman.maplibre.geoman.types.geojson.FeatureCollection
 import com.geoman.maplibre.geoman.types.geojson.Geometry
@@ -18,7 +19,7 @@ data class FeatureData(
     val id: String,
     val sourceName: String,
     val feature: Feature,
-    val properties: MutableMap<String, Any?> = mutableMapOf(),
+    val properties: Map<String, Any?> = emptyMap(),
 ) {
     val geometry: Geometry get() = feature.geometry
 }
@@ -27,14 +28,14 @@ data class FeatureData(
  * Source names for different feature types
  */
 object FeatureSources {
-    const val MARKER = "gm_markers"
-    const val LINE = "gm_lines"
-    const val POLYGON = "gm_polygons"
-    const val CIRCLE = "gm_circles"
-    const val RECTANGLE = "gm_rectangles"
+    const val MARKER = GeomanCoreConstants.SOURCE_MARKERS
+    const val LINE = GeomanCoreConstants.SOURCE_LINES
+    const val POLYGON = GeomanCoreConstants.SOURCE_POLYGONS
+    const val CIRCLE = GeomanCoreConstants.SOURCE_CIRCLES
+    const val RECTANGLE = GeomanCoreConstants.SOURCE_RECTANGLES
     const val CIRCLE_MARKER = "gm_circle_markers"
-    const val EDIT = "gm_edit"
-    const val HELPER = "gm_helper"
+    const val EDIT = GeomanCoreConstants.SOURCE_EDIT
+    const val HELPER = GeomanCoreConstants.SOURCE_HELPER
     const val SNAP_GUIDES = "gm_snap_guides"
 }
 

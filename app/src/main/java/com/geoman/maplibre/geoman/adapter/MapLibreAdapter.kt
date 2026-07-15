@@ -96,13 +96,16 @@ class MapLibreAdapter(map: MapLibreMap, geoman: Geoman, private val mapView: Map
         val projection = map.projection
         val visibleRegion = projection.visibleRegion
 
+        val farRight = visibleRegion.farRight
+        val nearLeft = visibleRegion.nearLeft
+
         val northeast = LngLat(
-            visibleRegion.farRight!!.longitude,
-            visibleRegion.farRight!!.latitude,
+            farRight?.longitude ?: 0.0,
+            farRight?.latitude ?: 0.0,
         )
         val southwest = LngLat(
-            visibleRegion.nearLeft!!.longitude,
-            visibleRegion.nearLeft!!.latitude,
+            nearLeft?.longitude ?: 0.0,
+            nearLeft?.latitude ?: 0.0,
         )
 
         return LatLngBounds(northeast = northeast, southwest = southwest)
@@ -338,7 +341,7 @@ class MapLibreAdapter(map: MapLibreMap, geoman: Geoman, private val mapView: Map
             try {
                 listener(data)
             } catch (e: Exception) {
-                e.printStackTrace()
+                android.util.Log.e("MapLibreAdapter", "Error in event listener for $type", e)
             }
         }
     }

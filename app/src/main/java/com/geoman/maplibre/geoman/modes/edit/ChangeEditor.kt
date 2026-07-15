@@ -318,21 +318,5 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
         }
     }
 
-    private fun updateFeatureGeometry(
-        feature: FeatureData,
-        newGeometry: com.geoman.maplibre.geoman.types.geojson.Geometry,
-    ) {
-        val updatedFeature = feature.copy(
-            feature = feature.feature.copy(geometry = newGeometry),
-        )
-
-        geomanInstance.features.updateFeature(feature.sourceName, feature.id) {
-            updatedFeature
-        }
-    }
-
-    /**
-     * Simple data class for vertex info
-     */
     private data class VertexMarkerData(val index: Int, val lngLat: LngLat)
 }

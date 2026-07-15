@@ -271,50 +271,75 @@ fun GeomanControls(geoman: Geoman, modifier: Modifier = Modifier) {
                     contentDescription = "Marker",
                     isActive = activeDrawMode == DrawModeName.MARKER,
                 ) {
-                    activeDrawMode = if (activeDrawMode == DrawModeName.MARKER) null else DrawModeName.MARKER
-                    activeEditMode = null
-                    activeHelperMode = null
-                    geoman.enableMode(ModeType.DRAW, DrawModeName.MARKER.name)
+                    if (activeDrawMode == DrawModeName.MARKER) {
+                        activeDrawMode = null
+                        geoman.disableMode(ModeType.DRAW, DrawModeName.MARKER.name)
+                    } else {
+                        activeDrawMode = DrawModeName.MARKER
+                        activeEditMode = null
+                        activeHelperMode = null
+                        geoman.enableMode(ModeType.DRAW, DrawModeName.MARKER.name)
+                    }
                 }
                 ControlButton(
                     icon = Icons.Default.Polyline,
                     contentDescription = "Line",
                     isActive = activeDrawMode == DrawModeName.LINE,
                 ) {
-                    activeDrawMode = if (activeDrawMode == DrawModeName.LINE) null else DrawModeName.LINE
-                    activeEditMode = null
-                    activeHelperMode = null
-                    geoman.enableMode(ModeType.DRAW, DrawModeName.LINE.name)
+                    if (activeDrawMode == DrawModeName.LINE) {
+                        activeDrawMode = null
+                        geoman.disableMode(ModeType.DRAW, DrawModeName.LINE.name)
+                    } else {
+                        activeDrawMode = DrawModeName.LINE
+                        activeEditMode = null
+                        activeHelperMode = null
+                        geoman.enableMode(ModeType.DRAW, DrawModeName.LINE.name)
+                    }
                 }
                 ControlButton(
                     icon = Icons.Default.CenterFocusStrong,
                     contentDescription = "Polygon",
                     isActive = activeDrawMode == DrawModeName.POLYGON,
                 ) {
-                    activeDrawMode = if (activeDrawMode == DrawModeName.POLYGON) null else DrawModeName.POLYGON
-                    activeEditMode = null
-                    activeHelperMode = null
-                    geoman.enableMode(ModeType.DRAW, DrawModeName.POLYGON.name)
+                    if (activeDrawMode == DrawModeName.POLYGON) {
+                        activeDrawMode = null
+                        geoman.disableMode(ModeType.DRAW, DrawModeName.POLYGON.name)
+                    } else {
+                        activeDrawMode = DrawModeName.POLYGON
+                        activeEditMode = null
+                        activeHelperMode = null
+                        geoman.enableMode(ModeType.DRAW, DrawModeName.POLYGON.name)
+                    }
                 }
                 ControlButton(
                     icon = Icons.Default.Circle,
                     contentDescription = "Circle",
                     isActive = activeDrawMode == DrawModeName.CIRCLE,
                 ) {
-                    activeDrawMode = if (activeDrawMode == DrawModeName.CIRCLE) null else DrawModeName.CIRCLE
-                    activeEditMode = null
-                    activeHelperMode = null
-                    geoman.enableMode(ModeType.DRAW, DrawModeName.CIRCLE.name)
+                    if (activeDrawMode == DrawModeName.CIRCLE) {
+                        activeDrawMode = null
+                        geoman.disableMode(ModeType.DRAW, DrawModeName.CIRCLE.name)
+                    } else {
+                        activeDrawMode = DrawModeName.CIRCLE
+                        activeEditMode = null
+                        activeHelperMode = null
+                        geoman.enableMode(ModeType.DRAW, DrawModeName.CIRCLE.name)
+                    }
                 }
                 ControlButton(
                     icon = Icons.Default.Square,
                     contentDescription = "Rectangle",
                     isActive = activeDrawMode == DrawModeName.RECTANGLE,
                 ) {
-                    activeDrawMode = if (activeDrawMode == DrawModeName.RECTANGLE) null else DrawModeName.RECTANGLE
-                    activeEditMode = null
-                    activeHelperMode = null
-                    geoman.enableMode(ModeType.DRAW, DrawModeName.RECTANGLE.name)
+                    if (activeDrawMode == DrawModeName.RECTANGLE) {
+                        activeDrawMode = null
+                        geoman.disableMode(ModeType.DRAW, DrawModeName.RECTANGLE.name)
+                    } else {
+                        activeDrawMode = DrawModeName.RECTANGLE
+                        activeEditMode = null
+                        activeHelperMode = null
+                        geoman.enableMode(ModeType.DRAW, DrawModeName.RECTANGLE.name)
+                    }
                 }
             }
 
@@ -325,40 +350,60 @@ fun GeomanControls(geoman: Geoman, modifier: Modifier = Modifier) {
                     contentDescription = "Drag",
                     isActive = activeEditMode == EditModeName.DRAG,
                 ) {
-                    activeEditMode = if (activeEditMode == EditModeName.DRAG) null else EditModeName.DRAG
-                    activeDrawMode = null
-                    activeHelperMode = null
-                    geoman.enableMode(ModeType.EDIT, EditModeName.DRAG.name)
+                    if (activeEditMode == EditModeName.DRAG) {
+                        activeEditMode = null
+                        geoman.disableMode(ModeType.EDIT, EditModeName.DRAG.name)
+                    } else {
+                        activeEditMode = EditModeName.DRAG
+                        activeDrawMode = null
+                        activeHelperMode = null
+                        geoman.enableMode(ModeType.EDIT, EditModeName.DRAG.name)
+                    }
                 }
                 ControlButton(
                     icon = Icons.Default.Edit,
                     contentDescription = "Change",
                     isActive = activeEditMode == EditModeName.CHANGE,
                 ) {
-                    activeEditMode = if (activeEditMode == EditModeName.CHANGE) null else EditModeName.CHANGE
-                    activeDrawMode = null
-                    activeHelperMode = null
-                    geoman.enableMode(ModeType.EDIT, EditModeName.CHANGE.name)
+                    if (activeEditMode == EditModeName.CHANGE) {
+                        activeEditMode = null
+                        geoman.disableMode(ModeType.EDIT, EditModeName.CHANGE.name)
+                    } else {
+                        activeEditMode = EditModeName.CHANGE
+                        activeDrawMode = null
+                        activeHelperMode = null
+                        geoman.enableMode(ModeType.EDIT, EditModeName.CHANGE.name)
+                    }
                 }
                 ControlButton(
                     icon = Icons.Default.Refresh,
                     contentDescription = "Rotate",
                     isActive = activeEditMode == EditModeName.ROTATE,
                 ) {
-                    activeEditMode = if (activeEditMode == EditModeName.ROTATE) null else EditModeName.ROTATE
-                    activeDrawMode = null
-                    activeHelperMode = null
-                    geoman.enableMode(ModeType.EDIT, EditModeName.ROTATE.name)
+                    if (activeEditMode == EditModeName.ROTATE) {
+                        activeEditMode = null
+                        geoman.disableMode(ModeType.EDIT, EditModeName.ROTATE.name)
+                    } else {
+                        activeEditMode = EditModeName.ROTATE
+                        activeDrawMode = null
+                        activeHelperMode = null
+                        geoman.enableMode(ModeType.EDIT, EditModeName.ROTATE.name)
+                    }
                 }
                 ControlButton(
                     icon = Icons.Default.Remove,
                     contentDescription = "Delete",
                     isActive = activeEditMode == EditModeName.DELETE,
                 ) {
-                    activeEditMode = if (activeEditMode == EditModeName.DELETE) null else EditModeName.DELETE
-                    activeDrawMode = null
-                    activeHelperMode = null
-                    geoman.enableMode(ModeType.EDIT, EditModeName.DELETE.name)
+                    if (activeEditMode == EditModeName.DELETE) {
+                        activeEditMode = null
+                        geoman.disableMode(ModeType.EDIT, EditModeName.DELETE.name)
+                    } else {
+                        activeEditMode = EditModeName.DELETE
+                        activeDrawMode = null
+                        activeHelperMode = null
+                        geoman.enableMode(ModeType.EDIT, EditModeName.DELETE.name)
+                    }
                 }
             }
 
@@ -369,10 +414,15 @@ fun GeomanControls(geoman: Geoman, modifier: Modifier = Modifier) {
                     contentDescription = "Snap",
                     isActive = activeHelperMode == HelperModeName.SNAP,
                 ) {
-                    activeHelperMode = if (activeHelperMode == HelperModeName.SNAP) null else HelperModeName.SNAP
-                    activeDrawMode = null
-                    activeEditMode = null
-                    geoman.enableMode(ModeType.HELPER, HelperModeName.SNAP.name)
+                    if (activeHelperMode == HelperModeName.SNAP) {
+                        activeHelperMode = null
+                        geoman.disableMode(ModeType.HELPER, HelperModeName.SNAP.name)
+                    } else {
+                        activeHelperMode = HelperModeName.SNAP
+                        activeDrawMode = null
+                        activeEditMode = null
+                        geoman.enableMode(ModeType.HELPER, HelperModeName.SNAP.name)
+                    }
                 }
             }
         }

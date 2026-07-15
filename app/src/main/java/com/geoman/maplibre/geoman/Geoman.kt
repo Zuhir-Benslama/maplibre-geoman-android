@@ -73,8 +73,8 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
     // Mode factory
     private val modeFactory = ModeFactory(this)
 
-    // Action instances (modes)
-    private val actionInstances = mutableMapOf<String, BaseAction>()
+    // Action instances (modes) — synchronized for thread safety
+    private val actionInstances = java.util.concurrent.ConcurrentHashMap<String, BaseAction>()
 
     // State
     private val _loaded = MutableStateFlow(false)
@@ -197,11 +197,10 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
         android.util.Log.d("Geoman", "enableMode called: $type.$name (key: $key)")
 
         // Disable other modes of the same type
-        actionInstances.filter { it.key.startsWith("${type.name}__") }.forEach { (k, v) ->
-            if (k != key) {
-                v.disable()
-                actionInstances.remove(k)
-            }
+        val keysToDisable = actionInstances.keys.filter { it.startsWith("${type.name}__") && it != key }
+        keysToDisable.forEach { k ->
+            actionInstances[k]?.disable()
+            actionInstances.remove(k)
         }
 
         // Create and enable the mode
@@ -394,17 +393,22 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
 
         return try {
             kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
+                continuation.invokeOnCancellation { }
                 scope.launch {
                     var attempts = 0
                     while (attempts < 50 && !_destroyed.value) {
                         if (_loaded.value) {
-                            continuation.resumeWith(Result.success(this@Geoman))
+                            if (continuation.isActive) {
+                                continuation.resumeWith(Result.success(this@Geoman))
+                            }
                             return@launch
                         }
                         delay(100)
                         attempts++
                     }
-                    continuation.resumeWith(Result.success(null))
+                    if (continuation.isActive) {
+                        continuation.resumeWith(Result.success(null))
+                    }
                 }
             }
         } catch (e: Exception) {
@@ -440,13 +444,13 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
         // Remove event listeners
         events.removeAllListeners()
 
-        // Cancel scope
-        scope.cancel()
-
-        // Fire destroyed event
+        // Fire destroyed event before cancelling scope
         scope.launch {
             events.emit(GmMapEvent.Destroyed)
         }
+
+        // Cancel scope after event is emitted
+        scope.cancel()
     }
 
     // Convenience methods for draw modes

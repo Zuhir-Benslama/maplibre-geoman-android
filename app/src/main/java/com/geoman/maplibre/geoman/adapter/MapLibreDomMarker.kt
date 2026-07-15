@@ -28,7 +28,8 @@ class MapLibreDomMarker(
     private val geoman: Geoman,
 ) : DomMarker(map) {
 
-    private val mapLibreMap: MapLibreMap = map as MapLibreMap
+    private val mapLibreMap: MapLibreMap = map as? MapLibreMap
+        ?: throw IllegalArgumentException("Expected MapLibreMap but got ${map::class.simpleName}")
 
     val id: String = "marker_${System.currentTimeMillis()}_${(Math.random() * 10000).toInt()}"
     val sourceName: String = GeomanCoreConstants.SOURCE_MARKERS
@@ -234,14 +235,9 @@ class MapLibreDomMarker(
 
         mapLibreMap.style?.removeImage("marker-icon-$id")
 
-        // Create empty FeatureCollection
-        val emptyCollection = JSONObject().apply {
-            put("type", "FeatureCollection")
-            put("features", JSONArray())
-        }
-
+        // Remove this marker's image from the source
         val source = mapLibreMap.style?.getSourceAs<GeoJsonSource>(sourceName)
-        source?.setGeoJson(emptyCollection.toString())
+        source?.setGeoJson("{\"type\":\"FeatureCollection\",\"features\":[]}")
 
         isAdded = false
     }

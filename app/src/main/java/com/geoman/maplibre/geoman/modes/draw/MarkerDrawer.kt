@@ -17,8 +17,6 @@ class MarkerDrawer(geoman: Geoman) : BaseDraw(geoman) {
 
     override val modeName: String = DrawModeName.MARKER.name
 
-    private var lastClickTime = 0L
-
     override fun onMapClick(point: LatLng) {
         if (!enabled) return
 

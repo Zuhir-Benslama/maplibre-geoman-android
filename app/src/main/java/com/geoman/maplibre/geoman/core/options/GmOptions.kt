@@ -193,7 +193,7 @@ class GmOptions(initialData: GmOptionsData = GmOptionsData()) {
     val helper: HelperOptions get() = _data.helperOptions
     val layerStyles: LayerStyles get() = _data.layerStyles
 
-    private val enabledModes = mutableSetOf<Pair<ModeType, String>>()
+    private val enabledModes = java.util.concurrent.ConcurrentHashMap.newKeySet<Pair<ModeType, String>>()
 
     /**
      * Update options
