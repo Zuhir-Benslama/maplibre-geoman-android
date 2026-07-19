@@ -104,12 +104,12 @@ class Features {
     /**
      * Update a feature
      */
+    @Synchronized
     fun updateFeature(sourceName: String, featureId: String, update: (FeatureData) -> FeatureData) {
         featuresMap[sourceName]?.get(featureId)?.let { existingFeature ->
             val updatedFeature = update(existingFeature)
             featuresMap[sourceName]?.put(featureId, updatedFeature)
             updateFeaturesFlow()
-            // Re-sync the source to reflect changes
             syncSourceToMap(sourceName)
         }
     }

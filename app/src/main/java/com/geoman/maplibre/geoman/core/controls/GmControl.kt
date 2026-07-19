@@ -51,8 +51,7 @@ import org.maplibre.android.geometry.LatLng
 class GmControl(private val geoman: Geoman) {
     private var controlView: View? = null
 
-    // Make activeModes public so external code can see which modes are active
-    val activeModes = mutableSetOf<Pair<ModeType, String>>()
+    val activeModes: MutableSet<Pair<ModeType, String>> = java.util.concurrent.ConcurrentHashMap.newKeySet()
 
     /**
      * Create the control panel UI using traditional Android Views

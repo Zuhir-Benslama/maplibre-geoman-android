@@ -27,8 +27,7 @@ class GmEventBus {
             try {
                 listener(event)
             } catch (e: Exception) {
-                // Log error but don't crash
-                e.printStackTrace()
+                android.util.Log.e("GmEventBus", "Error in event listener for ${event.type}", e)
             }
         }
     }

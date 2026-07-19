@@ -38,6 +38,10 @@ class MapLibreAdapter(map: MapLibreMap, geoman: Geoman, private val mapView: Map
 
     // Thread-safe collections for event listeners and map objects
     private val eventListeners = ConcurrentHashMap<String, CopyOnWriteArrayList<(Any?) -> Unit>>()
+
+    // Stored listener references for cleanup in removeControl()
+    private var mapClickListener: MapLibreMap.OnMapClickListener? = null
+    private var mapLongClickListener: MapLibreMap.OnMapLongClickListener? = null
     private val markers = ConcurrentHashMap.newKeySet<MapLibreDomMarker>()
     private val popups = ConcurrentHashMap.newKeySet<MapLibrePopup>()
     private val sources = ConcurrentHashMap<String, MapLibreSource>()
@@ -56,28 +60,36 @@ class MapLibreAdapter(map: MapLibreMap, geoman: Geoman, private val mapView: Map
 
     override fun addControl(control: GmControl) {
         android.util.Log.d("Geoman", "addControl called, registering click listeners")
-        // SDK 11.x uses addOnMapClickListener instead of setOnMapClickListener
-        map.addOnMapClickListener { point: LatLng ->
+        mapClickListener = MapLibreMap.OnMapClickListener { point: LatLng ->
             android.util.Log.d("Geoman", "Map click received: $point, activeModes: ${control.activeModes}")
             val result = control.onMapClick(point)
             android.util.Log.d("Geoman", "Map click handled, result: $result")
             false
         }
-        map.addOnMapLongClickListener { point: LatLng ->
+        map.addOnMapClickListener(mapClickListener!!)
+
+        mapLongClickListener = MapLibreMap.OnMapLongClickListener { point: LatLng ->
             android.util.Log.d("Geoman", "Map long click received: $point, activeModes: ${control.activeModes}")
             val result = control.onMapLongClick(point)
             android.util.Log.d("Geoman", "Map long click handled, result: $result")
             false
         }
-        mapView.renderView.setOnTouchListener { _, event ->
+        map.addOnMapLongClickListener(mapLongClickListener!!)
+
+        val touchListener = View.OnTouchListener { _, event ->
             control.onTouchEvent(event as MotionEvent)
             false
         }
+        mapView.renderView.setOnTouchListener(touchListener)
     }
 
     override fun removeControl(control: GmControl) {
-        // Controls are removed when detached
         control.onDetach()
+        mapClickListener?.let { map.removeOnMapClickListener(it) }
+        mapClickListener = null
+        mapLongClickListener?.let { map.removeOnMapLongClickListener(it) }
+        mapLongClickListener = null
+        mapView.renderView.setOnTouchListener(null)
     }
 
     override suspend fun loadImage(id: String, image: android.graphics.Bitmap) {
@@ -365,9 +377,10 @@ class MapLibreAdapter(map: MapLibreMap, geoman: Geoman, private val mapView: Map
     }
 
     override fun off(type: String, listener: (Any?) -> Unit) {
-        eventListeners[type]?.remove(listener)
-        if (eventListeners[type]?.isEmpty() == true) {
-            eventListeners.remove(type)
+        val listeners = eventListeners[type] ?: return
+        listeners.remove(listener)
+        if (listeners.isEmpty()) {
+            eventListeners.remove(type, listeners)
         }
     }
 

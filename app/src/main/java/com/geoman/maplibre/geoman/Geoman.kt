@@ -266,11 +266,15 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
     /**
      * Get all enabled modes
      */
-    fun getEnabledModes(): List<Pair<ModeType, String>> = actionInstances.keys.map { key ->
+    fun getEnabledModes(): List<Pair<ModeType, String>> = actionInstances.keys.mapNotNull { key ->
         val parts = key.split("__")
-        val type = ModeType.valueOf(parts[0])
-        val name = parts[1]
-        type to name
+        if (parts.size != 2) return@mapNotNull null
+        try {
+            val type = ModeType.valueOf(parts[0])
+            type to parts[1]
+        } catch (_: IllegalArgumentException) {
+            null
+        }
     }
 
     /**
@@ -441,13 +445,13 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
             (_mapAdapter as MapLibreAdapter).cleanup()
         }
 
-        // Remove event listeners
-        events.removeAllListeners()
-
-        // Fire destroyed event before cancelling scope
+        // Fire destroyed event before removing listeners so subscribers can receive it
         scope.launch {
             events.emit(GmMapEvent.Destroyed)
         }
+
+        // Remove event listeners
+        events.removeAllListeners()
 
         // Cancel scope after event is emitted
         scope.cancel()

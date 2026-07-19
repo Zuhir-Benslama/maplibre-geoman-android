@@ -92,7 +92,7 @@ class MapLibreLayer(private val geoman: Geoman, private val options: LayerOption
                     }
                 }
             } catch (e: Exception) {
-                // Filter conversion failed
+                android.util.Log.w("MapLibreLayer", "Filter conversion failed for layer $layerId", e)
             }
         }
 
@@ -104,7 +104,7 @@ class MapLibreLayer(private val geoman: Geoman, private val options: LayerOption
             style.addLayer(layer)
             isAdded = true
         } catch (e: Exception) {
-            // Layer may already exist
+            android.util.Log.w("MapLibreLayer", "Failed to add layer $layerId", e)
         }
     }
 
@@ -143,7 +143,17 @@ class MapLibreLayer(private val geoman: Geoman, private val options: LayerOption
     }
 
     override fun setLayoutProperty(name: String, value: Any) {
-        setPaintProperty(name, value)
+        val style = map.style ?: return
+        val layer = style.getLayer(layerId) ?: return
+
+        val property = valueToPropertyValue(name, value) ?: return
+        @Suppress("UNCHECKED_CAST")
+        when (layer) {
+            is FillLayer -> layer.setProperties(property)
+            is LineLayer -> layer.setProperties(property)
+            is CircleLayer -> layer.setProperties(property)
+            is SymbolLayer -> layer.setProperties(property)
+        }
     }
 
     override fun remove() {
