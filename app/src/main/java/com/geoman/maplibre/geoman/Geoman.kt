@@ -36,11 +36,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
@@ -109,7 +111,7 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
     }
 
     /**
-     * Wait for the base map to be loaded
+     * Wait for the base map style to be loaded
      */
     private fun waitForBaseMap() {
         if (mapAdapter.isLoaded()) {
@@ -118,20 +120,22 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
         }
 
         pendingBaseMapWait = scope.launch {
-            var attempts = 0
-            val maxAttempts = 50 // 5 seconds total
-
-            while (attempts < maxAttempts && !_destroyed.value) {
-                if (mapAdapter.isLoaded()) {
-                    init()
-                    return@launch
+            withTimeoutOrNull(10_000L) {
+                suspendCancellableCoroutine { continuation ->
+                    val listener = MapLibreMap.OnDidFinishLoadingStyleListener {
+                        if (continuation.isActive) {
+                            continuation.resume(Unit) {}
+                        }
+                    }
+                    map.addOnDidFinishLoadingStyleListener(listener)
+                    continuation.invokeOnCancellation {
+                        map.removeOnDidFinishLoadingStyleListener(listener)
+                    }
                 }
-                delay(100)
-                attempts++
             }
 
             if (!_destroyed.value) {
-                android.util.Log.e("Geoman", "Map failed to load within timeout")
+                init()
             }
         }
     }
@@ -396,24 +400,9 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
         if (_destroyed.value) return null
 
         return try {
-            kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
-                continuation.invokeOnCancellation { }
-                scope.launch {
-                    var attempts = 0
-                    while (attempts < 50 && !_destroyed.value) {
-                        if (_loaded.value) {
-                            if (continuation.isActive) {
-                                continuation.resumeWith(Result.success(this@Geoman))
-                            }
-                            return@launch
-                        }
-                        delay(100)
-                        attempts++
-                    }
-                    if (continuation.isActive) {
-                        continuation.resumeWith(Result.success(null))
-                    }
-                }
+            withTimeoutOrNull(5000L) {
+                _loaded.first { it }
+                this@Geoman
             }
         } catch (e: Exception) {
             null
@@ -445,10 +434,8 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
             (_mapAdapter as MapLibreAdapter).cleanup()
         }
 
-        // Fire destroyed event before removing listeners so subscribers can receive it
-        scope.launch {
-            events.emit(GmMapEvent.Destroyed)
-        }
+        // Fire destroyed event synchronously so listeners receive it before cleanup
+        events.tryEmit(GmMapEvent.Destroyed)
 
         // Remove event listeners
         events.removeAllListeners()

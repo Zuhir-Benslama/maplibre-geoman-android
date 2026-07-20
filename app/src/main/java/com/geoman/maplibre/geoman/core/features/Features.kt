@@ -61,21 +61,25 @@ class Features {
     /**
      * Get all features
      */
+    @Synchronized
     fun getAllFeatures(): Map<String, Map<String, FeatureData>> = featuresMap.toMap()
 
     /**
      * Get features by source name
      */
+    @Synchronized
     fun getFeatures(sourceName: String): Map<String, FeatureData> = featuresMap[sourceName]?.toMap() ?: emptyMap()
 
     /**
      * Get a specific feature
      */
+    @Synchronized
     fun getFeature(sourceName: String, featureId: String): FeatureData? = featuresMap[sourceName]?.get(featureId)
 
     /**
      * Add a feature
      */
+    @Synchronized
     fun addFeature(featureData: FeatureData) {
         val sourceFeatures = featuresMap.getOrPut(featureData.sourceName) { mutableMapOf() }
         sourceFeatures[featureData.id] = featureData
@@ -85,6 +89,7 @@ class Features {
     /**
      * Add a GeoJSON feature
      */
+    @Synchronized
     fun addGeoJsonFeature(feature: Feature, sourceName: String = FeatureSources.POLYGON): FeatureData {
         val featureId = feature.id ?: generateFeatureId()
         val featureData = FeatureData(
@@ -117,6 +122,7 @@ class Features {
     /**
      * Remove a feature
      */
+    @Synchronized
     fun removeFeature(sourceName: String, featureId: String): FeatureData? {
         val removedFeature = featuresMap[sourceName]?.remove(featureId)
         if (featuresMap[sourceName]?.isEmpty() == true) {
@@ -131,6 +137,7 @@ class Features {
     /**
      * Remove all features from a source
      */
+    @Synchronized
     fun clearSource(sourceName: String) {
         featuresMap.remove(sourceName)
         updateFeaturesFlow()
@@ -140,6 +147,7 @@ class Features {
     /**
      * Clear all features
      */
+    @Synchronized
     fun clearAll() {
         val sourceNames = featuresMap.keys.toList()
         featuresMap.clear()
@@ -151,6 +159,7 @@ class Features {
     /**
      * Get features within bounds
      */
+    @Synchronized
     fun getFeaturesInBounds(bounds: List<LngLat>, sourceNames: List<String>? = null): List<FeatureData> {
         val sources = sourceNames ?: featuresMap.keys.toList()
         return sources.flatMap { sourceName ->
@@ -310,5 +319,5 @@ class Features {
         _featuresFlow.value = featuresMap.mapValues { it.value.toMap() }
     }
 
-    private fun generateFeatureId(): String = "feature_${System.currentTimeMillis()}_${(Math.random() * 10000).toInt()}"
+    private fun generateFeatureId(): String = "feature_${java.util.UUID.randomUUID()}"
 }

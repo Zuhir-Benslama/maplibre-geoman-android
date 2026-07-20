@@ -19,10 +19,23 @@ class GmEventBus {
         >()
 
     /**
-     * Emit an event to all listeners
+     * Emit an event to all listeners (suspending)
      */
     suspend fun emit(event: GmEvent) {
         _events.emit(event)
+        notifyListeners(event)
+    }
+
+    /**
+     * Emit an event to all listeners (non-suspending, for use in destroy/cleanup paths)
+     */
+    fun tryEmit(event: GmEvent): Boolean {
+        val result = _events.tryEmit(event)
+        notifyListeners(event)
+        return result
+    }
+
+    private fun notifyListeners(event: GmEvent) {
         eventListeners[event.type]?.forEach { listener ->
             try {
                 listener(event)
