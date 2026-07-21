@@ -122,14 +122,14 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
         pendingBaseMapWait = scope.launch {
             withTimeoutOrNull(10_000L) {
                 suspendCancellableCoroutine { continuation ->
-                    val listener = MapLibreMap.OnDidFinishLoadingStyleListener {
+                    val listener = MapView.OnDidFinishLoadingStyleListener {
                         if (continuation.isActive) {
                             continuation.resume(Unit) {}
                         }
                     }
-                    map.addOnDidFinishLoadingStyleListener(listener)
+                    mapView.addOnDidFinishLoadingStyleListener(listener)
                     continuation.invokeOnCancellation {
-                        map.removeOnDidFinishLoadingStyleListener(listener)
+                        mapView.removeOnDidFinishLoadingStyleListener(listener)
                     }
                 }
             }
