@@ -40,6 +40,23 @@ class MapLibreDomMarker(
     private var dragStartLngLat: LngLat? = null
     private var currentLngLat: LngLat = initialLngLat
 
+    companion object {
+        private val activeMarkers = linkedMapOf<String, MapLibreDomMarker>()
+
+        private fun rebuildSource(mapLibreMap: MapLibreMap, sourceName: String) {
+            val featuresArray = JSONArray()
+            activeMarkers.values.forEach { marker ->
+                featuresArray.put(marker.buildFeatureJson())
+            }
+            val featureCollection = JSONObject().apply {
+                put("type", "FeatureCollection")
+                put("features", featuresArray)
+            }
+            val source = mapLibreMap.style?.getSourceAs<GeoJsonSource>(sourceName)
+            source?.setGeoJson(featureCollection.toString())
+        }
+    }
+
     init {
         createView()
     }
@@ -118,40 +135,15 @@ class MapLibreDomMarker(
 
         mapLibreMap.style?.addImage(iconId, iconBitmap)
 
-        // Create GeoJSON feature using org.json
-        val featureJson = JSONObject().apply {
-            put("type", "Feature")
-            put("id", id)
-            put(
-                "geometry",
-                JSONObject().apply {
-                    put("type", "Point")
-                    put(
-                        "coordinates",
-                        JSONArray().apply {
-                            put(currentLngLat.longitude)
-                            put(currentLngLat.latitude)
-                        },
-                    )
-                },
-            )
-            put(
-                "properties",
-                JSONObject().apply {
-                    put(GeomanCoreConstants.FEATURE_ID_PROPERTY, id)
-                    put("icon", iconId)
-                },
-            )
-        }
-
-        val featureCollection = JSONObject().apply {
-            put("type", "FeatureCollection")
-            put("features", JSONArray().put(featureJson))
-        }
+        activeMarkers[id] = this
 
         val geoJsonSource: GeoJsonSource? = mapLibreMap.style?.getSourceAs(sourceName)
         if (geoJsonSource == null) {
-            val newSource = GeoJsonSource(sourceName, featureCollection.toString())
+            val emptyCollection = JSONObject().apply {
+                put("type", "FeatureCollection")
+                put("features", JSONArray())
+            }
+            val newSource = GeoJsonSource(sourceName, emptyCollection.toString())
             mapLibreMap.style?.addSource(newSource)
         }
 
@@ -171,7 +163,33 @@ class MapLibreDomMarker(
         }
 
         isAdded = true
+        rebuildSource(mapLibreMap, sourceName)
         return this
+    }
+
+    private fun buildFeatureJson(): JSONObject = JSONObject().apply {
+        put("type", "Feature")
+        put("id", id)
+        put(
+            "geometry",
+            JSONObject().apply {
+                put("type", "Point")
+                put(
+                    "coordinates",
+                    JSONArray().apply {
+                        put(currentLngLat.longitude)
+                        put(currentLngLat.latitude)
+                    },
+                )
+            },
+        )
+        put(
+            "properties",
+            JSONObject().apply {
+                put(GeomanCoreConstants.FEATURE_ID_PROPERTY, id)
+                put("icon", "marker-icon-$id")
+            },
+        )
     }
 
     private fun createMarkerBitmap(): Bitmap {
@@ -194,50 +212,15 @@ class MapLibreDomMarker(
 
     private fun updateMarkerPosition() {
         if (!isAdded) return
-
-        // Create GeoJSON feature using org.json
-        val featureJson = JSONObject().apply {
-            put("type", "Feature")
-            put("id", id)
-            put(
-                "geometry",
-                JSONObject().apply {
-                    put("type", "Point")
-                    put(
-                        "coordinates",
-                        JSONArray().apply {
-                            put(currentLngLat.longitude)
-                            put(currentLngLat.latitude)
-                        },
-                    )
-                },
-            )
-            put(
-                "properties",
-                JSONObject().apply {
-                    put(GeomanCoreConstants.FEATURE_ID_PROPERTY, id)
-                    put("icon", "marker-icon-$id")
-                },
-            )
-        }
-
-        val featureCollection = JSONObject().apply {
-            put("type", "FeatureCollection")
-            put("features", JSONArray().put(featureJson))
-        }
-
-        val source = mapLibreMap.style?.getSourceAs<GeoJsonSource>(sourceName)
-        source?.setGeoJson(featureCollection.toString())
+        rebuildSource(mapLibreMap, sourceName)
     }
 
     override fun remove() {
         if (!isAdded) return
 
         mapLibreMap.style?.removeImage("marker-icon-$id")
-
-        // Remove this marker's image from the source
-        val source = mapLibreMap.style?.getSourceAs<GeoJsonSource>(sourceName)
-        source?.setGeoJson("{\"type\":\"FeatureCollection\",\"features\":[]}")
+        activeMarkers.remove(id)
+        rebuildSource(mapLibreMap, sourceName)
 
         isAdded = false
     }
