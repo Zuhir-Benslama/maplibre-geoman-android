@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.geoman.maplibre.geoman.Geoman
+import com.geoman.maplibre.geoman.GeomanLogger
 import com.geoman.maplibre.geoman.types.DrawModeName
 import com.geoman.maplibre.geoman.types.EditModeName
 import com.geoman.maplibre.geoman.types.HelperModeName
@@ -186,10 +187,10 @@ class GmControl(private val geoman: Geoman) {
      * Called when map is clicked
      */
     fun onMapClick(point: LatLng): Boolean {
-        android.util.Log.d("GmControl", "onMapClick called, activeModes: $activeModes")
+        GeomanLogger.d("GmControl", "onMapClick called, activeModes: $activeModes")
         // Handle map click for active drawing modes
         activeModes.forEach { (type, name) ->
-            android.util.Log.d("GmControl", "Forwarding click to $type.$name")
+            GeomanLogger.d("GmControl", "Forwarding click to $type.$name")
             when (type) {
                 ModeType.DRAW -> geoman.handleDrawClick(name, point)
                 ModeType.EDIT -> geoman.handleEditClick(name, point)
@@ -203,11 +204,11 @@ class GmControl(private val geoman: Geoman) {
      * Called when map is long clicked
      */
     fun onMapLongClick(point: LatLng): Boolean {
-        android.util.Log.d("GmControl", "onMapLongClick called, activeModes: $activeModes")
+        GeomanLogger.d("GmControl", "onMapLongClick called, activeModes: $activeModes")
         // Handle long press for finishing shapes
         activeModes.forEach { (type, name) ->
             if (type == ModeType.DRAW) {
-                android.util.Log.d("GmControl", "Forwarding long click to $type.$name")
+                GeomanLogger.d("GmControl", "Forwarding long click to $type.$name")
                 geoman.handleDrawLongPress(name, point)
             }
         }

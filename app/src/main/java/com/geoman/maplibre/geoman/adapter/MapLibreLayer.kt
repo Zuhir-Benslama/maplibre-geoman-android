@@ -1,6 +1,7 @@
 package com.geoman.maplibre.geoman.adapter
 
 import com.geoman.maplibre.geoman.Geoman
+import com.geoman.maplibre.geoman.GeomanLogger
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.style.expressions.Expression
 import org.maplibre.android.style.layers.CircleLayer
@@ -92,7 +93,7 @@ class MapLibreLayer(private val geoman: Geoman, private val options: LayerOption
                     }
                 }
             } catch (e: Exception) {
-                android.util.Log.w("MapLibreLayer", "Filter conversion failed for layer $layerId", e)
+                GeomanLogger.w("MapLibreLayer", "Filter conversion failed for layer $layerId", e)
             }
         }
 
@@ -104,7 +105,7 @@ class MapLibreLayer(private val geoman: Geoman, private val options: LayerOption
             style.addLayer(layer)
             isAdded = true
         } catch (e: Exception) {
-            android.util.Log.w("MapLibreLayer", "Failed to add layer $layerId", e)
+            GeomanLogger.w("MapLibreLayer", "Failed to add layer $layerId", e)
         }
     }
 

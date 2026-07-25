@@ -1,6 +1,7 @@
 package com.geoman.maplibre.geoman.core.features
 
 import com.geoman.maplibre.geoman.Geoman
+import com.geoman.maplibre.geoman.GeomanLogger
 import com.geoman.maplibre.geoman.adapter.MapLibreSource
 import com.geoman.maplibre.geoman.types.geojson.Feature
 import com.geoman.maplibre.geoman.types.geojson.FeatureCollection
@@ -66,7 +67,7 @@ class SourceUpdateManager(private val geoman: Geoman) {
                 source.setData(featureCollection)
             }
         } catch (e: Exception) {
-            android.util.Log.e("SourceUpdateManager", "Failed to update source $sourceId: ${e.message}")
+            GeomanLogger.e("SourceUpdateManager", "Failed to update source $sourceId: ${e.message}")
         }
     }
 
@@ -78,7 +79,7 @@ class SourceUpdateManager(private val geoman: Geoman) {
             val featureCollection = json.decodeFromString<FeatureCollection>(geoJsonString)
             executeUpdate(sourceId, featureCollection)
         } catch (e: Exception) {
-            android.util.Log.e("SourceUpdateManager", "Failed to update source $sourceId: ${e.message}")
+            GeomanLogger.e("SourceUpdateManager", "Failed to update source $sourceId: ${e.message}")
         }
     }
 

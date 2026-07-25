@@ -1,5 +1,6 @@
 package com.geoman.maplibre.geoman.core.events
 
+import com.geoman.maplibre.geoman.GeomanLogger
 import com.geoman.maplibre.geoman.types.events.GmEvent
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -40,7 +41,7 @@ class GmEventBus {
             try {
                 listener(event)
             } catch (e: Exception) {
-                android.util.Log.e("GmEventBus", "Error in event listener for ${event.type}", e)
+                GeomanLogger.e("GmEventBus", "Error in event listener for ${event.type}", e)
             }
         }
     }

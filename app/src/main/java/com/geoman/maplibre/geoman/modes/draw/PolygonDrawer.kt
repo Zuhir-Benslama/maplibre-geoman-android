@@ -1,6 +1,7 @@
 package com.geoman.maplibre.geoman.modes.draw
 
 import com.geoman.maplibre.geoman.Geoman
+import com.geoman.maplibre.geoman.GeomanLogger
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.core.features.FeatureData
 import com.geoman.maplibre.geoman.types.DrawModeName
@@ -21,14 +22,14 @@ class PolygonDrawer(geoman: Geoman) : BaseDraw(geoman) {
     private var currentFeature: FeatureData? = null
 
     override fun onMapClick(point: LatLng) {
-        android.util.Log.d("PolygonDrawer", "onMapClick called: point=$point, enabled=$enabled")
+        GeomanLogger.d("PolygonDrawer", "onMapClick called: point=$point, enabled=$enabled")
         if (!enabled) {
-            android.util.Log.e("PolygonDrawer", "PolygonDrawer is NOT enabled, returning")
+            GeomanLogger.e("PolygonDrawer", "PolygonDrawer is NOT enabled, returning")
             return
         }
 
         coordinates.add(LngLat(point.longitude, point.latitude))
-        android.util.Log.d(
+        GeomanLogger.d(
             "PolygonDrawer",
             "Coordinate added: ${point.longitude}, ${point.latitude}, total=${coordinates.size}",
         )
@@ -38,7 +39,7 @@ class PolygonDrawer(geoman: Geoman) : BaseDraw(geoman) {
     }
 
     override fun onMapLongClick(point: LatLng) {
-        android.util.Log.d(
+        GeomanLogger.d(
             "PolygonDrawer",
             "onMapLongClick called: point=$point, enabled=$enabled, coordinates.size=${coordinates.size}",
         )
@@ -48,7 +49,7 @@ class PolygonDrawer(geoman: Geoman) : BaseDraw(geoman) {
     }
 
     override fun finishDrawing() {
-        android.util.Log.d(
+        GeomanLogger.d(
             "PolygonDrawer",
             "finishDrawing called: coordinates.size=${coordinates.size}, currentFeature=${currentFeature != null}",
         )
@@ -58,12 +59,12 @@ class PolygonDrawer(geoman: Geoman) : BaseDraw(geoman) {
 
             // Capture the feature before launching coroutine to avoid race condition
             val featureToFire = currentFeature
-            android.util.Log.d("PolygonDrawer", "Firing create event with captured feature: ${featureToFire?.id}")
+            GeomanLogger.d("PolygonDrawer", "Firing create event with captured feature: ${featureToFire?.id}")
             geomanInstance.scope.launch {
                 fireCreateEvent(featureToFire)
             }
         } else {
-            android.util.Log.e(
+            GeomanLogger.e(
                 "PolygonDrawer",
                 "finishDrawing: coordinates.size=${coordinates.size}, currentFeature=${currentFeature != null} - SKIPPING",
             )
@@ -75,9 +76,9 @@ class PolygonDrawer(geoman: Geoman) : BaseDraw(geoman) {
     }
 
     private fun updatePolygonFeature() {
-        android.util.Log.d("PolygonDrawer", "updatePolygonFeature called: coordinates.size=${coordinates.size}")
+        GeomanLogger.d("PolygonDrawer", "updatePolygonFeature called: coordinates.size=${coordinates.size}")
         if (coordinates.size < 3) {
-            android.util.Log.w("PolygonDrawer", "updatePolygonFeature: not enough coordinates (< 3)")
+            GeomanLogger.w("PolygonDrawer", "updatePolygonFeature: not enough coordinates (< 3)")
             return
         }
 
@@ -88,7 +89,7 @@ class PolygonDrawer(geoman: Geoman) : BaseDraw(geoman) {
         }
 
         val geometry = Polygon.fromLngLats(listOf(ring))
-        android.util.Log.d("PolygonDrawer", "Created polygon geometry with ${ring.size} points")
+        GeomanLogger.d("PolygonDrawer", "Created polygon geometry with ${ring.size} points")
 
         val now = System.currentTimeMillis()
         val feature = Feature(
@@ -101,11 +102,11 @@ class PolygonDrawer(geoman: Geoman) : BaseDraw(geoman) {
         )
 
         currentFeature?.let {
-            android.util.Log.d("PolygonDrawer", "Removing old feature: ${it.id}")
+            GeomanLogger.d("PolygonDrawer", "Removing old feature: ${it.id}")
             geomanInstance.features.removeFeature(GeomanCoreConstants.SOURCE_POLYGONS, it.id)
         }
 
         currentFeature = geomanInstance.features.addGeoJsonFeature(feature, GeomanCoreConstants.SOURCE_POLYGONS)
-        android.util.Log.d("PolygonDrawer", "Added new feature to Geoman: ${currentFeature?.id}")
+        GeomanLogger.d("PolygonDrawer", "Added new feature to Geoman: ${currentFeature?.id}")
     }
 }

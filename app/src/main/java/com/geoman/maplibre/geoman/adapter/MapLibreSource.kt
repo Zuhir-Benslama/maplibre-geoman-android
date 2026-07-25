@@ -1,6 +1,7 @@
 package com.geoman.maplibre.geoman.adapter
 
 import com.geoman.maplibre.geoman.Geoman
+import com.geoman.maplibre.geoman.GeomanLogger
 import com.geoman.maplibre.geoman.types.geojson.FeatureCollection
 import com.geoman.maplibre.geoman.types.geojson.ScreenPoint
 import org.json.JSONArray
@@ -31,23 +32,23 @@ class MapLibreSource(
             try {
                 maplibreSource?.setGeoJson(geoJsonString)
             } catch (e: Exception) {
-                android.util.Log.w("MapLibreSource", "Error updating source: ${e.message}")
+                GeomanLogger.w("MapLibreSource", "Error updating source: ${e.message}")
             }
         } else {
             // Create new source and add to map
             try {
                 maplibreSource = GeoJsonSource(sourceId, geoJsonString)
                 map.style?.addSource(maplibreSource!!)
-                android.util.Log.d("MapLibreSource", "Created source: $sourceId with ${geoJson.features.size} features")
+                GeomanLogger.d("MapLibreSource", "Created source: $sourceId with ${geoJson.features.size} features")
             } catch (e: Exception) {
                 // Source may already exist, try to update
-                android.util.Log.w("MapLibreSource", "Error creating source: ${e.message}, trying update")
+                GeomanLogger.w("MapLibreSource", "Error creating source: ${e.message}, trying update")
                 try {
                     map.style?.removeSource(sourceId)
                     maplibreSource = GeoJsonSource(sourceId, geoJsonString)
                     map.style?.addSource(maplibreSource!!)
                 } catch (e2: Exception) {
-                    android.util.Log.e("MapLibreSource", "Failed to create/update source: ${e2.message}")
+                    GeomanLogger.e("MapLibreSource", "Failed to create/update source: ${e2.message}")
                 }
             }
         }

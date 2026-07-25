@@ -10,11 +10,11 @@ abstract class BaseAction(protected val geoman: Geoman) {
 
     open fun enable() {
         enabled = true
-        android.util.Log.d("BaseAction", "enable() called for $modeName, now enabled=$enabled")
+        GeomanLogger.d("BaseAction", "enable() called for $modeName, now enabled=$enabled")
     }
 
     open fun disable() {
-        android.util.Log.d("BaseAction", "disable() called for $modeName, was enabled=$enabled")
+        GeomanLogger.d("BaseAction", "disable() called for $modeName, was enabled=$enabled")
         enabled = false
     }
 

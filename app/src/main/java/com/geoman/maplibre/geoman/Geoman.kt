@@ -182,7 +182,7 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
             )
             mapAdapter.loadImage("default-marker", markerBitmap)
         } catch (e: Exception) {
-            android.util.Log.e("Geoman", "Failed to load default marker", e)
+            GeomanLogger.e("Geoman", "Failed to load default marker", e)
         }
 
         _loaded.value = true
@@ -198,7 +198,7 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
         if (_destroyed.value) return
 
         val key = "${type.name}__$name"
-        android.util.Log.d("Geoman", "enableMode called: $type.$name (key: $key)")
+        GeomanLogger.d("Geoman", "enableMode called: $type.$name (key: $key)")
 
         // Disable other modes of the same type
         val keysToDisable = actionInstances.keys.filter { it.startsWith("${type.name}__") && it != key }
@@ -216,14 +216,14 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
             // Also update control's active modes (for click handling)
             _control?.activeModes?.removeAll { it.first == type }
             _control?.activeModes?.add(type to name)
-            android.util.Log.d("Geoman", "Mode enabled, activeModes now: ${_control?.activeModes}")
+            GeomanLogger.d("Geoman", "Mode enabled, activeModes now: ${_control?.activeModes}")
 
             // Fire event
             scope.launch {
                 events.emit(GmModeEvent.Enable(name, type.name))
             }
         } ?: run {
-            android.util.Log.e("Geoman", "Failed to create action for $type.$name")
+            GeomanLogger.e("Geoman", "Failed to create action for $type.$name")
         }
     }
 
@@ -289,7 +289,7 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
         actionInstances.clear()
         // Also clear control's active modes
         _control?.activeModes?.clear()
-        android.util.Log.d("Geoman", "disableAllModes called, activeModes cleared")
+        GeomanLogger.d("Geoman", "disableAllModes called, activeModes cleared")
     }
 
     /**
@@ -297,14 +297,14 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
      */
     fun handleDrawClick(modeName: String, point: LatLng) {
         val key = "${ModeType.DRAW.name}__$modeName"
-        android.util.Log.d("Geoman", "handleDrawClick called: mode=$modeName, key=$key")
-        android.util.Log.d("Geoman", "actionInstances keys: ${actionInstances.keys}")
+        GeomanLogger.d("Geoman", "handleDrawClick called: mode=$modeName, key=$key")
+        GeomanLogger.d("Geoman", "actionInstances keys: ${actionInstances.keys}")
         val action = actionInstances[key] as? BaseDraw
         if (action != null) {
-            android.util.Log.d("Geoman", "Found action, calling onMapClick")
+            GeomanLogger.d("Geoman", "Found action, calling onMapClick")
             action.onMapClick(point)
         } else {
-            android.util.Log.e("Geoman", "No action found for key: $key")
+            GeomanLogger.e("Geoman", "No action found for key: $key")
         }
     }
 
@@ -313,13 +313,13 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
      */
     fun handleDrawLongPress(modeName: String, point: LatLng) {
         val key = "${ModeType.DRAW.name}__$modeName"
-        android.util.Log.d("Geoman", "handleDrawLongPress called: mode=$modeName, key=$key")
+        GeomanLogger.d("Geoman", "handleDrawLongPress called: mode=$modeName, key=$key")
         val action = actionInstances[key] as? BaseDraw
         if (action != null) {
-            android.util.Log.d("Geoman", "Found action, calling onMapLongClick")
+            GeomanLogger.d("Geoman", "Found action, calling onMapLongClick")
             action.onMapLongClick(point)
         } else {
-            android.util.Log.e("Geoman", "No action found for key: $key")
+            GeomanLogger.e("Geoman", "No action found for key: $key")
         }
     }
 
@@ -330,7 +330,7 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
         val key = "${ModeType.EDIT.name}__${EditModeName.CHANGE.name}"
         val action = actionInstances[key] as? ChangeEditor
         action?.startEditingFeature(feature)
-            ?: android.util.Log.w("Geoman", "ChangeEditor not enabled for startEditingFeature")
+            ?: GeomanLogger.w("Geoman", "ChangeEditor not enabled for startEditingFeature")
     }
 
     /**

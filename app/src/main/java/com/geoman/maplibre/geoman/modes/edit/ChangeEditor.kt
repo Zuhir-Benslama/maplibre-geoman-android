@@ -1,6 +1,7 @@
 package com.geoman.maplibre.geoman.modes.edit
 
 import com.geoman.maplibre.geoman.Geoman
+import com.geoman.maplibre.geoman.GeomanLogger
 import com.geoman.maplibre.geoman.adapter.DomMarkerOptions
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.core.features.FeatureData
@@ -190,7 +191,7 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
             vertexMarkers.add(VertexMarker(vertex.index, domMarker))
         }
 
-        android.util.Log.d("ChangeEditor", "Created ${vertexMarkers.size} vertex markers")
+        GeomanLogger.d("ChangeEditor", "Created ${vertexMarkers.size} vertex markers")
     }
 
     /**

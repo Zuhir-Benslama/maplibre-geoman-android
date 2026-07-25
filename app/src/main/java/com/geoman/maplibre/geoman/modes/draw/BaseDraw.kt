@@ -2,6 +2,7 @@ package com.geoman.maplibre.geoman.modes.draw
 
 import com.geoman.maplibre.geoman.BaseAction
 import com.geoman.maplibre.geoman.Geoman
+import com.geoman.maplibre.geoman.GeomanLogger
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.core.features.FeatureData
 import com.geoman.maplibre.geoman.types.ModeType
@@ -24,7 +25,7 @@ abstract class BaseDraw(geoman: Geoman) : BaseAction(geoman) {
     protected val temporaryFeatures = mutableListOf<FeatureData>()
 
     override fun disable() {
-        android.util.Log.d("BaseDraw", "disable() called for $modeName, was enabled=$enabled")
+        GeomanLogger.d("BaseDraw", "disable() called for $modeName, was enabled=$enabled")
         super.disable()
         // Clean up temporary features
         temporaryFeatures.forEach {
@@ -40,12 +41,12 @@ abstract class BaseDraw(geoman: Geoman) : BaseAction(geoman) {
     protected suspend fun fireCreateEvent(feature: FeatureData?) {
         // Capture feature reference to avoid race condition
         val featureRef = feature ?: run {
-            android.util.Log.w("BaseDraw", "fireCreateEvent called with null feature")
+            GeomanLogger.w("BaseDraw", "fireCreateEvent called with null feature")
             return
         }
 
-        android.util.Log.d("BaseDraw", "fireCreateEvent called: feature=${featureRef.id}, modeName=$modeName")
+        GeomanLogger.d("BaseDraw", "fireCreateEvent called: feature=${featureRef.id}, modeName=$modeName")
         geomanInstance.events.emit(GmDrawEvent.Create(modeName, featureRef))
-        android.util.Log.d("BaseDraw", "fireCreateEvent: event emitted")
+        GeomanLogger.d("BaseDraw", "fireCreateEvent: event emitted")
     }
 }

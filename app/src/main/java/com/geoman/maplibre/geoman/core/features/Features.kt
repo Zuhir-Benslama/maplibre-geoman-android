@@ -1,5 +1,6 @@
 package com.geoman.maplibre.geoman.core.features
 
+import com.geoman.maplibre.geoman.GeomanLogger
 import com.geoman.maplibre.geoman.adapter.BaseMapAdapter
 import com.geoman.maplibre.geoman.adapter.LayerOptions
 import com.geoman.maplibre.geoman.adapter.LayerType
@@ -226,7 +227,7 @@ class Features {
                         ),
                     )
                 } catch (e: Exception) {
-                    android.util.Log.w("Features", "Error adding marker layer: ${e.message}")
+                    GeomanLogger.w("Features", "Error adding marker layer: ${e.message}")
                 }
             }
 
@@ -244,7 +245,7 @@ class Features {
                         ),
                     )
                 } catch (e: Exception) {
-                    android.util.Log.w("Features", "Error adding line layer: ${e.message}")
+                    GeomanLogger.w("Features", "Error adding line layer: ${e.message}")
                 }
             }
 
@@ -263,7 +264,7 @@ class Features {
                         ),
                     )
                 } catch (e: Exception) {
-                    android.util.Log.w("Features", "Error adding polygon layers: ${e.message}")
+                    GeomanLogger.w("Features", "Error adding polygon layers: ${e.message}")
                 }
             }
 
@@ -282,7 +283,7 @@ class Features {
                         ),
                     )
                 } catch (e: Exception) {
-                    android.util.Log.w("Features", "Error adding circle layers: ${e.message}")
+                    GeomanLogger.w("Features", "Error adding circle layers: ${e.message}")
                 }
             }
 
@@ -300,7 +301,7 @@ class Features {
                         ),
                     )
                 } catch (e: Exception) {
-                    android.util.Log.w("Features", "Error adding rectangle layers: ${e.message}")
+                    GeomanLogger.w("Features", "Error adding rectangle layers: ${e.message}")
                 }
             }
         }

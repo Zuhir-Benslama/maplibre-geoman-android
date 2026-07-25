@@ -5,6 +5,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import com.geoman.maplibre.geoman.Geoman
+import com.geoman.maplibre.geoman.GeomanLogger
 import com.geoman.maplibre.geoman.core.controls.GmControl
 import com.geoman.maplibre.geoman.core.features.FeatureData
 import com.geoman.maplibre.geoman.types.CursorType
@@ -59,19 +60,19 @@ class MapLibreAdapter(map: MapLibreMap, geoman: Geoman, private val mapView: Map
     override fun getCanvas(): Any? = mapView.renderView
 
     override fun addControl(control: GmControl) {
-        android.util.Log.d("Geoman", "addControl called, registering click listeners")
+        GeomanLogger.d("Geoman", "addControl called, registering click listeners")
         mapClickListener = MapLibreMap.OnMapClickListener { point: LatLng ->
-            android.util.Log.d("Geoman", "Map click received: $point, activeModes: ${control.activeModes}")
+            GeomanLogger.d("Geoman", "Map click received: $point, activeModes: ${control.activeModes}")
             val result = control.onMapClick(point)
-            android.util.Log.d("Geoman", "Map click handled, result: $result")
+            GeomanLogger.d("Geoman", "Map click handled, result: $result")
             false
         }
         map.addOnMapClickListener(mapClickListener!!)
 
         mapLongClickListener = MapLibreMap.OnMapLongClickListener { point: LatLng ->
-            android.util.Log.d("Geoman", "Map long click received: $point, activeModes: ${control.activeModes}")
+            GeomanLogger.d("Geoman", "Map long click received: $point, activeModes: ${control.activeModes}")
             val result = control.onMapLongClick(point)
-            android.util.Log.d("Geoman", "Map long click handled, result: $result")
+            GeomanLogger.d("Geoman", "Map long click handled, result: $result")
             false
         }
         map.addOnMapLongClickListener(mapLongClickListener!!)
@@ -353,7 +354,7 @@ class MapLibreAdapter(map: MapLibreMap, geoman: Geoman, private val mapView: Map
             try {
                 listener(data)
             } catch (e: Exception) {
-                android.util.Log.e("MapLibreAdapter", "Error in event listener for $type", e)
+                GeomanLogger.e("MapLibreAdapter", "Error in event listener for $type", e)
             }
         }
     }
