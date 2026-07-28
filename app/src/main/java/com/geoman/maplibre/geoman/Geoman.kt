@@ -124,7 +124,7 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
                 suspendCancellableCoroutine { continuation ->
                     val listener = MapView.OnDidFinishLoadingStyleListener {
                         if (continuation.isActive) {
-                            continuation.resumeWith(Result.success(Unit))
+                            continuation.resume(Unit) {}
                         }
                     }
                     mapView.addOnDidFinishLoadingStyleListener(listener)
