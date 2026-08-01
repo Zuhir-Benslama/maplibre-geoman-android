@@ -19,6 +19,7 @@ import com.geoman.maplibre.geoman.core.options.GmOptionsData
 import com.geoman.maplibre.geoman.modes.draw.BaseDraw
 import com.geoman.maplibre.geoman.modes.edit.BaseEdit
 import com.geoman.maplibre.geoman.modes.edit.ChangeEditor
+import com.geoman.maplibre.geoman.modes.helpers.BaseHelper
 import com.geoman.maplibre.geoman.types.DrawModeName
 import com.geoman.maplibre.geoman.types.EditModeName
 import com.geoman.maplibre.geoman.types.HelperModeName
@@ -173,7 +174,18 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
     private suspend fun onMapLoad() {
         if (_loaded.value || _destroyed.value) return
 
-        // Load default marker image
+        loadMarkerImage()
+
+        _loaded.value = true
+
+        // Fire loaded event
+        events.emit(GmMapEvent.Loaded)
+    }
+
+    /**
+     * Load the default marker image into the current style.
+     */
+    private suspend fun loadMarkerImage() {
         try {
             val context = mapView.context
             val markerBitmap = android.graphics.BitmapFactory.decodeResource(
@@ -184,11 +196,21 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
         } catch (e: Exception) {
             GeomanLogger.e("Geoman", "Failed to load default marker", e)
         }
+    }
 
-        _loaded.value = true
-
-        // Fire loaded event
-        events.emit(GmMapEvent.Loaded)
+    /**
+     * Restore rendering after the base map style has been replaced
+     * (e.g. when the base layer changes). Style-bound sources and layers were
+     * destroyed by the style swap, so cached references are dropped, the
+     * default marker image is reloaded, and in-memory features are re-synced.
+     */
+    fun onStyleReloaded() {
+        if (_destroyed.value) return
+        (_mapAdapter as? MapLibreAdapter)?.clearRenderingCache()
+        features.reSyncAll()
+        scope.launch {
+            loadMarkerImage()
+        }
     }
 
     /**
@@ -345,12 +367,9 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
     /**
      * Handle helper mode click
      */
-    fun handleHelperClick(modeName: String, @Suppress("UNUSED_PARAMETER") point: LatLng) {
+    fun handleHelperClick(modeName: String, point: LatLng) {
         val key = "${ModeType.HELPER.name}__$modeName"
-
-        @Suppress("UNUSED_VARIABLE")
-        val action = actionInstances[key]
-        // Helper actions may handle clicks differently
+        (actionInstances[key] as? BaseHelper)?.onMapClick(point)
     }
 
     /**

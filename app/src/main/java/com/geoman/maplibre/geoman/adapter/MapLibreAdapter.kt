@@ -438,4 +438,15 @@ class MapLibreAdapter(map: MapLibreMap, geoman: Geoman, private val mapView: Map
         sources.clear()
         eventListeners.clear()
     }
+
+    /**
+     * Drop cached sources/layers that reference a replaced style.
+     * Unlike [cleanup], in-memory feature data and DOM markers are preserved;
+     * features are re-synced to the new style afterwards via
+     * [com.geoman.maplibre.geoman.Geoman.onStyleReloaded].
+     */
+    fun clearRenderingCache() {
+        sources.clear()
+        layers.clear()
+    }
 }

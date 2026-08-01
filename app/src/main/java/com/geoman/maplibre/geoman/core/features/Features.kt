@@ -158,6 +158,17 @@ class Features {
     }
 
     /**
+     * Re-sync every in-memory feature to the map.
+     * Used after the map style has been replaced, which destroys all style-bound
+     * sources and layers created for the previous style.
+     */
+    @Synchronized
+    fun reSyncAll() {
+        val sourceNames = featuresMap.keys.toList()
+        sourceNames.forEach { syncSourceToMap(it) }
+    }
+
+    /**
      * Get features within bounds
      */
     @Synchronized
