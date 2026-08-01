@@ -2,6 +2,7 @@ package com.geoman.maplibre.geoman.modes.helpers
 
 import com.geoman.maplibre.geoman.BaseAction
 import com.geoman.maplibre.geoman.Geoman
+import com.geoman.maplibre.geoman.GeomanLogger
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.core.features.FeatureData
 import com.geoman.maplibre.geoman.types.HelperModeName
@@ -21,6 +22,10 @@ abstract class BaseHelper(geoman: Geoman) : BaseAction(geoman) {
 
     // Expose geoman to subclasses
     protected val geomanInstance: Geoman = geoman
+
+    open fun onMapClick(point: LatLng) {
+        GeomanLogger.d("BaseHelper", "Unhandled map click for ${this::class.simpleName} at $point")
+    }
 }
 
 /**
@@ -37,6 +42,10 @@ class SnapHelper(geoman: Geoman) : BaseHelper(geoman) {
     override fun enable() {
         super.enable()
         snapDistance = geomanInstance.options.helper.snapDistance
+    }
+
+    override fun onMapClick(point: LatLng) {
+        showSnapGuides(point)
     }
 
     override fun disable() {
