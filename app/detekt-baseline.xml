@@ -1,0 +1,56 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:MapLibreLayer.kt:MapLibreLayer$private fun add</ID>
+    <ID>CyclomaticComplexMethod:MapLibreSource.kt:MapLibreSource$private fun geometryToJson: JSONObject</ID>
+    <ID>FunctionOnlyReturningConstant:GmControl.kt:GmControl$fun onTouchEvent: Boolean</ID>
+    <ID>LongMethod:Features.kt:Features$private fun addRenderingLayersForSource</ID>
+    <ID>LongMethod:GmControl.kt:@Composable fun GeomanControls</ID>
+    <ID>LongMethod:GmControl.kt:GmControl$fun createControls: View</ID>
+    <ID>LongMethod:MapLibreLayer.kt:MapLibreLayer$private fun add</ID>
+    <ID>LongMethod:MapLibreSource.kt:MapLibreSource$private fun geometryToJson: JSONObject</ID>
+    <ID>MagicNumber:ChangeEditor.kt:ChangeEditor$30.0</ID>
+    <ID>MagicNumber:Features.kt:Features$0.5f</ID>
+    <ID>MagicNumber:Geoman.kt:Geoman$10_000L</ID>
+    <ID>MagicNumber:Geoman.kt:Geoman$5000L</ID>
+    <ID>MagicNumber:GmControl.kt:GmControl$48</ID>
+    <ID>MagicNumber:GmOptions.kt:CircleMarkerStyle$0xFF3388FF</ID>
+    <ID>MagicNumber:GmOptions.kt:CircleMarkerStyle$0xFFFFFFFF</ID>
+    <ID>MagicNumber:GmOptions.kt:CircleStyle$0x4D3388FF</ID>
+    <ID>MagicNumber:GmOptions.kt:CircleStyle$0xFF3388FF</ID>
+    <ID>MagicNumber:GmOptions.kt:EditMarkersStyle$0xFF3388FF</ID>
+    <ID>MagicNumber:GmOptions.kt:LineStyle$0xFF3388FF</ID>
+    <ID>MagicNumber:GmOptions.kt:MarkerStyle$0xFF3388FF</ID>
+    <ID>MagicNumber:GmOptions.kt:PolygonStyle$0x4D3388FF</ID>
+    <ID>MagicNumber:GmOptions.kt:PolygonStyle$0xFF3388FF</ID>
+    <ID>MagicNumber:GmOptions.kt:RectangleStyle$0x4D3388FF</ID>
+    <ID>MagicNumber:GmOptions.kt:RectangleStyle$0xFF3388FF</ID>
+    <ID>MagicNumber:MapLibreAdapter.kt:MapLibreAdapter$20</ID>
+    <ID>MagicNumber:MapLibreDomMarker.kt:MapLibreDomMarker$48</ID>
+    <ID>MagicNumber:MapLibrePopup.kt:MapLibrePopup$20</ID>
+    <ID>MagicNumber:PropertyValidators.kt:PropertyValidators$1000000</ID>
+    <ID>MagicNumber:PropertyValidators.kt:PropertyValidators$180.0</ID>
+    <ID>MagicNumber:PropertyValidators.kt:PropertyValidators$256</ID>
+    <ID>MagicNumber:PropertyValidators.kt:PropertyValidators$90.0</ID>
+    <ID>MaxLineLength:PolygonDrawer.kt:PolygonDrawer$"finishDrawing: coordinates.size=${coordinates.size}, currentFeature=${currentFeature != null} - SKIPPING"</ID>
+    <ID>SwallowedException:Geoman.kt:Geoman$e: Exception</ID>
+    <ID>SwallowedException:MapLibreAdapter.kt:MapLibreAdapter$e: Exception</ID>
+    <ID>SwallowedException:MapLibreLayer.kt:MapLibreLayer$e: Exception</ID>
+    <ID>SwallowedException:MapLibreSource.kt:MapLibreSource$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:Features.kt:Features$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:Geoman.kt:Geoman$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:GmEventBus.kt:GmEventBus$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:MapLibreAdapter.kt:MapLibreAdapter$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:MapLibreLayer.kt:MapLibreLayer$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:MapLibreSource.kt:MapLibreSource$e2: Exception</ID>
+    <ID>TooGenericExceptionCaught:MapLibreSource.kt:MapLibreSource$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:SourceUpdateManager.kt:SourceUpdateManager$e: Exception</ID>
+    <ID>TooManyFunctions:BaseMapAdapter.kt:BaseMapAdapter&lt;TMap&gt;</ID>
+    <ID>TooManyFunctions:Features.kt:Features</ID>
+    <ID>TooManyFunctions:Geoman.kt:Geoman</ID>
+    <ID>TooManyFunctions:GeometryUtils.kt:GeometryUtils</ID>
+    <ID>TooManyFunctions:GmOptions.kt:GmOptions</ID>
+    <ID>TooManyFunctions:MapLibreAdapter.kt:MapLibreAdapter : BaseMapAdapter</ID>
+  </CurrentIssues>
+</SmellBaseline>

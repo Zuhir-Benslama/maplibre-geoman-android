@@ -2,6 +2,16 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.detekt)
+}
+
+detekt {
+    config.setFrom(rootProject.file("detekt.yml"))
+    baseline = file("detekt-baseline.xml")
+    buildUponDefaultConfig = true
+    allRules = false
+    autoCorrect = false
+    toolVersion = "2.0.0-alpha.5"
 }
 
 android {
@@ -50,7 +60,7 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
 }
 
 dependencies {
-    // MapLibre Android SDK 11.x
+    // MapLibre Android SDK 13.4.1 (see gradle/libs.versions.toml)
     implementation(libs.maplibre.android.sdk)
 
     // Kotlin

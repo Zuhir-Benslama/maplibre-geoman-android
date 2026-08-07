@@ -1,5 +1,11 @@
 # MapLibre Geoman Android
 
+> **Vendored copy** — this directory is a vendored snapshot of
+> [`geoman-io/maplibre-geoman-android`](https://github.com/geoman-io/maplibre-geoman-android)
+> published as `com.github.geoman-io:maplibre-geoman-android:1.0.0` (JitPack).
+> It is committed without its own `.git` history. Before bumping this module,
+> pin the exact upstream commit it corresponds to and diff the changes.
+
 <p align="center">
   <strong>MapLibre Plugin For Creating And Editing Geometry Layers on Android</strong><br>
   Draw, Edit, Drag, Rotate, and Delete Layers with Jetpack Compose support<br>
