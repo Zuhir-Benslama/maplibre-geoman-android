@@ -23,6 +23,9 @@ build/
 *.ear
 *.zip
 *.tar.gz
+
+# The Gradle wrapper JAR must be committed (wrapper validation requires it)
+!gradle/wrapper/gradle-wrapper.jar
 *.rar
 
 # Android Studio Navigation editor temp files
