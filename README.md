@@ -1,10 +1,12 @@
 # MapLibre Geoman Android
 
-> **Vendored copy** — this directory is a vendored snapshot of
+> **Maintained fork** — this repository is a fork of
 > [`geoman-io/maplibre-geoman-android`](https://github.com/geoman-io/maplibre-geoman-android)
-> published as `com.github.geoman-io:maplibre-geoman-android:1.0.0` (JitPack).
-> It is committed without its own `.git` history. Before bumping this module,
-> pin the exact upstream commit it corresponds to and diff the changes.
+> (upstream `com.github.geoman-io:maplibre-geoman-android:1.0.0`, JitPack),
+> carried forward with local fixes (thread safety, logging, version bumps, and
+> bug fixes). It is consumed by [NARStreet](https://github.com/Zuhir-Benslama/NARStreet)
+> as a sibling project dependency via `geoman.dir` in NARStreet's
+> `settings.gradle.kts`.
 
 <p align="center">
   <strong>MapLibre Plugin For Creating And Editing Geometry Layers on Android</strong><br>

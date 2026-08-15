@@ -1,0 +1,111 @@
+naming:
+  FunctionNaming:
+    active: true
+    functionPattern: "[a-zA-Z][a-zA-Z0-9]*"
+    ignoreAnnotated:
+      - "Composable"
+      - "androidx.compose.runtime.Composable"
+  MatchingDeclarationName:
+    active: true
+
+style:
+  MagicNumber:
+    active: true
+    ignoreNumbers:
+      - "-1"
+      - "0"
+      - "1"
+      - "2"
+      - "3"
+      - "4"
+      - "100"
+      - "360"
+      - "1000"
+      - "3600"
+      - "6371000.0"
+      - "6378137.0"
+    ignorePropertyDeclaration: true
+    ignoreConstantDeclaration: true
+    ignoreCompanionObjectPropertyDeclaration: true
+  MaxLineLength:
+    active: true
+    maxLineLength: 120
+    excludePackageStatements: true
+    excludeImportStatements: true
+    excludeCommentStatements: false
+    excludeRawStrings: true
+  NewLineAtEndOfFile:
+    active: true
+  ReturnCount:
+    active: true
+    max: 4
+    excludeReturnFromLambda: true
+    excludeGuardClauses: true
+  ThrowsCount:
+    active: true
+    max: 3
+  UnusedImport:
+    active: true
+
+complexity:
+  LongMethod:
+    active: true
+    allowedLines: 55
+  LargeClass:
+    active: true
+    allowedLines: 600
+  TooManyFunctions:
+    active: true
+    allowedFunctionsPerClass: 15
+    allowedFunctionsPerInterface: 15
+    allowedFunctionsPerFile: 20
+  CyclomaticComplexMethod:
+    active: true
+    allowedComplexity: 15
+  LongParameterList:
+    active: true
+    allowedFunctionParameters: 6
+    allowedConstructorParameters: 7
+    ignoreDefaultParameters: true
+    ignoreDataClasses: true
+  NestedBlockDepth:
+    active: true
+    allowedDepth: 4
+
+exceptions:
+  SwallowedException:
+    active: true
+    allowedExceptionNameRegex: "_|(ignore|expected).*"
+  TooGenericExceptionCaught:
+    active: true
+    allowedExceptionNameRegex: "_|(ignore|expected).*"
+
+potential-bugs:
+  UnsafeCast:
+    active: true
+  UnsafeCallOnNullableType:
+    active: true
+
+performance:
+  SpreadOperator:
+    active: true
+
+empty-blocks:
+  EmptyCatchBlock:
+    active: true
+  EmptyFunctionBlock:
+    active: true
+
+comments:
+  DocumentationOverPrivateFunction:
+    active: false
+  UndocumentedPublicClass:
+    active: false
+
+coroutines:
+  GlobalCoroutineUsage:
+    active: true
+  RedundantSuspendModifier:
+    active: true
+  SleepInsteadOfDelay:
+    active: true
