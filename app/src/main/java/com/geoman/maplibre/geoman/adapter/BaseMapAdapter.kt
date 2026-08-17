@@ -177,19 +177,8 @@ abstract class BaseMapAdapter<TMap>(protected val map: TMap, val geoman: Geoman)
     /**
      * Calculate distance between two points in meters
      */
-    open fun getDistance(lngLat1: LngLat, lngLat2: LngLat): Double {
-        val earthRadius = 6371000.0
-        val dLat = Math.toRadians(lngLat2.latitude - lngLat1.latitude)
-        val dLon = Math.toRadians(lngLat2.longitude - lngLat1.longitude)
-        val lat1 = Math.toRadians(lngLat1.latitude)
-        val lat2 = Math.toRadians(lngLat2.latitude)
-
-        val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2)
-        val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-
-        return earthRadius * c
-    }
+    open fun getDistance(lngLat1: LngLat, lngLat2: LngLat): Double =
+        com.geoman.maplibre.geoman.utils.GeometryUtils.distance(lngLat1, lngLat2)
 
     /**
      * Get the nearest point on a line to a given point

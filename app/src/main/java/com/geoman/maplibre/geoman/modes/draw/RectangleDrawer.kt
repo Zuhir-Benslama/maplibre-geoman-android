@@ -2,7 +2,6 @@ package com.geoman.maplibre.geoman.modes.draw
 
 import com.geoman.maplibre.geoman.Geoman
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
-import com.geoman.maplibre.geoman.core.features.FeatureData
 import com.geoman.maplibre.geoman.types.DrawModeName
 import com.geoman.maplibre.geoman.types.geojson.Feature
 import com.geoman.maplibre.geoman.types.geojson.LngLat
@@ -19,19 +18,18 @@ class RectangleDrawer(geoman: Geoman) : BaseDraw(geoman) {
     override val modeName: String = DrawModeName.RECTANGLE.name
 
     private var firstCorner: LngLat? = null
-    private var currentFeature: FeatureData? = null
 
     override fun onMapClick(point: LatLng) {
         if (!enabled) return
 
         val clickLngLat = LngLat(point.longitude, point.latitude)
+        val corner = firstCorner
 
-        if (firstCorner == null) {
+        if (corner == null) {
             // First click - set first corner
             firstCorner = clickLngLat
         } else {
             // Second click - create rectangle and finish
-            val corner = firstCorner ?: return
             createRectangleFeature(corner, clickLngLat)
             finishDrawing()
         }
@@ -42,13 +40,11 @@ class RectangleDrawer(geoman: Geoman) : BaseDraw(geoman) {
 
         // Cancel drawing
         firstCorner = null
-        currentFeature = null
         geomanInstance.disableMode(modeType, modeName)
     }
 
     override fun finishDrawing() {
         firstCorner = null
-        currentFeature = null
         geomanInstance.disableMode(modeType, modeName)
     }
 
@@ -76,10 +72,7 @@ class RectangleDrawer(geoman: Geoman) : BaseDraw(geoman) {
             ),
         )
 
-        currentFeature = geomanInstance.features.addGeoJsonFeature(feature, GeomanCoreConstants.SOURCE_RECTANGLES)
-
-        // Capture the feature before launching coroutine to avoid race condition
-        val featureToFire = currentFeature
+        val featureToFire = geomanInstance.features.addGeoJsonFeature(feature, GeomanCoreConstants.SOURCE_RECTANGLES)
         geomanInstance.scope.launch {
             fireCreateEvent(featureToFire)
         }

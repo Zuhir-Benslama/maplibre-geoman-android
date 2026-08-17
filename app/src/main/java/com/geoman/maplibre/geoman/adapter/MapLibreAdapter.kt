@@ -79,7 +79,6 @@ class MapLibreAdapter(map: MapLibreMap, geoman: Geoman, private val mapView: Map
 
         val touchListener = View.OnTouchListener { _, event ->
             control.onTouchEvent(event as MotionEvent)
-            false
         }
         mapView.renderView.setOnTouchListener(touchListener)
     }
@@ -324,7 +323,7 @@ class MapLibreAdapter(map: MapLibreMap, geoman: Geoman, private val mapView: Map
     }
 
     override fun createPopup(options: PopupOptions, lngLat: LngLat?): Popup {
-        val popup = MapLibrePopup(map, context, options, lngLat)
+        val popup = MapLibrePopup(map, context, options, lngLat, mapView)
         if (lngLat != null) {
             popups.add(popup)
         }
@@ -386,6 +385,7 @@ class MapLibreAdapter(map: MapLibreMap, geoman: Geoman, private val mapView: Map
     }
 
     override fun getEuclideanNearestLngLat(lineCoordinates: List<LngLat>, point: LngLat): LngLat {
+        require(lineCoordinates.isNotEmpty()) { "lineCoordinates must not be empty" }
         var closestPoint = lineCoordinates.first()
         var minDistance = Double.MAX_VALUE
 

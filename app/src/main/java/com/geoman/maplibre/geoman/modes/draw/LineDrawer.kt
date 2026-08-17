@@ -25,7 +25,7 @@ class LineDrawer(geoman: Geoman) : BaseDraw(geoman) {
 
         coordinates.add(LngLat(point.longitude, point.latitude))
 
-        // Update or create the line feature
+        // Update or create the line feature (kept stable across clicks)
         updateLineFeature()
     }
 
@@ -49,25 +49,37 @@ class LineDrawer(geoman: Geoman) : BaseDraw(geoman) {
         geomanInstance.disableMode(modeType, modeName)
     }
 
+    override fun disable() {
+        // Remove the uncommitted partial line if the mode is cancelled mid-draw
+        currentFeature?.let {
+            geomanInstance.features.removeFeature(GeomanCoreConstants.SOURCE_LINES, it.id)
+        }
+        currentFeature = null
+        coordinates.clear()
+        super.disable()
+    }
+
     private fun updateLineFeature() {
         if (coordinates.isEmpty()) return
 
         val geometry = LineString.fromLngLats(coordinates)
+        val existing = currentFeature
 
-        val now = System.currentTimeMillis()
-        val feature = Feature(
-            id = "line_$now",
-            geometry = geometry,
-            properties = mapOf(
-                GeomanCoreConstants.FEATURE_ID_PROPERTY to "line_$now",
-                "shapeType" to "line",
-            ),
-        )
-
-        currentFeature?.let {
-            geomanInstance.features.removeFeature(GeomanCoreConstants.SOURCE_LINES, it.id)
+        if (existing != null) {
+            val updated = existing.copy(feature = existing.feature.copy(geometry = geometry))
+            geomanInstance.features.updateFeature(GeomanCoreConstants.SOURCE_LINES, existing.id) { updated }
+            currentFeature = updated
+        } else {
+            val now = System.currentTimeMillis()
+            val feature = Feature(
+                id = "line_$now",
+                geometry = geometry,
+                properties = mapOf(
+                    GeomanCoreConstants.FEATURE_ID_PROPERTY to "line_$now",
+                    "shapeType" to "line",
+                ),
+            )
+            currentFeature = geomanInstance.features.addGeoJsonFeature(feature, GeomanCoreConstants.SOURCE_LINES)
         }
-
-        currentFeature = geomanInstance.features.addGeoJsonFeature(feature, GeomanCoreConstants.SOURCE_LINES)
     }
 }

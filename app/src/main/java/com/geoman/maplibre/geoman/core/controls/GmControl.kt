@@ -27,10 +27,8 @@ import androidx.compose.material.icons.filled.Square
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -73,27 +71,27 @@ class GmControl(private val geoman: Geoman) {
         // Draw controls section
         val drawSection = createSection(layout.context, "Draw")
         drawSection.addView(
-            createButton(layout.context, "Marker", Icons.Default.Place) {
+            createButton(layout.context, "Marker") {
                 toggleMode(ModeType.DRAW, DrawModeName.MARKER.name)
             },
         )
         drawSection.addView(
-            createButton(layout.context, "Line", Icons.Default.Polyline) {
+            createButton(layout.context, "Line") {
                 toggleMode(ModeType.DRAW, DrawModeName.LINE.name)
             },
         )
         drawSection.addView(
-            createButton(layout.context, "Polygon", Icons.Default.CenterFocusStrong) {
+            createButton(layout.context, "Polygon") {
                 toggleMode(ModeType.DRAW, DrawModeName.POLYGON.name)
             },
         )
         drawSection.addView(
-            createButton(layout.context, "Circle", Icons.Default.Circle) {
+            createButton(layout.context, "Circle") {
                 toggleMode(ModeType.DRAW, DrawModeName.CIRCLE.name)
             },
         )
         drawSection.addView(
-            createButton(layout.context, "Rectangle", Icons.Default.Square) {
+            createButton(layout.context, "Rectangle") {
                 toggleMode(ModeType.DRAW, DrawModeName.RECTANGLE.name)
             },
         )
@@ -102,27 +100,27 @@ class GmControl(private val geoman: Geoman) {
         // Edit controls section
         val editSection = createSection(layout.context, "Edit")
         editSection.addView(
-            createButton(layout.context, "Drag", Icons.Default.PanTool) {
+            createButton(layout.context, "Drag") {
                 toggleMode(ModeType.EDIT, EditModeName.DRAG.name)
             },
         )
         editSection.addView(
-            createButton(layout.context, "Change", Icons.Default.Edit) {
+            createButton(layout.context, "Change") {
                 toggleMode(ModeType.EDIT, EditModeName.CHANGE.name)
             },
         )
         editSection.addView(
-            createButton(layout.context, "Rotate", Icons.Default.Refresh) {
+            createButton(layout.context, "Rotate") {
                 toggleMode(ModeType.EDIT, EditModeName.ROTATE.name)
             },
         )
         editSection.addView(
-            createButton(layout.context, "Cut", Icons.Default.Remove) {
+            createButton(layout.context, "Cut") {
                 toggleMode(ModeType.EDIT, EditModeName.CUT.name)
             },
         )
         editSection.addView(
-            createButton(layout.context, "Delete", Icons.Default.Remove) {
+            createButton(layout.context, "Delete") {
                 toggleMode(ModeType.EDIT, EditModeName.DELETE.name)
             },
         )
@@ -131,7 +129,7 @@ class GmControl(private val geoman: Geoman) {
         // Helper controls section
         val helperSection = createSection(layout.context, "Helpers")
         helperSection.addView(
-            createButton(layout.context, "Snap", Icons.Default.CenterFocusStrong) {
+            createButton(layout.context, "Snap") {
                 toggleMode(ModeType.HELPER, HelperModeName.SNAP.name)
             },
         )
@@ -160,18 +158,13 @@ class GmControl(private val geoman: Geoman) {
         return layout
     }
 
-    private fun createButton(
-        context: android.content.Context,
-        label: String,
-        @Suppress("UNUSED_PARAMETER") icon: ImageVector,
-        onClick: () -> Unit,
-    ): View = ImageButton(context).apply {
-        @Suppress("DEPRECATION")
-        setImageDrawable(android.graphics.drawable.BitmapDrawable())
-        layoutParams = ViewGroup.LayoutParams(48, 48)
-        setOnClickListener { onClick() }
-        contentDescription = label
-    }
+    private fun createButton(context: android.content.Context, label: String, onClick: () -> Unit): View =
+        ImageButton(context).apply {
+            setBackgroundColor(android.graphics.Color.TRANSPARENT)
+            layoutParams = ViewGroup.LayoutParams(48, 48)
+            setOnClickListener { onClick() }
+            contentDescription = label
+        }
 
     /**
      * Remove controls
@@ -216,10 +209,15 @@ class GmControl(private val geoman: Geoman) {
     }
 
     /**
-     * Called for touch events
+     * Called for touch events.
+     * Forwards to the active DragEditor, which consumes events while a drag handle
+     * is being moved so the map does not pan underneath it.
      */
-    fun onTouchEvent(@Suppress("UNUSED_PARAMETER") event: MotionEvent): Boolean {
-        // Handle touch events for dragging, etc.
+    fun onTouchEvent(event: MotionEvent): Boolean {
+        val dragMode = activeModes.firstOrNull { it.first == ModeType.EDIT && it.second == EditModeName.DRAG.name }
+        if (dragMode != null) {
+            return geoman.handleEditTouch(dragMode.second, event)
+        }
         return false
     }
 
@@ -246,13 +244,16 @@ class GmControl(private val geoman: Geoman) {
 }
 
 /**
- * Compose version of the Geoman control panel
+ * Compose version of the Geoman control panel.
+ * Reads the enabled modes directly from [Geoman.activeModesFlow] so the UI can
+ * never drift from the actual mode state (drawers that finish themselves, etc.).
  */
 @Composable
 fun GeomanControls(geoman: Geoman, modifier: Modifier = Modifier) {
-    var activeDrawMode by remember { mutableStateOf<DrawModeName?>(null) }
-    var activeEditMode by remember { mutableStateOf<EditModeName?>(null) }
-    var activeHelperMode by remember { mutableStateOf<HelperModeName?>(null) }
+    val activeModes by geoman.activeModesFlow.collectAsState()
+    val isActive: (ModeType, String) -> Boolean = { type, name ->
+        activeModes.any { it.first == type && it.second == name }
+    }
 
     Box(
         modifier = modifier
@@ -264,169 +265,63 @@ fun GeomanControls(geoman: Geoman, modifier: Modifier = Modifier) {
                 .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f))
                 .padding(8.dp),
         ) {
-            // Draw controls
             ControlSection(title = "Draw") {
-                ControlButton(
-                    icon = Icons.Default.Place,
-                    contentDescription = "Marker",
-                    isActive = activeDrawMode == DrawModeName.MARKER,
-                ) {
-                    if (activeDrawMode == DrawModeName.MARKER) {
-                        activeDrawMode = null
-                        geoman.disableMode(ModeType.DRAW, DrawModeName.MARKER.name)
-                    } else {
-                        activeDrawMode = DrawModeName.MARKER
-                        activeEditMode = null
-                        activeHelperMode = null
-                        geoman.enableMode(ModeType.DRAW, DrawModeName.MARKER.name)
-                    }
-                }
-                ControlButton(
-                    icon = Icons.Default.Polyline,
-                    contentDescription = "Line",
-                    isActive = activeDrawMode == DrawModeName.LINE,
-                ) {
-                    if (activeDrawMode == DrawModeName.LINE) {
-                        activeDrawMode = null
-                        geoman.disableMode(ModeType.DRAW, DrawModeName.LINE.name)
-                    } else {
-                        activeDrawMode = DrawModeName.LINE
-                        activeEditMode = null
-                        activeHelperMode = null
-                        geoman.enableMode(ModeType.DRAW, DrawModeName.LINE.name)
-                    }
-                }
-                ControlButton(
-                    icon = Icons.Default.CenterFocusStrong,
-                    contentDescription = "Polygon",
-                    isActive = activeDrawMode == DrawModeName.POLYGON,
-                ) {
-                    if (activeDrawMode == DrawModeName.POLYGON) {
-                        activeDrawMode = null
-                        geoman.disableMode(ModeType.DRAW, DrawModeName.POLYGON.name)
-                    } else {
-                        activeDrawMode = DrawModeName.POLYGON
-                        activeEditMode = null
-                        activeHelperMode = null
-                        geoman.enableMode(ModeType.DRAW, DrawModeName.POLYGON.name)
-                    }
-                }
-                ControlButton(
-                    icon = Icons.Default.Circle,
-                    contentDescription = "Circle",
-                    isActive = activeDrawMode == DrawModeName.CIRCLE,
-                ) {
-                    if (activeDrawMode == DrawModeName.CIRCLE) {
-                        activeDrawMode = null
-                        geoman.disableMode(ModeType.DRAW, DrawModeName.CIRCLE.name)
-                    } else {
-                        activeDrawMode = DrawModeName.CIRCLE
-                        activeEditMode = null
-                        activeHelperMode = null
-                        geoman.enableMode(ModeType.DRAW, DrawModeName.CIRCLE.name)
-                    }
-                }
-                ControlButton(
-                    icon = Icons.Default.Square,
-                    contentDescription = "Rectangle",
-                    isActive = activeDrawMode == DrawModeName.RECTANGLE,
-                ) {
-                    if (activeDrawMode == DrawModeName.RECTANGLE) {
-                        activeDrawMode = null
-                        geoman.disableMode(ModeType.DRAW, DrawModeName.RECTANGLE.name)
-                    } else {
-                        activeDrawMode = DrawModeName.RECTANGLE
-                        activeEditMode = null
-                        activeHelperMode = null
-                        geoman.enableMode(ModeType.DRAW, DrawModeName.RECTANGLE.name)
+                DrawModeName.entries.forEach { mode ->
+                    ControlButton(
+                        icon = mode.icon(),
+                        contentDescription = mode.name,
+                        isActive = isActive(ModeType.DRAW, mode.name),
+                    ) {
+                        geoman.toggleMode(ModeType.DRAW, mode.name)
                     }
                 }
             }
 
-            // Edit controls
             ControlSection(title = "Edit") {
-                ControlButton(
-                    icon = Icons.Default.PanTool,
-                    contentDescription = "Drag",
-                    isActive = activeEditMode == EditModeName.DRAG,
-                ) {
-                    if (activeEditMode == EditModeName.DRAG) {
-                        activeEditMode = null
-                        geoman.disableMode(ModeType.EDIT, EditModeName.DRAG.name)
-                    } else {
-                        activeEditMode = EditModeName.DRAG
-                        activeDrawMode = null
-                        activeHelperMode = null
-                        geoman.enableMode(ModeType.EDIT, EditModeName.DRAG.name)
-                    }
-                }
-                ControlButton(
-                    icon = Icons.Default.Edit,
-                    contentDescription = "Change",
-                    isActive = activeEditMode == EditModeName.CHANGE,
-                ) {
-                    if (activeEditMode == EditModeName.CHANGE) {
-                        activeEditMode = null
-                        geoman.disableMode(ModeType.EDIT, EditModeName.CHANGE.name)
-                    } else {
-                        activeEditMode = EditModeName.CHANGE
-                        activeDrawMode = null
-                        activeHelperMode = null
-                        geoman.enableMode(ModeType.EDIT, EditModeName.CHANGE.name)
-                    }
-                }
-                ControlButton(
-                    icon = Icons.Default.Refresh,
-                    contentDescription = "Rotate",
-                    isActive = activeEditMode == EditModeName.ROTATE,
-                ) {
-                    if (activeEditMode == EditModeName.ROTATE) {
-                        activeEditMode = null
-                        geoman.disableMode(ModeType.EDIT, EditModeName.ROTATE.name)
-                    } else {
-                        activeEditMode = EditModeName.ROTATE
-                        activeDrawMode = null
-                        activeHelperMode = null
-                        geoman.enableMode(ModeType.EDIT, EditModeName.ROTATE.name)
-                    }
-                }
-                ControlButton(
-                    icon = Icons.Default.Remove,
-                    contentDescription = "Delete",
-                    isActive = activeEditMode == EditModeName.DELETE,
-                ) {
-                    if (activeEditMode == EditModeName.DELETE) {
-                        activeEditMode = null
-                        geoman.disableMode(ModeType.EDIT, EditModeName.DELETE.name)
-                    } else {
-                        activeEditMode = EditModeName.DELETE
-                        activeDrawMode = null
-                        activeHelperMode = null
-                        geoman.enableMode(ModeType.EDIT, EditModeName.DELETE.name)
+                EditModeName.entries.forEach { mode ->
+                    ControlButton(
+                        icon = mode.icon(),
+                        contentDescription = mode.name,
+                        isActive = isActive(ModeType.EDIT, mode.name),
+                    ) {
+                        geoman.toggleMode(ModeType.EDIT, mode.name)
                     }
                 }
             }
 
-            // Helper controls
             ControlSection(title = "Helpers") {
-                ControlButton(
-                    icon = Icons.Default.CenterFocusStrong,
-                    contentDescription = "Snap",
-                    isActive = activeHelperMode == HelperModeName.SNAP,
-                ) {
-                    if (activeHelperMode == HelperModeName.SNAP) {
-                        activeHelperMode = null
-                        geoman.disableMode(ModeType.HELPER, HelperModeName.SNAP.name)
-                    } else {
-                        activeHelperMode = HelperModeName.SNAP
-                        activeDrawMode = null
-                        activeEditMode = null
-                        geoman.enableMode(ModeType.HELPER, HelperModeName.SNAP.name)
+                HelperModeName.entries.forEach { mode ->
+                    ControlButton(
+                        icon = mode.icon(),
+                        contentDescription = mode.name,
+                        isActive = isActive(ModeType.HELPER, mode.name),
+                    ) {
+                        geoman.toggleMode(ModeType.HELPER, mode.name)
                     }
                 }
             }
         }
     }
+}
+
+private fun DrawModeName.icon(): ImageVector = when (this) {
+    DrawModeName.MARKER, DrawModeName.CIRCLE_MARKER -> Icons.Default.Place
+    DrawModeName.LINE -> Icons.Default.Polyline
+    DrawModeName.POLYGON -> Icons.Default.CenterFocusStrong
+    DrawModeName.CIRCLE -> Icons.Default.Circle
+    DrawModeName.RECTANGLE -> Icons.Default.Square
+}
+
+private fun EditModeName.icon(): ImageVector = when (this) {
+    EditModeName.DRAG -> Icons.Default.PanTool
+    EditModeName.CHANGE -> Icons.Default.Edit
+    EditModeName.ROTATE -> Icons.Default.Refresh
+    EditModeName.CUT, EditModeName.DELETE -> Icons.Default.Remove
+}
+
+private fun HelperModeName.icon(): ImageVector = when (this) {
+    HelperModeName.SNAP, HelperModeName.ZOOM_TO_FEATURES -> Icons.Default.CenterFocusStrong
+    HelperModeName.SHAPE_MARKERS -> Icons.Default.Place
 }
 
 @Composable

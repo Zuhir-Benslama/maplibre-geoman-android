@@ -1,5 +1,7 @@
 package com.geoman.maplibre.geoman.core.features
 
+import androidx.compose.ui.graphics.toArgb
+import com.geoman.maplibre.geoman.Geoman
 import com.geoman.maplibre.geoman.GeomanLogger
 import com.geoman.maplibre.geoman.adapter.BaseMapAdapter
 import com.geoman.maplibre.geoman.adapter.LayerOptions
@@ -9,6 +11,8 @@ import com.geoman.maplibre.geoman.types.geojson.Feature
 import com.geoman.maplibre.geoman.types.geojson.FeatureCollection
 import com.geoman.maplibre.geoman.types.geojson.Geometry
 import com.geoman.maplibre.geoman.types.geojson.LngLat
+import com.geoman.maplibre.geoman.types.geojson.ScreenPoint
+import com.geoman.maplibre.geoman.utils.GeometryUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -43,9 +47,13 @@ object FeatureSources {
 /**
  * Features manager for handling GeoJSON features
  */
-class Features {
+class Features(private val geoman: Geoman? = null) {
     private val featuresMap = mutableMapOf<String, MutableMap<String, FeatureData>>()
     private val _featuresFlow = MutableStateFlow<Map<String, Map<String, FeatureData>>>(emptyMap())
+
+    private companion object {
+        const val COLOR_MASK = 0xFFFFFF
+    }
 
     val featuresFlow: StateFlow<Map<String, Map<String, FeatureData>>> = _featuresFlow.asStateFlow()
 
@@ -169,27 +177,33 @@ class Features {
     }
 
     /**
-     * Get features within bounds
+     * Get features whose bounding box intersects the given bounds
      */
     @Synchronized
     fun getFeaturesInBounds(bounds: List<LngLat>, sourceNames: List<String>? = null): List<FeatureData> {
+        require(bounds.isNotEmpty()) { "bounds must contain at least one coordinate" }
         val sources = sourceNames ?: featuresMap.keys.toList()
+        val boundsBbox = GeometryUtils.bbox(bounds)
         return sources.flatMap { sourceName ->
             featuresMap[sourceName]?.values?.filter { feature ->
-                isGeometryInBounds(feature.geometry, bounds)
+                featureBboxIntersects(feature.geometry, boundsBbox)
             } ?: emptyList()
         }
     }
 
     /**
-     * Get features at screen coordinates (requires map adapter query)
+     * Get features at screen coordinates (delegates to the map adapter query)
      */
-    fun getFeaturesAtPoint(
-        @Suppress("UNUSED_PARAMETER") point: com.geoman.maplibre.geoman.types.geojson.ScreenPoint,
-        @Suppress("UNUSED_PARAMETER") sourceNames: List<String>? = null,
-    ): List<FeatureData> {
-        // This will be implemented with map adapter query
-        return emptyList()
+    fun getFeaturesAtPoint(point: ScreenPoint, sourceNames: List<String>? = null): List<FeatureData> {
+        val adapter = mapAdapter ?: return emptyList()
+        val sources = sourceNames ?: featuresMap.keys.toList()
+        return adapter.queryFeaturesByScreenCoordinates(point, sources)
+    }
+
+    private fun featureBboxIntersects(geometry: Geometry, boundsBbox: List<Double>): Boolean {
+        val geometryBbox = GeometryUtils.bbox(GeometryUtils.extractAllCoordinates(geometry))
+        return geometryBbox[0] <= boundsBbox[2] && geometryBbox[2] >= boundsBbox[0] &&
+            geometryBbox[1] <= boundsBbox[3] && geometryBbox[3] >= boundsBbox[1]
     }
 
     /**
@@ -219,113 +233,88 @@ class Features {
      * Add rendering layers for a source on the map
      */
     private fun addRenderingLayersForSource(sourceName: String, adapter: BaseMapAdapter<*>) {
+        val layerId = when (sourceName) {
+            FeatureSources.MARKER -> "${sourceName}_symbol"
+            FeatureSources.LINE -> "${sourceName}_line"
+            else -> "${sourceName}_stroke"
+        }
+
         // Only add layers once per source
-        if (adapter.getLayer("${sourceName}_fill") != null) return
+        if (adapter.getLayer(layerId) != null) return
 
-        when (sourceName) {
-            FeatureSources.MARKER -> {
-                try {
-                    adapter.addLayer(
-                        LayerOptions(
-                            id = "${sourceName}_symbol",
-                            type = LayerType.SYMBOL,
-                            source = sourceName,
-                            layout = mapOf(
-                                "icon-image" to "default-marker",
-                                "icon-size" to 0.5f,
-                                "icon-allow-overlap" to true,
-                            ),
-                        ),
-                    )
-                } catch (e: Exception) {
-                    GeomanLogger.w("Features", "Error adding marker layer: ${e.message}")
-                }
-            }
-
-            FeatureSources.LINE -> {
-                try {
-                    adapter.addLayer(
-                        LayerOptions(
-                            id = "${sourceName}_line",
-                            type = LayerType.LINE,
-                            source = sourceName,
-                            paint = mapOf(
-                                "line-color" to "#3498db",
-                                "line-width" to 3f,
-                            ),
-                        ),
-                    )
-                } catch (e: Exception) {
-                    GeomanLogger.w("Features", "Error adding line layer: ${e.message}")
-                }
-            }
-
-            FeatureSources.POLYGON -> {
-                try {
-                    // No fill layer - outline only
-                    adapter.addLayer(
-                        LayerOptions(
-                            id = "${sourceName}_stroke",
-                            type = LayerType.LINE,
-                            source = sourceName,
-                            paint = mapOf(
-                                "line-color" to "#8e44ad",
-                                "line-width" to 2f,
-                            ),
-                        ),
-                    )
-                } catch (e: Exception) {
-                    GeomanLogger.w("Features", "Error adding polygon layers: ${e.message}")
-                }
-            }
-
-            FeatureSources.CIRCLE -> {
-                try {
-                    // No fill layer - outline only
-                    adapter.addLayer(
-                        LayerOptions(
-                            id = "${sourceName}_stroke",
-                            type = LayerType.LINE,
-                            source = sourceName,
-                            paint = mapOf(
-                                "line-color" to "#e74c3c",
-                                "line-width" to 2f,
-                            ),
-                        ),
-                    )
-                } catch (e: Exception) {
-                    GeomanLogger.w("Features", "Error adding circle layers: ${e.message}")
-                }
-            }
-
-            FeatureSources.RECTANGLE -> {
-                try {
-                    adapter.addLayer(
-                        LayerOptions(
-                            id = "${sourceName}_stroke",
-                            type = LayerType.LINE,
-                            source = sourceName,
-                            paint = mapOf(
-                                "line-color" to "#2ecc71",
-                                "line-width" to 2f,
-                            ),
-                        ),
-                    )
-                } catch (e: Exception) {
-                    GeomanLogger.w("Features", "Error adding rectangle layers: ${e.message}")
-                }
-            }
+        try {
+            adapter.addLayer(buildLayerOptions(sourceName, layerId))
+        } catch (e: Exception) {
+            GeomanLogger.w("Features", "Error adding layer $layerId: ${e.message}")
         }
     }
 
-    private fun isGeometryInBounds(geometry: Geometry, bounds: List<LngLat>): Boolean = when (geometry) {
-        is com.geoman.maplibre.geoman.types.geojson.Point -> {
-            val point = geometry.toLngLat()
-            bounds.any { it.latitude == point.latitude && it.longitude == point.longitude }
+    private fun buildLayerOptions(sourceName: String, layerId: String): LayerOptions {
+        if (sourceName == FeatureSources.MARKER) {
+            return LayerOptions(
+                id = layerId,
+                type = LayerType.SYMBOL,
+                source = sourceName,
+                layout = mapOf(
+                    "icon-image" to "default-marker",
+                    "icon-size" to 0.5f,
+                    "icon-allow-overlap" to true,
+                ),
+            )
         }
 
-        else -> true
+        val (defaultColor, defaultWidth) = resolveDefaults(sourceName)
+        val layerStyles = geoman?.options?.layerStyles
+        val color = resolveLineColor(layerStyles, sourceName) ?: defaultColor
+        val width = resolveLineWidth(layerStyles, sourceName) ?: defaultWidth
+
+        return LayerOptions(
+            id = layerId,
+            type = LayerType.LINE,
+            source = sourceName,
+            paint = mapOf(
+                "line-color" to color,
+                "line-width" to width,
+            ),
+        )
     }
+
+    private data class LayerDefaults(val color: String, val width: Float)
+
+    private fun resolveDefaults(sourceName: String) = when (sourceName) {
+        FeatureSources.LINE -> LayerDefaults("#3498db", 3f)
+        FeatureSources.POLYGON -> LayerDefaults("#8e44ad", 2f)
+        FeatureSources.CIRCLE -> LayerDefaults("#e74c3c", 2f)
+        else -> LayerDefaults("#2ecc71", 2f)
+    }
+
+    @Suppress("CyclomaticComplexMethod")
+    private fun resolveLineColor(
+        styles: com.geoman.maplibre.geoman.core.options.LayerStyles?,
+        sourceName: String,
+    ): String? {
+        val color = when (sourceName) {
+            FeatureSources.LINE -> styles?.line?.color
+            FeatureSources.POLYGON -> styles?.polygon?.color
+            FeatureSources.CIRCLE -> styles?.circle?.color
+            else -> styles?.rectangle?.color
+        }
+        return color?.let { toHex(it) }
+    }
+
+    @Suppress("CyclomaticComplexMethod")
+    private fun resolveLineWidth(
+        styles: com.geoman.maplibre.geoman.core.options.LayerStyles?,
+        sourceName: String,
+    ): Float? = when (sourceName) {
+        FeatureSources.LINE -> styles?.line?.width
+        FeatureSources.POLYGON -> styles?.polygon?.width
+        FeatureSources.CIRCLE -> styles?.circle?.width
+        else -> styles?.rectangle?.width
+    }
+
+    private fun toHex(color: androidx.compose.ui.graphics.Color): String =
+        String.format("#%06X", color.toArgb() and COLOR_MASK)
 
     private fun updateFeaturesFlow() {
         _featuresFlow.value = featuresMap.mapValues { it.value.toMap() }

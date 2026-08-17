@@ -8,6 +8,7 @@ import com.geoman.maplibre.geoman.modes.draw.PolygonDrawer
 import com.geoman.maplibre.geoman.modes.draw.RectangleDrawer
 import com.geoman.maplibre.geoman.modes.edit.BaseEdit
 import com.geoman.maplibre.geoman.modes.edit.ChangeEditor
+import com.geoman.maplibre.geoman.modes.edit.CutEditor
 import com.geoman.maplibre.geoman.modes.edit.DeleteEditor
 import com.geoman.maplibre.geoman.modes.edit.DragEditor
 import com.geoman.maplibre.geoman.modes.edit.RotateEditor
@@ -38,7 +39,7 @@ class ModeFactory(private val geoman: Geoman) {
         EditModeName.DRAG.name -> DragEditor(geoman)
         EditModeName.CHANGE.name -> ChangeEditor(geoman)
         EditModeName.ROTATE.name -> RotateEditor(geoman)
-        EditModeName.CUT.name -> null
+        EditModeName.CUT.name -> CutEditor(geoman)
         EditModeName.DELETE.name -> DeleteEditor(geoman)
         else -> null
     }

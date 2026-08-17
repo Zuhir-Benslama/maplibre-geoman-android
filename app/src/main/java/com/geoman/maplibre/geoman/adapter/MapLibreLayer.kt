@@ -2,6 +2,7 @@ package com.geoman.maplibre.geoman.adapter
 
 import com.geoman.maplibre.geoman.Geoman
 import com.geoman.maplibre.geoman.GeomanLogger
+import org.json.JSONArray
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.style.expressions.Expression
 import org.maplibre.android.style.layers.CircleLayer
@@ -9,7 +10,6 @@ import org.maplibre.android.style.layers.FillLayer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.PropertyValue
 import org.maplibre.android.style.layers.SymbolLayer
-import org.maplibre.android.style.sources.GeoJsonSource
 
 /**
  * MapLibre layer implementation for SDK 11.x
@@ -26,6 +26,8 @@ class MapLibreLayer(private val geoman: Geoman, private val options: LayerOption
     }
 
     private fun add() {
+        if (isAdded) return
+
         val style = map.style ?: return
 
         val layer = when (options.type) {
@@ -111,22 +113,19 @@ class MapLibreLayer(private val geoman: Geoman, private val options: LayerOption
 
     private fun valueToPropertyValue(name: String, value: Any): PropertyValue<*>? = when (value) {
         is String -> PropertyValue(name, value)
+        is Boolean -> PropertyValue(name, value)
         is Int -> PropertyValue(name, value.toFloat())
         is Float -> PropertyValue(name, value)
-        is Double -> PropertyValue(name, value.toFloat())
-        is Boolean -> PropertyValue(name, value.toString())
+        is Double -> PropertyValue(name, value)
         is Array<*> -> PropertyValue(name, value.map { it?.toString() ?: "" }.toTypedArray())
         is List<*> -> PropertyValue(name, value.map { it?.toString() ?: "" }.toTypedArray())
         else -> PropertyValue(name, value.toString())
     }
 
-    private fun parseExpression(filter: Any): Expression? {
-        // Simple filter parsing - in production, use proper Expression parsing
-        return try {
-            Expression.Converter.convert(filter.toString())
-        } catch (e: Exception) {
-            null
-        }
+    private fun parseExpression(filter: List<Any>): Expression? = try {
+        Expression.Converter.convert(JSONArray(filter).toString())
+    } catch (e: Exception) {
+        null
     }
 
     override fun setPaintProperty(name: String, value: Any) {
@@ -136,10 +135,10 @@ class MapLibreLayer(private val geoman: Geoman, private val options: LayerOption
         val property = valueToPropertyValue(name, value) ?: return
         @Suppress("UNCHECKED_CAST")
         when (layer) {
-            is FillLayer -> layer.withProperties(property)
-            is LineLayer -> layer.withProperties(property)
-            is CircleLayer -> layer.withProperties(property)
-            is SymbolLayer -> layer.withProperties(property)
+            is FillLayer -> layer.setProperties(property)
+            is LineLayer -> layer.setProperties(property)
+            is CircleLayer -> layer.setProperties(property)
+            is SymbolLayer -> layer.setProperties(property)
         }
     }
 

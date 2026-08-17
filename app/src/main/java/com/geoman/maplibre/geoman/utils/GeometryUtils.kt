@@ -59,11 +59,7 @@ object GeometryUtils {
     /**
      * Calculate centroid from flat coordinate array
      */
-    fun centroidFromFlat(coordinates: List<Double>): LngLat {
-        val pairs = coordinates.chunked(2)
-        val lngLats = pairs.map { LngLat(it[0], it[1]) }
-        return centroid(lngLats)
-    }
+    fun centroidFromFlat(coordinates: List<Double>): LngLat = centroid(toLngLats(coordinates))
 
     /**
      * Calculate distance between two points in meters
@@ -109,33 +105,38 @@ object GeometryUtils {
     /**
      * Calculate bounding box from flat coordinate array
      */
-    fun bboxFromFlat(coordinates: List<Double>): List<Double> {
-        val pairs = coordinates.chunked(2)
-        val lngLats = pairs.map { LngLat(it[0], it[1]) }
-        return bbox(lngLats)
-    }
+    fun bboxFromFlat(coordinates: List<Double>): List<Double> = bbox(toLngLats(coordinates))
 
     /**
-     * Check if a point is within bounds
+     * Check if a point is within bounds.
+     *
+     * The bounds are a list of coordinates; their axis-aligned bounding box is used.
+     * Boxes that span the antimeridian (longitude spread > 180 degrees) are handled
+     * correctly: the point is inside if it is on either side of the 180/180 line.
      */
     fun isPointInBounds(point: LngLat, bounds: List<LngLat>): Boolean {
-        require(bounds.size >= 2) { "Bounds must have at least 2 points (SW, NE)" }
+        require(bounds.isNotEmpty()) { "Bounds must contain at least one point" }
 
-        val sw = bounds.minByOrNull { it.latitude + it.longitude } ?: return false
-        val ne = bounds.maxByOrNull { it.latitude + it.longitude } ?: return false
+        val minLat = bounds.minOf { it.latitude }
+        val maxLat = bounds.maxOf { it.latitude }
+        val west = bounds.minOf { it.longitude }
+        val east = bounds.maxOf { it.longitude }
+        val crossesAntimeridian = (east - west) > 180.0
 
-        return point.longitude in sw.longitude..ne.longitude &&
-            point.latitude in sw.latitude..ne.latitude
+        val lonInRange = if (crossesAntimeridian) {
+            point.longitude >= west || point.longitude <= east
+        } else {
+            point.longitude in west..east
+        }
+
+        return lonInRange && point.latitude in minLat..maxLat
     }
 
     /**
      * Check if a point is within bounds (flat array version)
      */
-    fun isPointInBoundsFromFlat(point: LngLat, bounds: List<Double>): Boolean {
-        val pairs = bounds.chunked(2)
-        val lngLats = pairs.map { LngLat(it[0], it[1]) }
-        return isPointInBounds(point, lngLats)
-    }
+    fun isPointInBoundsFromFlat(point: LngLat, bounds: List<Double>): Boolean =
+        isPointInBounds(point, toLngLats(bounds))
 
     /**
      * Check if geometry is within bounds
@@ -210,11 +211,7 @@ object GeometryUtils {
     /**
      * Calculate the area from flat coordinate array
      */
-    fun areaFromFlat(coordinates: List<Double>): Double {
-        val pairs = coordinates.chunked(2)
-        val lngLats = pairs.map { LngLat(it[0], it[1]) }
-        return area(lngLats)
-    }
+    fun areaFromFlat(coordinates: List<Double>): Double = area(toLngLats(coordinates))
 
     /**
      * Calculate the perimeter of a polygon in meters
@@ -285,29 +282,16 @@ object GeometryUtils {
     }
 
     private fun perpendicularDistance(point: LngLat, lineStart: LngLat, lineEnd: LngLat): Double {
-        val dx = lineEnd.longitude - lineStart.longitude
-        val dy = lineEnd.latitude - lineStart.latitude
-
-        if (dx == 0.0 && dy == 0.0) {
-            return distance(point, lineStart)
-        }
-
-        val u = (
-            (point.longitude - lineStart.longitude) * dx +
-                (point.latitude - lineStart.latitude) * dy
-            ) /
-            (dx * dx + dy * dy)
-
-        val nearestX = lineStart.longitude + u * dx
-        val nearestY = lineStart.latitude + u * dy
-
-        return distance(point, LngLat(nearestX, nearestY))
+        val nearest = nearestPointOnSegment(point, lineStart, lineEnd)
+        return distance(point, nearest)
     }
 
     /**
-     * Convert flat coordinates to LngLat list
+     * Convert flat coordinates to LngLat list.
+     *
+     * @throws IllegalArgumentException if the list does not contain an even number of values
      */
-    fun flatToLngLat(coordinates: List<Double>): List<LngLat> = coordinates.chunked(2).map { LngLat(it[0], it[1]) }
+    fun flatToLngLat(coordinates: List<Double>): List<LngLat> = toLngLats(coordinates)
 
     /**
      * Convert LngLat list to flat coordinates
@@ -409,5 +393,12 @@ object GeometryUtils {
             longitude = segmentStart.longitude + clampedU * dx,
             latitude = segmentStart.latitude + clampedU * dy,
         )
+    }
+
+    private fun toLngLats(coordinates: List<Double>): List<LngLat> {
+        require(coordinates.size % 2 == 0) {
+            "Flat coordinate array must have an even number of values, got ${coordinates.size}"
+        }
+        return coordinates.chunked(2).map { LngLat(it[0], it[1]) }
     }
 }

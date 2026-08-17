@@ -29,16 +29,6 @@ object GeomanCoreConstants {
     const val SOURCE_EDIT = "${GM_PREFIX}_edit"
     const val SOURCE_HELPER = "${GM_PREFIX}_helper"
 
-    /** Source names - order matters for layer rendering */
-    object Sources {
-        const val STANDBY = "${GM_PREFIX}_standby"
-        const val MAIN = "${GM_PREFIX}_main"
-        const val TEMPORARY = "${GM_PREFIX}_temporary"
-        const val INTERNAL = "${GM_PREFIX}_internal"
-
-        val ALL = listOf(MAIN, TEMPORARY, INTERNAL)
-    }
-
     /** Event names */
     object Events {
         const val LOADED = "${GM_PREFIX}:loaded"

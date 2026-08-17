@@ -145,19 +145,12 @@ data class GeometryCollection(override val type: String = "GeometryCollection", 
 data class LngLat(val longitude: Double, val latitude: Double) {
     fun toArray(): List<Double> = listOf(longitude, latitude)
 
-    fun distanceTo(other: LngLat): Double {
-        val earthRadius = 6371000.0 // meters
-        val dLat = Math.toRadians(other.latitude - latitude)
-        val dLon = Math.toRadians(other.longitude - longitude)
-        val lat1 = Math.toRadians(latitude)
-        val lat2 = Math.toRadians(other.latitude)
-
-        val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2)
-        val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-
-        return earthRadius * c
-    }
+    /**
+     * Distance to another coordinate in meters (Haversine formula).
+     * Delegates to [com.geoman.maplibre.geoman.utils.GeometryUtils.distance] so the
+     * formula lives in exactly one place.
+     */
+    fun distanceTo(other: LngLat): Double = com.geoman.maplibre.geoman.utils.GeometryUtils.distance(this, other)
 }
 
 /**

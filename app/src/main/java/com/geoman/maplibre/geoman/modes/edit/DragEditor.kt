@@ -1,10 +1,13 @@
 package com.geoman.maplibre.geoman.modes.edit
 
+import android.view.MotionEvent
 import com.geoman.maplibre.geoman.Geoman
+import com.geoman.maplibre.geoman.adapter.DomMarker
+import com.geoman.maplibre.geoman.adapter.DomMarkerOptions
+import com.geoman.maplibre.geoman.adapter.MarkerAnchor
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.core.features.FeatureData
 import com.geoman.maplibre.geoman.types.EditModeName
-import com.geoman.maplibre.geoman.types.geojson.Feature
 import com.geoman.maplibre.geoman.types.geojson.LineString
 import com.geoman.maplibre.geoman.types.geojson.LngLat
 import com.geoman.maplibre.geoman.types.geojson.Point
@@ -13,7 +16,9 @@ import kotlinx.coroutines.launch
 import org.maplibre.android.geometry.LatLng
 
 /**
- * Drag editing mode - allows dragging features
+ * Drag editing mode - drags features by selecting them with a tap and then
+ * dragging the handle that appears. The handle is a draggable DOM marker whose
+ * callbacks drive the feature translation.
  */
 class DragEditor(geoman: Geoman) : BaseEdit(geoman) {
 
@@ -21,52 +26,69 @@ class DragEditor(geoman: Geoman) : BaseEdit(geoman) {
 
     private var isDragging = false
     private var dragStartPoint: LatLng? = null
+    private var dragHandle: DomMarker? = null
 
     override fun enable() {
         super.enable()
-        // Set up drag listeners
     }
 
     override fun disable() {
         if (isDragging) {
             finishDrag()
         }
+        dragHandle?.remove()
+        dragHandle = null
         super.disable()
     }
 
     override fun onMapClick(point: LatLng) {
         if (!enabled) return
 
-        // Find feature at click point
+        val clickPoint = LngLat(point.longitude, point.latitude)
         val features = geomanInstance.mapAdapter.queryFeaturesByScreenCoordinates(
-            geomanInstance.mapAdapter.project(LngLat(point.longitude, point.latitude)),
-            listOf(
-                GeomanCoreConstants.SOURCE_MARKERS,
-                GeomanCoreConstants.SOURCE_LINES,
-                GeomanCoreConstants.SOURCE_POLYGONS,
-                GeomanCoreConstants.SOURCE_CIRCLES,
-                GeomanCoreConstants.SOURCE_RECTANGLES,
-            ),
+            geomanInstance.mapAdapter.project(clickPoint),
+            DRAG_SOURCES,
         )
 
         if (features.isNotEmpty()) {
             selectFeature(features.first())
+            startDrag(point)
         } else {
             selectedFeature = null
         }
     }
 
     /**
-     * Start dragging a feature
+     * Start dragging a feature.
+     * Creates a draggable handle at the press point that drives the drag.
      */
     fun startDrag(point: LatLng) {
         if (!enabled || selectedFeature == null || isDragging) return
 
+        val feature = selectedFeature ?: return
         isDragging = true
         dragStartPoint = point
 
-        geomanInstance.scope.launch {
-            fireDragStartEvent(selectedFeature)
+        dragHandle?.remove()
+        dragHandle = geomanInstance.mapAdapter.createDomMarker(
+            DomMarkerOptions(
+                draggable = true,
+                anchor = MarkerAnchor.CENTER,
+            ),
+            LngLat(point.longitude, point.latitude),
+        ).also { handle ->
+            handle.onDragStart = {
+                geomanInstance.scope.launch {
+                    fireDragStartEvent(feature)
+                }
+            }
+            handle.onDrag = { newLngLat ->
+                dragTo(LatLng(newLngLat.latitude, newLngLat.longitude))
+            }
+            handle.onDragEnd = {
+                finishDrag()
+            }
+            handle.addToMap()
         }
     }
 
@@ -98,10 +120,21 @@ class DragEditor(geoman: Geoman) : BaseEdit(geoman) {
         isDragging = false
         dragStartPoint = null
 
-        geomanInstance.scope.launch {
-            fireDragEndEvent(selectedFeature)
+        dragHandle?.remove()
+        dragHandle = null
+
+        selectedFeature?.let {
+            geomanInstance.scope.launch {
+                fireDragEndEvent(it)
+            }
         }
     }
+
+    /**
+     * Consume touch events while a drag is in progress so the map does not pan
+     * underneath the drag handle.
+     */
+    fun onTouchEvent(@Suppress("UNUSED_PARAMETER") event: MotionEvent): Boolean = isDragging
 
     private fun selectFeature(feature: FeatureData) {
         selectedFeature = feature
@@ -140,5 +173,15 @@ class DragEditor(geoman: Geoman) : BaseEdit(geoman) {
                 // Unsupported geometry type
             }
         }
+    }
+
+    private companion object {
+        val DRAG_SOURCES = listOf(
+            GeomanCoreConstants.SOURCE_MARKERS,
+            GeomanCoreConstants.SOURCE_LINES,
+            GeomanCoreConstants.SOURCE_POLYGONS,
+            GeomanCoreConstants.SOURCE_CIRCLES,
+            GeomanCoreConstants.SOURCE_RECTANGLES,
+        )
     }
 }

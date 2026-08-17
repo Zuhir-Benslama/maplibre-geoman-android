@@ -2,11 +2,10 @@ package com.geoman.maplibre.geoman.modes.draw
 
 import com.geoman.maplibre.geoman.Geoman
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
-import com.geoman.maplibre.geoman.core.features.FeatureData
 import com.geoman.maplibre.geoman.types.DrawModeName
 import com.geoman.maplibre.geoman.types.geojson.Feature
 import com.geoman.maplibre.geoman.types.geojson.LngLat
-import com.geoman.maplibre.geoman.types.geojson.Point
+import com.geoman.maplibre.geoman.types.geojson.Polygon
 import com.geoman.maplibre.geoman.utils.GeometryUtils
 import kotlinx.coroutines.launch
 import org.maplibre.android.geometry.LatLng
@@ -20,19 +19,18 @@ class CircleDrawer(geoman: Geoman) : BaseDraw(geoman) {
     override val modeName: String = DrawModeName.CIRCLE.name
 
     private var center: LngLat? = null
-    private var currentFeature: FeatureData? = null
 
     override fun onMapClick(point: LatLng) {
         if (!enabled) return
 
         val clickLngLat = LngLat(point.longitude, point.latitude)
+        val c = center
 
-        if (center == null) {
+        if (c == null) {
             // First click - set center
             center = clickLngLat
         } else {
             // Second click - set radius and finish
-            val c = center ?: return
             val radius = GeometryUtils.calculateDistance(c, clickLngLat)
             createCircleFeature(c, radius)
             finishDrawing()
@@ -42,23 +40,20 @@ class CircleDrawer(geoman: Geoman) : BaseDraw(geoman) {
     override fun onMapLongClick(point: LatLng) {
         if (!enabled || center == null) return
 
+        // Cancel drawing
         center = null
-        currentFeature = null
         geomanInstance.disableMode(modeType, modeName)
     }
 
     override fun finishDrawing() {
         center = null
-        currentFeature = null
         geomanInstance.disableMode(modeType, modeName)
     }
 
     private fun createCircleFeature(center: LngLat, radius: Double) {
         val circleCoordinates = GeometryUtils.generateCircleCoordinates(center, radius)
 
-        val geometry = com.geoman.maplibre.geoman.types.geojson.Polygon.fromLngLats(
-            listOf(circleCoordinates),
-        )
+        val geometry = Polygon.fromLngLats(listOf(circleCoordinates))
 
         val now = System.currentTimeMillis()
         val feature = Feature(
@@ -72,10 +67,7 @@ class CircleDrawer(geoman: Geoman) : BaseDraw(geoman) {
             ),
         )
 
-        currentFeature = geomanInstance.features.addGeoJsonFeature(feature, GeomanCoreConstants.SOURCE_CIRCLES)
-
-        // Capture the feature before launching coroutine to avoid race condition
-        val featureToFire = currentFeature
+        val featureToFire = geomanInstance.features.addGeoJsonFeature(feature, GeomanCoreConstants.SOURCE_CIRCLES)
         geomanInstance.scope.launch {
             fireCreateEvent(featureToFire)
         }

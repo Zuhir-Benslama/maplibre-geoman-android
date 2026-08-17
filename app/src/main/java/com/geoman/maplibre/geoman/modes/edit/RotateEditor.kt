@@ -110,10 +110,7 @@ class RotateEditor(geoman: Geoman) : BaseEdit(geoman) {
                 if (coords.isEmpty()) {
                     LngLat(0.0, 0.0)
                 } else {
-                    LngLat(
-                        coords.map { it.longitude }.average(),
-                        coords.map { it.latitude }.average(),
-                    )
+                    GeometryUtils.calculateCentroid(coords)
                 }
             }
 
@@ -127,7 +124,10 @@ class RotateEditor(geoman: Geoman) : BaseEdit(geoman) {
     }
 
     private fun calculateAngle(center: LngLat, point: LngLat): Double {
-        val dx = point.longitude - center.longitude
+        // Scale longitude by cos(latitude) so the angle is measured in
+        // approximately equirectangular (metre-like) space
+        val scale = cos(Math.toRadians(center.latitude)).coerceAtLeast(1e-6)
+        val dx = (point.longitude - center.longitude) * scale
         val dy = point.latitude - center.latitude
         return Math.toDegrees(atan2(dy, dx))
     }
@@ -166,15 +166,18 @@ class RotateEditor(geoman: Geoman) : BaseEdit(geoman) {
         val cosA = cos(angleRad)
         val sinA = sin(angleRad)
 
-        val dx = point.longitude - center.longitude
-        val dy = point.latitude - center.latitude
+        // Rotate in equirectangular (metre-like) space so shapes keep their
+        // proportions when the map is projected
+        val cosLat = cos(Math.toRadians(center.latitude)).coerceAtLeast(1e-6)
+        val ex = (point.longitude - center.longitude) * cosLat
+        val ey = point.latitude - center.latitude
 
-        val rotatedDx = dx * cosA - dy * sinA
-        val rotatedDy = dx * sinA + dy * cosA
+        val rotatedEx = ex * cosA - ey * sinA
+        val rotatedEy = ex * sinA + ey * cosA
 
         return LngLat(
-            longitude = center.longitude + rotatedDx,
-            latitude = center.latitude + rotatedDy,
+            longitude = center.longitude + rotatedEx / cosLat,
+            latitude = center.latitude + rotatedEy,
         )
     }
 }

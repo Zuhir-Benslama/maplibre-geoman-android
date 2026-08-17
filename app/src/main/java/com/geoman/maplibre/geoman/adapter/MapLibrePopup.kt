@@ -1,6 +1,7 @@
 package com.geoman.maplibre.geoman.adapter
 
 import android.content.Context
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -8,7 +9,6 @@ import android.widget.PopupWindow
 import android.widget.TextView
 import com.geoman.maplibre.geoman.R
 import com.geoman.maplibre.geoman.types.geojson.LngLat
-import com.geoman.maplibre.geoman.types.geojson.ScreenPoint
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapLibreMap
 
@@ -20,12 +20,14 @@ class MapLibrePopup(
     private val context: Context,
     private var options: PopupOptions,
     private var lngLat: LngLat? = null,
+    private val mapView: ViewGroup,
 ) : Popup(map) {
 
     private val mapLibreMap: MapLibreMap = map
     private var popupWindow: PopupWindow? = null
     private var contentView: View? = null
     private var isAdded = false
+    private var cameraMoveListener: MapLibreMap.OnCameraMoveListener? = null
 
     override fun getLngLat(): LngLat? = lngLat
 
@@ -84,6 +86,12 @@ class MapLibrePopup(
             contentView?.findViewById<View>(R.id.popup_close_button)?.visibility = View.GONE
         }
 
+        // Keep the popup anchored to its location while the camera moves
+        cameraMoveListener = MapLibreMap.OnCameraMoveListener {
+            updatePosition()
+        }
+        mapLibreMap.addOnCameraMoveListener(cameraMoveListener!!)
+
         isAdded = true
 
         // Show popup if we have a location
@@ -96,21 +104,30 @@ class MapLibrePopup(
         val screenPoint = mapLibreMap.projection.toScreenLocation(
             LatLng(lngLat.latitude, lngLat.longitude),
         )
+        val content = contentView ?: return
 
-        contentView?.let { content ->
-            popupWindow?.showAsDropDown(
-                content,
-                screenPoint.x.toInt(),
-                screenPoint.y.toInt() - content.measuredHeight - 20,
-            )
+        content.measure(
+            View.MeasureSpec.makeMeasureSpec(options.maxWidth.toInt(), View.MeasureSpec.AT_MOST),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+        )
+
+        val x = screenPoint.x.toInt()
+        val y = when (options.anchor) {
+            MarkerAnchor.BOTTOM, MarkerAnchor.BOTTOM_LEFT, MarkerAnchor.BOTTOM_RIGHT ->
+                (screenPoint.y - content.measuredHeight - ANCHOR_GAP_PX).toInt()
+
+            MarkerAnchor.TOP, MarkerAnchor.TOP_LEFT, MarkerAnchor.TOP_RIGHT ->
+                (screenPoint.y + ANCHOR_GAP_PX).toInt()
+
+            else -> screenPoint.y.toInt()
         }
+
+        popupWindow?.showAtLocation(mapView, Gravity.TOP or Gravity.START, x, y)
     }
 
     private fun updatePosition() {
-        lngLat?.let {
-            popupWindow?.dismiss()
-            showAtLocation(it)
-        }
+        if (popupWindow?.isShowing != true) return
+        lngLat?.let { showAtLocation(it) }
     }
 
     private fun updateContent() {
@@ -118,6 +135,8 @@ class MapLibrePopup(
     }
 
     override fun remove() {
+        cameraMoveListener?.let { mapLibreMap.removeOnCameraMoveListener(it) }
+        cameraMoveListener = null
         close()
         isAdded = false
     }
@@ -127,5 +146,9 @@ class MapLibrePopup(
     override fun close(): Popup {
         popupWindow?.dismiss()
         return this
+    }
+
+    private companion object {
+        const val ANCHOR_GAP_PX = 10
     }
 }

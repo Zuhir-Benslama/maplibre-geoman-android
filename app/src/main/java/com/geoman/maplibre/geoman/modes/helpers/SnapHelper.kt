@@ -1,32 +1,21 @@
 package com.geoman.maplibre.geoman.modes.helpers
 
-import com.geoman.maplibre.geoman.BaseAction
 import com.geoman.maplibre.geoman.Geoman
 import com.geoman.maplibre.geoman.GeomanLogger
+import com.geoman.maplibre.geoman.adapter.LayerOptions
+import com.geoman.maplibre.geoman.adapter.LayerType
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.core.features.FeatureData
+import com.geoman.maplibre.geoman.core.features.FeatureSources
 import com.geoman.maplibre.geoman.types.HelperModeName
-import com.geoman.maplibre.geoman.types.ModeType
 import com.geoman.maplibre.geoman.types.events.GmHelperEvent
+import com.geoman.maplibre.geoman.types.geojson.FeatureCollection
+import com.geoman.maplibre.geoman.types.geojson.LineString
 import com.geoman.maplibre.geoman.types.geojson.LngLat
+import com.geoman.maplibre.geoman.types.geojson.ScreenPoint
 import com.geoman.maplibre.geoman.utils.GeometryUtils
 import kotlinx.coroutines.launch
 import org.maplibre.android.geometry.LatLng
-
-/**
- * Base class for all helper modes
- */
-abstract class BaseHelper(geoman: Geoman) : BaseAction(geoman) {
-
-    override val modeType: ModeType = ModeType.HELPER
-
-    // Expose geoman to subclasses
-    protected val geomanInstance: Geoman = geoman
-
-    open fun onMapClick(point: LatLng) {
-        GeomanLogger.d("BaseHelper", "Unhandled map click for ${this::class.simpleName} at $point")
-    }
-}
 
 /**
  * Snapping helper - snaps points to nearby vertices/segments
@@ -38,6 +27,7 @@ class SnapHelper(geoman: Geoman) : BaseHelper(geoman) {
     private var snapDistance: Float = 20f // pixels
     private var snappedFeature: FeatureData? = null
     private var snappedCoordinate: LngLat? = null
+    private var guideAdded = false
 
     override fun enable() {
         super.enable()
@@ -49,6 +39,7 @@ class SnapHelper(geoman: Geoman) : BaseHelper(geoman) {
     }
 
     override fun disable() {
+        hideSnapGuides()
         snappedFeature = null
         snappedCoordinate = null
         super.disable()
@@ -68,7 +59,7 @@ class SnapHelper(geoman: Geoman) : BaseHelper(geoman) {
             GeomanCoreConstants.SOURCE_RECTANGLES,
         )
 
-        geomanInstance.mapAdapter.project(LngLat(point.longitude, point.latitude))
+        val pointLngLat = LngLat(point.longitude, point.latitude)
 
         val allFeatures = sources.flatMap { source ->
             geomanInstance.features.getFeatures(source).values.toList()
@@ -80,10 +71,7 @@ class SnapHelper(geoman: Geoman) : BaseHelper(geoman) {
         for (feature in allFeatures) {
             val snapped = snapToFeature(point, feature)
             if (snapped != null) {
-                val distance = GeometryUtils.calculateDistance(
-                    LngLat(point.longitude, point.latitude),
-                    snapped,
-                )
+                val distance = GeometryUtils.calculateDistance(pointLngLat, snapped)
 
                 if (distance < minDistance) {
                     minDistance = distance
@@ -93,7 +81,7 @@ class SnapHelper(geoman: Geoman) : BaseHelper(geoman) {
             }
         }
 
-        if (nearestPoint != null && minDistance < pixelsToMeters(snapDistance)) {
+        if (nearestPoint != null && minDistance < pixelsToMeters(snapDistance, pointLngLat)) {
             snappedCoordinate = nearestPoint
 
             geomanInstance.scope.launch {
@@ -158,16 +146,19 @@ class SnapHelper(geoman: Geoman) : BaseHelper(geoman) {
         }
         snappedFeature = null
         snappedCoordinate = null
+        hideSnapGuides()
     }
 
     /**
-     * Convert pixels to meters (approximate at current zoom level)
+     * Convert pixels to meters at the current zoom level by projecting a point
+     * and measuring the ground distance of one pixel at that location
      */
-    private fun pixelsToMeters(pixels: Float): Double {
-        // This is a rough approximation
-        // A more accurate calculation would use the current zoom level
-        val metersPerPixel = 1.0 // Simplified
-        return pixels * metersPerPixel
+    private fun pixelsToMeters(pixels: Float, point: LngLat): Double {
+        val screenPoint = geomanInstance.mapAdapter.project(point)
+        val onePixelRight = geomanInstance.mapAdapter.unproject(
+            ScreenPoint(screenPoint.x + pixels, screenPoint.y),
+        )
+        return GeometryUtils.distance(point, onePixelRight)
     }
 
     /**
@@ -176,17 +167,57 @@ class SnapHelper(geoman: Geoman) : BaseHelper(geoman) {
     fun isSnappable(point: LatLng): Boolean = snap(point) != null
 
     /**
-     * Show snap guides (visual indicators)
+     * Show snap guides (visual indicators) from the press point to the snap target
      */
-    fun showSnapGuides(@Suppress("UNUSED_PARAMETER") point: LatLng) {
-        // Draw visual guides showing snap targets
-        // This would create temporary line layers
+    fun showSnapGuides(point: LatLng) {
+        if (!enabled) return
+
+        val target = snap(point) ?: return
+        ensureSnapGuidesLayer()
+
+        val guide = FeatureCollection(
+            features = listOf(
+                com.geoman.maplibre.geoman.types.geojson.Feature(
+                    geometry = LineString.fromLngLats(
+                        listOf(LngLat(point.longitude, point.latitude), target),
+                    ),
+                ),
+            ),
+        )
+        geomanInstance.mapAdapter.getSource(FeatureSources.SNAP_GUIDES)?.setData(guide)
     }
 
     /**
      * Hide snap guides
      */
     fun hideSnapGuides() {
-        // Remove temporary guide layers
+        if (!guideAdded) return
+        val source = geomanInstance.mapAdapter.getSource(FeatureSources.SNAP_GUIDES) ?: return
+        source.setData(FeatureCollection(features = emptyList()))
+    }
+
+    private fun ensureSnapGuidesLayer() {
+        if (guideAdded) return
+        if (geomanInstance.mapAdapter.getSource(FeatureSources.SNAP_GUIDES) == null) {
+            geomanInstance.mapAdapter.addSource(
+                FeatureSources.SNAP_GUIDES,
+                FeatureCollection(features = emptyList()),
+            )
+        }
+        if (geomanInstance.mapAdapter.getLayer(FeatureSources.SNAP_GUIDES + "_layer") == null) {
+            geomanInstance.mapAdapter.addLayer(
+                LayerOptions(
+                    id = FeatureSources.SNAP_GUIDES + "_layer",
+                    type = LayerType.LINE,
+                    source = FeatureSources.SNAP_GUIDES,
+                    paint = mapOf(
+                        "line-color" to "#E91E63",
+                        "line-width" to 2.0,
+                        "line-dasharray" to listOf(2.0, 2.0),
+                    ),
+                ),
+            )
+        }
+        guideAdded = true
     }
 }

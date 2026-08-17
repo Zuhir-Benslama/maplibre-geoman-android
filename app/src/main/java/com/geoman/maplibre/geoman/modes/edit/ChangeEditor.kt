@@ -7,6 +7,7 @@ import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.core.features.FeatureData
 import com.geoman.maplibre.geoman.types.EditModeName
 import com.geoman.maplibre.geoman.types.geojson.LngLat
+import com.geoman.maplibre.geoman.utils.GeometryUtils
 import kotlinx.coroutines.launch
 import org.maplibre.android.geometry.LatLng
 
@@ -85,33 +86,33 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
     }
 
     /**
-     * Calculate distance from a screen point to a feature's geometry
+     * Calculate the distance from a click point to a feature's geometry.
+     * Uses the nearest point on the geometry's segments so clicking the middle of
+     * a line/polygon edge selects it, not just the vertices.
      */
     private fun distanceFromPointToFeature(feature: FeatureData, point: LatLng): Double {
+        val clickPoint = LngLat(point.longitude, point.latitude)
         val geometry = feature.geometry
         return when (geometry) {
             is com.geoman.maplibre.geoman.types.geojson.Point -> {
-                val c = geometry.coordinates
-                val featurePoint = LatLng(c[1], c[0])
-                point.distanceTo(featurePoint)
+                GeometryUtils.distance(clickPoint, geometry.toLngLat())
             }
 
             is com.geoman.maplibre.geoman.types.geojson.LineString -> {
-                geometry.coordinates.minOf { coord ->
-                    val featurePoint = LatLng(coord[1], coord[0])
-                    point.distanceTo(featurePoint)
+                val coords = geometry.toLngLats()
+                if (coords.size < 2) {
+                    Double.MAX_VALUE
+                } else {
+                    GeometryUtils.distance(clickPoint, GeometryUtils.nearestPointOnPolyline(clickPoint, coords))
                 }
             }
 
             is com.geoman.maplibre.geoman.types.geojson.Polygon -> {
-                if (geometry.coordinates.isNotEmpty()) {
-                    val ring = geometry.coordinates[0]
-                    ring.minOf { coord ->
-                        val featurePoint = LatLng(coord[1], coord[0])
-                        point.distanceTo(featurePoint)
-                    }
-                } else {
+                val ring = geometry.getExteriorRing()
+                if (ring.size < 2) {
                     Double.MAX_VALUE
+                } else {
+                    GeometryUtils.distance(clickPoint, GeometryUtils.nearestPointOnPolyline(clickPoint, ring))
                 }
             }
 
@@ -256,7 +257,9 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
     }
 
     /**
-     * Add a new vertex to the geometry
+     * Add a new vertex to the geometry.
+     *
+     * @param segmentIndex index of the segment to split (0-based, between vertex i and i+1)
      */
     fun addVertex(segmentIndex: Int, newPoint: LatLng) {
         val feature = editingFeature ?: return
@@ -265,6 +268,7 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
         when (geometry) {
             is com.geoman.maplibre.geoman.types.geojson.LineString -> {
                 val coords = geometry.coordinates.toMutableList()
+                if (segmentIndex !in 0 until coords.size - 1) return
                 coords.add(segmentIndex + 1, listOf(newPoint.longitude, newPoint.latitude))
                 val newGeometry = com.geoman.maplibre.geoman.types.geojson.LineString(coordinates = coords)
                 updateFeatureGeometry(feature, newGeometry)
@@ -274,6 +278,7 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
                 if (geometry.coordinates.isNotEmpty()) {
                     val rings = geometry.coordinates.map { ring -> ring.toMutableList() }
                     val exteriorRing = rings[0]
+                    if (segmentIndex !in 0 until exteriorRing.size - 1) return
                     exteriorRing.add(segmentIndex + 1, listOf(newPoint.longitude, newPoint.latitude))
                     val newGeometry = com.geoman.maplibre.geoman.types.geojson.Polygon(coordinates = rings)
                     updateFeatureGeometry(feature, newGeometry)
@@ -287,7 +292,9 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
     }
 
     /**
-     * Remove a vertex from the geometry
+     * Remove a vertex from the geometry.
+     *
+     * @param index index of the vertex to remove
      */
     fun removeVertex(index: Int) {
         val feature = editingFeature ?: return
@@ -297,6 +304,7 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
             is com.geoman.maplibre.geoman.types.geojson.LineString -> {
                 if (geometry.coordinates.size <= 2) return // Can't remove if only 2 points
                 val coords = geometry.coordinates.toMutableList()
+                if (index !in coords.indices) return
                 coords.removeAt(index)
                 val newGeometry = com.geoman.maplibre.geoman.types.geojson.LineString(coordinates = coords)
                 updateFeatureGeometry(feature, newGeometry)
@@ -307,6 +315,8 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
                     val rings = geometry.coordinates.map { ring -> ring.toMutableList() }
                     val exteriorRing = rings[0]
                     if (exteriorRing.size <= 4) return // Can't remove if only 3 unique points + closing
+                    // The closing coordinate duplicates the first; never remove it
+                    if (index !in 0 until exteriorRing.size - 1) return
                     exteriorRing.removeAt(index)
                     val newGeometry = com.geoman.maplibre.geoman.types.geojson.Polygon(coordinates = rings)
                     updateFeatureGeometry(feature, newGeometry)

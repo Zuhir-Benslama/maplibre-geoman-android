@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.PointF
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.widget.FrameLayout
 import com.geoman.maplibre.geoman.Geoman
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
@@ -18,13 +19,17 @@ import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.android.style.sources.GeoJsonSource
 
 /**
- * MapLibre DOM marker implementation using SymbolLayer for SDK 11.x
+ * MapLibre DOM marker implementation using SymbolLayer for SDK 11.x.
+ *
+ * The marker is rendered as a symbol-layer icon AND its [View] is placed as an
+ * overlay on the map container so it can receive touch events (e.g. for dragging).
  */
+@Suppress("TooManyFunctions")
 class MapLibreDomMarker(
     map: Any,
     private val options: DomMarkerOptions,
     initialLngLat: LngLat,
-    private val mapView: android.view.ViewGroup,
+    private val mapView: ViewGroup,
     private val geoman: Geoman,
 ) : DomMarker(map) {
 
@@ -39,13 +44,18 @@ class MapLibreDomMarker(
     private var isDraggingInternal = false
     private var dragStartLngLat: LngLat? = null
     private var currentLngLat: LngLat = initialLngLat
+    private var draggable = options.draggable
+    private var cameraMoveListener: MapLibreMap.OnCameraMoveListener? = null
 
     companion object {
-        private val activeMarkers = linkedMapOf<String, MapLibreDomMarker>()
+        // Per-map registry so markers from one map/Geoman instance can never leak
+        // into another, and rebuilds only touch the owning map.
+        private val markersByMap =
+            java.util.concurrent.ConcurrentHashMap<MapLibreMap, LinkedHashMap<String, MapLibreDomMarker>>()
 
         private fun rebuildSource(mapLibreMap: MapLibreMap, sourceName: String) {
             val featuresArray = JSONArray()
-            activeMarkers.values.forEach { marker ->
+            markersByMap[mapLibreMap]?.values?.forEach { marker ->
                 featuresArray.put(marker.buildFeatureJson())
             }
             val featureCollection = JSONObject().apply {
@@ -63,44 +73,51 @@ class MapLibreDomMarker(
 
     private fun createView() {
         view = options.element ?: createDefaultMarkerView()
+        if (draggable) {
+            attachDragListener()
+        }
+    }
 
-        if (options.draggable) {
-            view?.setOnTouchListener { _, event ->
-                when (event.action) {
-                    MotionEvent.ACTION_DOWN -> {
-                        isDraggingInternal = true
-                        dragStartLngLat = currentLngLat
-                        onDragStart?.invoke()
-                        true
-                    }
-
-                    MotionEvent.ACTION_MOVE -> {
-                        if (isDraggingInternal) {
-                            val screenPoint = PointF(
-                                event.x + ((view?.left ?: 0).toFloat()),
-                                event.y + ((view?.top ?: 0).toFloat()),
-                            )
-                            val newLatLng = mapLibreMap.projection.fromScreenLocation(screenPoint)
-                            val newLngLat = LngLat(newLatLng.longitude, newLatLng.latitude)
-                            currentLngLat = newLngLat
-                            updateMarkerPosition()
-                            onDrag?.invoke(newLngLat)
-                        }
-                        true
-                    }
-
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                        if (isDraggingInternal) {
-                            isDraggingInternal = false
-                            onDragEnd?.invoke()
-                        }
-                        true
-                    }
-
-                    else -> false
+    private fun attachDragListener() {
+        view?.setOnTouchListener { _, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    isDraggingInternal = true
+                    dragStartLngLat = currentLngLat
+                    onDragStart?.invoke()
+                    true
                 }
+
+                MotionEvent.ACTION_MOVE -> {
+                    if (isDraggingInternal) {
+                        val screenPoint = PointF(
+                            event.x + (view?.x ?: 0f),
+                            event.y + (view?.y ?: 0f),
+                        )
+                        val newLatLng = mapLibreMap.projection.fromScreenLocation(screenPoint)
+                        val newLngLat = LngLat(newLatLng.longitude, newLatLng.latitude)
+                        currentLngLat = newLngLat
+                        updateMarkerPosition()
+                        onDrag?.invoke(newLngLat)
+                    }
+                    true
+                }
+
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    if (isDraggingInternal) {
+                        isDraggingInternal = false
+                        onDragEnd?.invoke()
+                    }
+                    true
+                }
+
+                else -> false
             }
         }
+    }
+
+    private fun removeDragListener() {
+        view?.setOnTouchListener(null)
     }
 
     private fun createDefaultMarkerView(): View {
@@ -135,7 +152,7 @@ class MapLibreDomMarker(
 
         mapLibreMap.style?.addImage(iconId, iconBitmap)
 
-        activeMarkers[id] = this
+        markersByMap.getOrPut(mapLibreMap) { LinkedHashMap() }[id] = this
 
         val geoJsonSource: GeoJsonSource? = mapLibreMap.style?.getSourceAs(sourceName)
         if (geoJsonSource == null) {
@@ -161,6 +178,18 @@ class MapLibreDomMarker(
             }
             mapLibreMap.style?.addLayer(layer)
         }
+
+        // Place the DOM view as an overlay so it can receive touch events.
+        view?.let { markerView ->
+            (markerView.parent as? ViewGroup)?.removeView(markerView)
+            mapView.addView(markerView)
+        }
+        updateViewPosition()
+
+        cameraMoveListener = MapLibreMap.OnCameraMoveListener {
+            updateViewPosition()
+        }
+        mapLibreMap.addOnCameraMoveListener(cameraMoveListener!!)
 
         isAdded = true
         rebuildSource(mapLibreMap, sourceName)
@@ -193,40 +222,82 @@ class MapLibreDomMarker(
     }
 
     private fun createMarkerBitmap(): Bitmap {
-        val view = view ?: createDefaultMarkerView()
-        view.measure(
+        val markerView = view ?: createDefaultMarkerView()
+        markerView.measure(
             View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
             View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
         )
-        view.layout(0, 0, view.measuredWidth, view.measuredHeight)
+        markerView.layout(0, 0, markerView.measuredWidth, markerView.measuredHeight)
 
         val bitmap = Bitmap.createBitmap(
-            view.measuredWidth.coerceAtLeast(48),
-            view.measuredHeight.coerceAtLeast(48),
+            markerView.measuredWidth.coerceAtLeast(48),
+            markerView.measuredHeight.coerceAtLeast(48),
             Bitmap.Config.ARGB_8888,
         )
         val canvas = Canvas(bitmap)
-        view.draw(canvas)
+        markerView.draw(canvas)
         return bitmap
     }
 
+    /**
+     * Rebuild the symbol source and reposition the overlay for the current coordinate.
+     */
     private fun updateMarkerPosition() {
         if (!isAdded) return
+        updateViewPosition()
         rebuildSource(mapLibreMap, sourceName)
+    }
+
+    private fun updateViewPosition() {
+        val markerView = view ?: return
+        val point = mapLibreMap.projection.toScreenLocation(
+            LatLng(currentLngLat.latitude, currentLngLat.longitude),
+        )
+        val offset = anchorOffset(markerView)
+        markerView.x = point.x + offset.x
+        markerView.y = point.y + offset.y
+    }
+
+    private fun anchorOffset(markerView: View): PointF {
+        val width = if (markerView.width > 0) markerView.width.toFloat() else markerView.measuredWidth.toFloat()
+        val height = if (markerView.height > 0) markerView.height.toFloat() else markerView.measuredHeight.toFloat()
+        return when (options.anchor) {
+            MarkerAnchor.CENTER -> PointF(-width / 2f, -height / 2f)
+            MarkerAnchor.TOP -> PointF(-width / 2f, 0f)
+            MarkerAnchor.BOTTOM -> PointF(-width / 2f, -height)
+            MarkerAnchor.LEFT -> PointF(0f, -height / 2f)
+            MarkerAnchor.RIGHT -> PointF(-width, -height / 2f)
+            MarkerAnchor.TOP_LEFT -> PointF(0f, 0f)
+            MarkerAnchor.TOP_RIGHT -> PointF(-width, 0f)
+            MarkerAnchor.BOTTOM_LEFT -> PointF(0f, -height)
+            MarkerAnchor.BOTTOM_RIGHT -> PointF(-width, -height)
+        }
     }
 
     override fun remove() {
         if (!isAdded) return
 
         mapLibreMap.style?.removeImage("marker-icon-$id")
-        activeMarkers.remove(id)
-        rebuildSource(mapLibreMap, sourceName)
+        markersByMap[mapLibreMap]?.remove(id)
+        markersByMap[mapLibreMap]?.takeIf { it.isEmpty() }?.let { markersByMap.remove(mapLibreMap) }
 
+        cameraMoveListener?.let { mapLibreMap.removeOnCameraMoveListener(it) }
+        cameraMoveListener = null
+
+        view?.let { (it.parent as? ViewGroup)?.removeView(it) }
+
+        rebuildSource(mapLibreMap, sourceName)
         isAdded = false
     }
 
     override fun setDraggable(draggable: Boolean) {
-        // Update draggable state
+        if (this.draggable == draggable) return
+        this.draggable = draggable
+        if (draggable) {
+            attachDragListener()
+        } else {
+            removeDragListener()
+        }
     }
 
     override fun isDragging(): Boolean = isDraggingInternal

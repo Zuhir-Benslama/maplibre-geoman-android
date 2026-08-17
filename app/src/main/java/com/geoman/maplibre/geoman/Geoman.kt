@@ -19,6 +19,7 @@ import com.geoman.maplibre.geoman.core.options.GmOptionsData
 import com.geoman.maplibre.geoman.modes.draw.BaseDraw
 import com.geoman.maplibre.geoman.modes.edit.BaseEdit
 import com.geoman.maplibre.geoman.modes.edit.ChangeEditor
+import com.geoman.maplibre.geoman.modes.edit.DragEditor
 import com.geoman.maplibre.geoman.modes.helpers.BaseHelper
 import com.geoman.maplibre.geoman.types.DrawModeName
 import com.geoman.maplibre.geoman.types.EditModeName
@@ -60,7 +61,7 @@ import org.maplibre.android.maps.MapView
 class Geoman(internal val mapView: MapView, private val map: MapLibreMap, options: GmOptionsData = GmOptionsData()) {
     // Core components
     val options: GmOptions = GmOptions(options)
-    val features: Features = Features()
+    val features: Features = Features(this)
     val events: GmEventBus = GmEventBus()
 
     // Map adapter
@@ -78,6 +79,10 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
 
     // Action instances (modes) — synchronized for thread safety
     private val actionInstances = java.util.concurrent.ConcurrentHashMap<String, BaseAction>()
+
+    // Single source of truth for the set of currently enabled modes
+    private val _activeModesFlow = MutableStateFlow<List<Pair<ModeType, String>>>(emptyList())
+    val activeModesFlow: StateFlow<List<Pair<ModeType, String>>> = _activeModesFlow.asStateFlow()
 
     // State
     private val _loaded = MutableStateFlow(false)
@@ -240,6 +245,10 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
             _control?.activeModes?.add(type to name)
             GeomanLogger.d("Geoman", "Mode enabled, activeModes now: ${_control?.activeModes}")
 
+            // Keep options and the reactive flow in sync
+            options.enableMode(type, name)
+            _activeModesFlow.value = getEnabledModes()
+
             // Fire event
             scope.launch {
                 events.emit(GmModeEvent.Enable(name, type.name))
@@ -262,6 +271,10 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
 
             // Also remove from control's active modes
             _control?.activeModes?.remove(type to name)
+
+            // Keep options and the reactive flow in sync
+            options.disableMode(type, name)
+            _activeModesFlow.value = getEnabledModes()
 
             // Fire event
             scope.launch {
@@ -311,6 +324,8 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
         actionInstances.clear()
         // Also clear control's active modes
         _control?.activeModes?.clear()
+        options.disableAllModes()
+        _activeModesFlow.value = emptyList()
         GeomanLogger.d("Geoman", "disableAllModes called, activeModes cleared")
     }
 
@@ -362,6 +377,16 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
         val key = "${ModeType.EDIT.name}__$modeName"
         val action = actionInstances[key] as? BaseEdit
         action?.onMapClick(point)
+    }
+
+    /**
+     * Handle edit mode touch events (currently used by DragEditor to prevent the
+     * map from panning while a drag handle is being moved)
+     */
+    fun handleEditTouch(modeName: String, event: android.view.MotionEvent): Boolean {
+        val key = "${ModeType.EDIT.name}__$modeName"
+        val action = actionInstances[key] as? DragEditor
+        return action?.onTouchEvent(event) ?: false
     }
 
     /**
@@ -441,11 +466,9 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
         // Disable all modes
         disableAllModes()
 
-        // Remove controls
-        scope.launch {
-            if (options.settings.useControlsUi) {
-                mapAdapter.removeControl(control)
-            }
+        // Remove controls synchronously so the cleanup is not cancelled with the scope
+        if (options.settings.useControlsUi) {
+            mapAdapter.removeControl(control)
         }
 
         // Clean up map adapter
