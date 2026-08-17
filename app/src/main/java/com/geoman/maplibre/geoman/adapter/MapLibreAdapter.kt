@@ -51,7 +51,7 @@ class MapLibreAdapter(map: MapLibreMap, geoman: Geoman, private val mapView: Map
     override fun isLoaded(): Boolean = try {
         // Check if map style is loaded
         map.style != null
-    } catch (e: Exception) {
+    } catch (_: IllegalStateException) {
         false
     }
 
@@ -100,7 +100,7 @@ class MapLibreAdapter(map: MapLibreMap, geoman: Geoman, private val mapView: Map
         try {
             map.style?.removeImage(id)
         } catch (e: Exception) {
-            // Style may not be available
+            GeomanLogger.d("MapLibreAdapter", "Failed to remove image $id: ${e.message}")
         }
     }
 

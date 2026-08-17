@@ -65,11 +65,13 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
     val events: GmEventBus = GmEventBus()
 
     // Map adapter
+    @Volatile
     private var _mapAdapter: BaseMapAdapter<MapLibreMap>? = null
     val mapAdapter: BaseMapAdapter<MapLibreMap>
         get() = _mapAdapter ?: throw IllegalStateException("Map adapter not initialized")
 
     // Control
+    @Volatile
     private var _control: GmControl? = null
     val control: GmControl
         get() = _control ?: throw IllegalStateException("Control not initialized")
@@ -448,7 +450,9 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
                 _loaded.first { it }
                 this@Geoman
             }
-        } catch (e: Exception) {
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (_: Exception) {
             null
         }
     }
@@ -472,9 +476,7 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
         }
 
         // Clean up map adapter
-        if (_mapAdapter is MapLibreAdapter) {
-            (_mapAdapter as MapLibreAdapter).cleanup()
-        }
+        (_mapAdapter as? MapLibreAdapter)?.cleanup()
 
         // Fire destroyed event synchronously so listeners receive it before cleanup
         events.tryEmit(GmMapEvent.Destroyed)

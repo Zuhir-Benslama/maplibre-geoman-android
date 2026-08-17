@@ -36,7 +36,7 @@ class MapLibreDomMarker(
     private val mapLibreMap: MapLibreMap = map as? MapLibreMap
         ?: throw IllegalArgumentException("Expected MapLibreMap but got ${map::class.simpleName}")
 
-    val id: String = "marker_${System.currentTimeMillis()}_${(Math.random() * 10000).toInt()}"
+    val id: String = "marker_${java.util.UUID.randomUUID()}"
     val sourceName: String = GeomanCoreConstants.SOURCE_MARKERS
 
     private var view: View? = null
@@ -48,15 +48,20 @@ class MapLibreDomMarker(
     private var cameraMoveListener: MapLibreMap.OnCameraMoveListener? = null
 
     companion object {
-        // Per-map registry so markers from one map/Geoman instance can never leak
-        // into another, and rebuilds only touch the owning map.
         private val markersByMap =
-            java.util.concurrent.ConcurrentHashMap<MapLibreMap, LinkedHashMap<String, MapLibreDomMarker>>()
+            java.util.concurrent.ConcurrentHashMap<MapLibreMap, MutableMap<String, MapLibreDomMarker>>()
+
+        private fun markersFor(map: MapLibreMap): MutableMap<String, MapLibreDomMarker> = markersByMap.getOrPut(map) {
+            java.util.Collections.synchronizedMap(linkedMapOf())
+        }
 
         private fun rebuildSource(mapLibreMap: MapLibreMap, sourceName: String) {
+            val map = markersByMap[mapLibreMap] ?: return
             val featuresArray = JSONArray()
-            markersByMap[mapLibreMap]?.values?.forEach { marker ->
-                featuresArray.put(marker.buildFeatureJson())
+            synchronized(map) {
+                map.values.forEach { marker ->
+                    featuresArray.put(marker.buildFeatureJson())
+                }
             }
             val featureCollection = JSONObject().apply {
                 put("type", "FeatureCollection")
@@ -64,6 +69,13 @@ class MapLibreDomMarker(
             }
             val source = mapLibreMap.style?.getSourceAs<GeoJsonSource>(sourceName)
             source?.setGeoJson(featureCollection.toString())
+        }
+
+        fun cleanupForMap(mapLibreMap: MapLibreMap) {
+            val markers = markersByMap.remove(mapLibreMap) ?: return
+            synchronized(markers) {
+                markers.values.forEach { it.remove() }
+            }
         }
     }
 
@@ -152,7 +164,7 @@ class MapLibreDomMarker(
 
         mapLibreMap.style?.addImage(iconId, iconBitmap)
 
-        markersByMap.getOrPut(mapLibreMap) { LinkedHashMap() }[id] = this
+        markersFor(mapLibreMap)[id] = this
 
         val geoJsonSource: GeoJsonSource? = mapLibreMap.style?.getSourceAs(sourceName)
         if (geoJsonSource == null) {
@@ -278,8 +290,13 @@ class MapLibreDomMarker(
         if (!isAdded) return
 
         mapLibreMap.style?.removeImage("marker-icon-$id")
-        markersByMap[mapLibreMap]?.remove(id)
-        markersByMap[mapLibreMap]?.takeIf { it.isEmpty() }?.let { markersByMap.remove(mapLibreMap) }
+        val map = markersByMap[mapLibreMap]
+        synchronized(map ?: Any()) {
+            map?.remove(id)
+            if (map?.isEmpty() == true) {
+                markersByMap.remove(mapLibreMap)
+            }
+        }
 
         cameraMoveListener?.let { mapLibreMap.removeOnCameraMoveListener(it) }
         cameraMoveListener = null

@@ -48,7 +48,7 @@ object FeatureSources {
  * Features manager for handling GeoJSON features
  */
 class Features(private val geoman: Geoman? = null) {
-    private val featuresMap = mutableMapOf<String, MutableMap<String, FeatureData>>()
+    private val featuresMap = java.util.concurrent.ConcurrentHashMap<String, MutableMap<String, FeatureData>>()
     private val _featuresFlow = MutableStateFlow<Map<String, Map<String, FeatureData>>>(emptyMap())
 
     private companion object {
@@ -58,6 +58,7 @@ class Features(private val geoman: Geoman? = null) {
     val featuresFlow: StateFlow<Map<String, Map<String, FeatureData>>> = _featuresFlow.asStateFlow()
 
     // Map adapter reference for rendering
+    @Volatile
     private var mapAdapter: BaseMapAdapter<*>? = null
 
     /**
@@ -90,7 +91,9 @@ class Features(private val geoman: Geoman? = null) {
      */
     @Synchronized
     fun addFeature(featureData: FeatureData) {
-        val sourceFeatures = featuresMap.getOrPut(featureData.sourceName) { mutableMapOf() }
+        val sourceFeatures = featuresMap.getOrPut(featureData.sourceName) {
+            java.util.concurrent.ConcurrentHashMap()
+        }
         sourceFeatures[featureData.id] = featureData
         updateFeaturesFlow()
     }
@@ -194,6 +197,7 @@ class Features(private val geoman: Geoman? = null) {
     /**
      * Get features at screen coordinates (delegates to the map adapter query)
      */
+    @Synchronized
     fun getFeaturesAtPoint(point: ScreenPoint, sourceNames: List<String>? = null): List<FeatureData> {
         val adapter = mapAdapter ?: return emptyList()
         val sources = sourceNames ?: featuresMap.keys.toList()

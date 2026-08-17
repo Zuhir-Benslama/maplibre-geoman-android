@@ -86,9 +86,39 @@ class MapLibreSource(
         put("geometry", geometryToJson(feature.geometry))
         val props = JSONObject()
         feature.properties.forEach { (k, v) ->
-            if (v != null) props.put(k, v.toString()) else props.put(k, JSONObject.NULL)
+            putPropertyValue(props, k, v)
         }
         put("properties", props)
+    }
+
+    private fun putPropertyValue(props: JSONObject, key: String, value: Any?) {
+        if (value == null) {
+            props.put(key, JSONObject.NULL)
+            return
+        }
+        when (value) {
+            is Number -> props.put(key, value)
+
+            is Boolean -> props.put(key, value)
+
+            is String -> props.put(key, value)
+
+            is LngLat -> props.put(key, JSONArray(value.toArray()))
+
+            is List<*> -> props.put(
+                key,
+                JSONArray(
+                    value.map { listItem ->
+                        when (listItem) {
+                            is LngLat -> JSONArray(listItem.toArray())
+                            else -> listItem
+                        }
+                    },
+                ),
+            )
+
+            else -> props.put(key, value.toString())
+        }
     }
 
     /**

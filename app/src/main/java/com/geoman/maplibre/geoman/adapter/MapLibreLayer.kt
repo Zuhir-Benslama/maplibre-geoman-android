@@ -125,6 +125,7 @@ class MapLibreLayer(private val geoman: Geoman, private val options: LayerOption
     private fun parseExpression(filter: List<Any>): Expression? = try {
         Expression.Converter.convert(JSONArray(filter).toString())
     } catch (e: Exception) {
+        GeomanLogger.w("MapLibreLayer", "Failed to parse filter expression for layer $layerId", e)
         null
     }
 
@@ -160,7 +161,7 @@ class MapLibreLayer(private val geoman: Geoman, private val options: LayerOption
         try {
             map.style?.removeLayer(layerId)
         } catch (e: Exception) {
-            // Layer may not exist
+            GeomanLogger.d("MapLibreLayer", "Layer $layerId may not exist during removal: ${e.message}")
         }
         isAdded = false
     }
