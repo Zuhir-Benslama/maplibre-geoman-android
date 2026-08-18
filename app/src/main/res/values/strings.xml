@@ -11,4 +11,5 @@
     <string name="edit_rotate">Rotate</string>
     <string name="edit_delete">Delete</string>
     <string name="helper_snap">Snap</string>
+    <string name="close">Close</string>
 </resources>

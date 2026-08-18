@@ -60,7 +60,7 @@ class MapLibreSource(
     override fun remove() {
         try {
             map.style?.removeSource(sourceId)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             // Source may not exist
         }
         maplibreSource = null

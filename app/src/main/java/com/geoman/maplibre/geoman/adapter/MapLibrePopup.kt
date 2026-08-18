@@ -58,7 +58,7 @@ class MapLibrePopup(
     override fun addToMap(): Popup {
         if (isAdded) return this
 
-        contentView = LayoutInflater.from(context).inflate(R.layout.popup_layout, null)
+        contentView = LayoutInflater.from(context).inflate(R.layout.popup_layout, mapView, false)
 
         // Set content
         updateContent()

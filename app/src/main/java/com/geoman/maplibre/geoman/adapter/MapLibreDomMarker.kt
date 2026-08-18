@@ -7,6 +7,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import androidx.core.graphics.createBitmap
 import com.geoman.maplibre.geoman.Geoman
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.types.geojson.LngLat
@@ -91,7 +92,7 @@ class MapLibreDomMarker(
     }
 
     private fun attachDragListener() {
-        view?.setOnTouchListener { _, event ->
+        view?.setOnTouchListener { v, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     isDraggingInternal = true
@@ -120,6 +121,7 @@ class MapLibreDomMarker(
                         isDraggingInternal = false
                         onDragEnd?.invoke()
                     }
+                    v.performClick()
                     true
                 }
 
@@ -241,10 +243,9 @@ class MapLibreDomMarker(
         )
         markerView.layout(0, 0, markerView.measuredWidth, markerView.measuredHeight)
 
-        val bitmap = Bitmap.createBitmap(
+        val bitmap = createBitmap(
             markerView.measuredWidth.coerceAtLeast(48),
             markerView.measuredHeight.coerceAtLeast(48),
-            Bitmap.Config.ARGB_8888,
         )
         val canvas = Canvas(bitmap)
         markerView.draw(canvas)

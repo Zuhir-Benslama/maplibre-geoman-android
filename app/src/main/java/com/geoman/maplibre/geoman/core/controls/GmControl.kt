@@ -65,7 +65,11 @@ class GmControl(private val geoman: Geoman) {
                 ViewGroup.LayoutParams.WRAP_CONTENT,
             )
             setPadding(16, 16, 16, 16)
-            background = context.getDrawable(android.R.drawable.dialog_holo_light_frame)
+            background =
+                androidx.appcompat.content.res.AppCompatResources.getDrawable(
+                    context,
+                    android.R.drawable.dialog_holo_light_frame,
+                )
         }
 
         // Draw controls section

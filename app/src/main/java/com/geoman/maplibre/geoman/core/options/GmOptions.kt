@@ -6,6 +6,10 @@ import com.geoman.maplibre.geoman.types.EditModeName
 import com.geoman.maplibre.geoman.types.HelperModeName
 import com.geoman.maplibre.geoman.types.ModeType
 
+private const val COLOR_PRIMARY_LONG = 0xFF3388FF
+private const val COLOR_PRIMARY_FILL_LONG = 0x4D3388FF
+private const val COLOR_WHITE_LONG = 0xFFFFFFFF
+
 /**
  * Geoman options configuration
  */
@@ -112,13 +116,13 @@ data class LayerStyles(
 /**
  * Marker style
  */
-data class MarkerStyle(val color: Color = Color(0xFF3388FF), val opacity: Float = 1.0f, val size: Float = 24f)
+data class MarkerStyle(val color: Color = Color(COLOR_PRIMARY_LONG), val opacity: Float = 1.0f, val size: Float = 24f)
 
 /**
  * Line style
  */
 data class LineStyle(
-    val color: Color = Color(0xFF3388FF),
+    val color: Color = Color(COLOR_PRIMARY_LONG),
     val width: Float = 4f,
     val opacity: Float = 1.0f,
     val dashArray: List<Float>? = null,
@@ -128,8 +132,8 @@ data class LineStyle(
  * Polygon style
  */
 data class PolygonStyle(
-    val fillColor: Color = Color(0x4D3388FF),
-    val color: Color = Color(0xFF3388FF),
+    val fillColor: Color = Color(COLOR_PRIMARY_FILL_LONG),
+    val color: Color = Color(COLOR_PRIMARY_LONG),
     val width: Float = 4f,
     val opacity: Float = 1.0f,
     val fillOpacity: Float = 0.3f,
@@ -139,8 +143,8 @@ data class PolygonStyle(
  * Circle style
  */
 data class CircleStyle(
-    val fillColor: Color = Color(0x4D3388FF),
-    val color: Color = Color(0xFF3388FF),
+    val fillColor: Color = Color(COLOR_PRIMARY_FILL_LONG),
+    val color: Color = Color(COLOR_PRIMARY_LONG),
     val width: Float = 4f,
     val opacity: Float = 1.0f,
     val fillOpacity: Float = 0.3f,
@@ -150,8 +154,8 @@ data class CircleStyle(
  * Rectangle style
  */
 data class RectangleStyle(
-    val fillColor: Color = Color(0x4D3388FF),
-    val color: Color = Color(0xFF3388FF),
+    val fillColor: Color = Color(COLOR_PRIMARY_FILL_LONG),
+    val color: Color = Color(COLOR_PRIMARY_LONG),
     val width: Float = 4f,
     val opacity: Float = 1.0f,
     val fillOpacity: Float = 0.3f,
@@ -161,8 +165,8 @@ data class RectangleStyle(
  * Circle marker style
  */
 data class CircleMarkerStyle(
-    val fillColor: Color = Color(0xFF3388FF),
-    val color: Color = Color(0xFFFFFFFF),
+    val fillColor: Color = Color(COLOR_PRIMARY_LONG),
+    val color: Color = Color(COLOR_WHITE_LONG),
     val radius: Float = 10f,
     val width: Float = 2f,
     val opacity: Float = 1.0f,
@@ -172,12 +176,12 @@ data class CircleMarkerStyle(
  * Edit markers style
  */
 data class EditMarkersStyle(
-    val vertexMarkerColor: Color = Color(0xFF3388FF),
+    val vertexMarkerColor: Color = Color(COLOR_PRIMARY_LONG),
     val vertexMarkerRadius: Float = 6f,
-    val middleMarkerColor: Color = Color(0xFF3388FF),
+    val middleMarkerColor: Color = Color(COLOR_PRIMARY_LONG),
     val middleMarkerRadius: Float = 4f,
-    val dragMarkerColor: Color = Color(0xFF3388FF),
-    val rotationMarkerColor: Color = Color(0xFF3388FF),
+    val dragMarkerColor: Color = Color(COLOR_PRIMARY_LONG),
+    val rotationMarkerColor: Color = Color(COLOR_PRIMARY_LONG),
 )
 
 /**

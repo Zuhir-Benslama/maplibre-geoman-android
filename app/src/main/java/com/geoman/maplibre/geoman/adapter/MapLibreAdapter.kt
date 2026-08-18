@@ -77,7 +77,10 @@ class MapLibreAdapter(map: MapLibreMap, geoman: Geoman, private val mapView: Map
         }
         map.addOnMapLongClickListener(mapLongClickListener!!)
 
-        val touchListener = View.OnTouchListener { _, event ->
+        val touchListener = View.OnTouchListener { view, event ->
+            if (event.action == android.view.MotionEvent.ACTION_UP) {
+                view.performClick()
+            }
             control.onTouchEvent(event as MotionEvent)
         }
         mapView.renderView.setOnTouchListener(touchListener)
