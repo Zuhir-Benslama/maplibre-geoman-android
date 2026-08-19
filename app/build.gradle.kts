@@ -6,7 +6,7 @@ plugins {
 }
 
 detekt {
-    config.setFrom(rootProject.file("detekt.yml"))
+    config.setFrom(file("../detekt.yml"))
     baseline = file("detekt-baseline.xml")
     buildUponDefaultConfig = true
     allRules = false
