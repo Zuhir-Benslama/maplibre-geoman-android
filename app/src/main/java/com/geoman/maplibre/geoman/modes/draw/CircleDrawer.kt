@@ -42,12 +42,12 @@ class CircleDrawer(geoman: Geoman) : BaseDraw(geoman) {
 
         // Cancel drawing
         center = null
-        geomanInstance.disableMode(modeType, modeName)
+        geoman.disableMode(modeType, modeName)
     }
 
     override fun finishDrawing() {
         center = null
-        geomanInstance.disableMode(modeType, modeName)
+        geoman.disableMode(modeType, modeName)
     }
 
     private fun createCircleFeature(center: LngLat, radius: Double) {
@@ -67,8 +67,8 @@ class CircleDrawer(geoman: Geoman) : BaseDraw(geoman) {
             ),
         )
 
-        val featureToFire = geomanInstance.features.addGeoJsonFeature(feature, GeomanCoreConstants.SOURCE_CIRCLES)
-        geomanInstance.scope.launch {
+        val featureToFire = geoman.features.addGeoJsonFeature(feature, GeomanCoreConstants.SOURCE_CIRCLES)
+        geoman.scope.launch {
             fireCreateEvent(featureToFire)
         }
     }

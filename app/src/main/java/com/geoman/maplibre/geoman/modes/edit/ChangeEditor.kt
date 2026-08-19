@@ -6,6 +6,7 @@ import com.geoman.maplibre.geoman.adapter.DomMarkerOptions
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.core.features.FeatureData
 import com.geoman.maplibre.geoman.types.EditModeName
+import com.geoman.maplibre.geoman.types.events.GmEditEvent
 import com.geoman.maplibre.geoman.types.geojson.LngLat
 import com.geoman.maplibre.geoman.utils.GeometryUtils
 import kotlinx.coroutines.launch
@@ -46,8 +47,8 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
         editingFeature = feature
         isEditing = true
         createVertexMarkers(feature)
-        geomanInstance.scope.launch {
-            fireChangeStartEvent(feature)
+        geoman.scope.launch {
+            fireEditEvent({ GmEditEvent.ChangeStart(it) }, feature)
         }
     }
 
@@ -69,7 +70,7 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
             var closestDistance = Double.MAX_VALUE
 
             for (sourceName in targetSources) {
-                val features = geomanInstance.features.getFeatures(sourceName)
+                val features = geoman.features.getFeatures(sourceName)
                 for ((_, feature) in features) {
                     val dist = distanceFromPointToFeature(feature, point)
                     if (dist < closestDistance && dist < 30.0) { // 30m hit tolerance
@@ -126,15 +127,15 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
 
         createVertexMarkers(feature)
 
-        geomanInstance.scope.launch {
-            fireChangeStartEvent(feature)
+        geoman.scope.launch {
+            fireEditEvent({ GmEditEvent.ChangeStart(it) }, feature)
         }
     }
 
     private fun finishEditing() {
         editingFeature?.let {
-            geomanInstance.scope.launch {
-                fireChangeEndEvent(it)
+            geoman.scope.launch {
+                fireEditEvent({ GmEditEvent.ChangeEnd(it) }, it)
             }
         }
 
@@ -176,7 +177,7 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
                 draggable = true,
             )
 
-            val domMarker = geomanInstance.mapAdapter.createDomMarker(markerOptions, vertex.lngLat)
+            val domMarker = geoman.mapAdapter.createDomMarker(markerOptions, vertex.lngLat)
             domMarker.addToMap() // Actually add the marker to the map
 
             // Set drag callback to update geometry
@@ -186,7 +187,7 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
 
             domMarker.onDragEnd = {
                 // Re-sync the source to ensure map reflects final position
-                geomanInstance.features.updateFeature(feature.sourceName, feature.id) { it }
+                geoman.features.updateFeature(feature.sourceName, feature.id) { it }
             }
 
             vertexMarkers.add(VertexMarker(vertex.index, domMarker))
@@ -199,7 +200,7 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
      * Create a small red circle view for vertex markers
      */
     private fun createVertexMarkerView(): android.view.View {
-        val context = geomanInstance.mapView.context
+        val context = geoman.mapView.context
         val size = (14 * context.resources.displayMetrics.density).toInt()
         val view = android.view.View(context)
         view.layoutParams = android.view.ViewGroup.LayoutParams(size, size)

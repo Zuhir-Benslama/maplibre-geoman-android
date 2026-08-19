@@ -42,20 +42,20 @@ class PolygonDrawer(geoman: Geoman) : BaseDraw(geoman) {
 
             // Capture the feature before launching coroutine to avoid race condition
             val featureToFire = currentFeature
-            geomanInstance.scope.launch {
+            geoman.scope.launch {
                 fireCreateEvent(featureToFire)
             }
         }
 
         coordinates.clear()
         currentFeature = null
-        geomanInstance.disableMode(modeType, modeName)
+        geoman.disableMode(modeType, modeName)
     }
 
     override fun disable() {
         // Remove the uncommitted partial polygon if the mode is cancelled mid-draw
         currentFeature?.let {
-            geomanInstance.features.removeFeature(GeomanCoreConstants.SOURCE_POLYGONS, it.id)
+            geoman.features.removeFeature(GeomanCoreConstants.SOURCE_POLYGONS, it.id)
         }
         currentFeature = null
         coordinates.clear()
@@ -76,7 +76,7 @@ class PolygonDrawer(geoman: Geoman) : BaseDraw(geoman) {
 
         if (existing != null) {
             val updated = existing.copy(feature = existing.feature.copy(geometry = geometry))
-            geomanInstance.features.updateFeature(GeomanCoreConstants.SOURCE_POLYGONS, existing.id) { updated }
+            geoman.features.updateFeature(GeomanCoreConstants.SOURCE_POLYGONS, existing.id) { updated }
             currentFeature = updated
         } else {
             val now = System.currentTimeMillis()
@@ -88,7 +88,7 @@ class PolygonDrawer(geoman: Geoman) : BaseDraw(geoman) {
                     "shapeType" to "polygon",
                 ),
             )
-            currentFeature = geomanInstance.features.addGeoJsonFeature(feature, GeomanCoreConstants.SOURCE_POLYGONS)
+            currentFeature = geoman.features.addGeoJsonFeature(feature, GeomanCoreConstants.SOURCE_POLYGONS)
         }
     }
 }

@@ -40,12 +40,12 @@ class RectangleDrawer(geoman: Geoman) : BaseDraw(geoman) {
 
         // Cancel drawing
         firstCorner = null
-        geomanInstance.disableMode(modeType, modeName)
+        geoman.disableMode(modeType, modeName)
     }
 
     override fun finishDrawing() {
         firstCorner = null
-        geomanInstance.disableMode(modeType, modeName)
+        geoman.disableMode(modeType, modeName)
     }
 
     private fun createRectangleFeature(corner1: LngLat, corner2: LngLat) {
@@ -72,8 +72,8 @@ class RectangleDrawer(geoman: Geoman) : BaseDraw(geoman) {
             ),
         )
 
-        val featureToFire = geomanInstance.features.addGeoJsonFeature(feature, GeomanCoreConstants.SOURCE_RECTANGLES)
-        geomanInstance.scope.launch {
+        val featureToFire = geoman.features.addGeoJsonFeature(feature, GeomanCoreConstants.SOURCE_RECTANGLES)
+        geoman.scope.launch {
             fireCreateEvent(featureToFire)
         }
     }

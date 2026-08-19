@@ -4,6 +4,7 @@ import com.geoman.maplibre.geoman.Geoman
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.core.features.FeatureData
 import com.geoman.maplibre.geoman.types.EditModeName
+import com.geoman.maplibre.geoman.types.events.GmEditEvent
 import com.geoman.maplibre.geoman.types.geojson.LngLat
 import kotlinx.coroutines.launch
 import org.maplibre.android.geometry.LatLng
@@ -18,8 +19,8 @@ class DeleteEditor(geoman: Geoman) : BaseEdit(geoman) {
     override fun onMapClick(point: LatLng) {
         if (!enabled) return
 
-        val features = geomanInstance.mapAdapter.queryFeaturesByScreenCoordinates(
-            geomanInstance.mapAdapter.project(LngLat(point.longitude, point.latitude)),
+        val features = geoman.mapAdapter.queryFeaturesByScreenCoordinates(
+            geoman.mapAdapter.project(LngLat(point.longitude, point.latitude)),
             listOf(
                 GeomanCoreConstants.SOURCE_MARKERS,
                 GeomanCoreConstants.SOURCE_LINES,
@@ -38,10 +39,10 @@ class DeleteEditor(geoman: Geoman) : BaseEdit(geoman) {
      * Delete a feature
      */
     private fun deleteFeature(feature: FeatureData) {
-        geomanInstance.scope.launch {
-            fireDeleteEvent(feature)
+        geoman.scope.launch {
+            fireEditEvent({ GmEditEvent.Delete(it) }, feature)
         }
 
-        geomanInstance.features.removeFeature(feature.sourceName, feature.id)
+        geoman.features.removeFeature(feature.sourceName, feature.id)
     }
 }

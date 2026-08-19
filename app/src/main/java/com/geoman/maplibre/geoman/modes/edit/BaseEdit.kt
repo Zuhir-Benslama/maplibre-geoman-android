@@ -5,7 +5,7 @@ import com.geoman.maplibre.geoman.Geoman
 import com.geoman.maplibre.geoman.core.features.FeatureData
 import com.geoman.maplibre.geoman.types.ModeType
 import com.geoman.maplibre.geoman.types.events.GmEditEvent
-import kotlinx.coroutines.launch
+import com.geoman.maplibre.geoman.types.geojson.Geometry
 import org.maplibre.android.geometry.LatLng
 
 /**
@@ -14,9 +14,6 @@ import org.maplibre.android.geometry.LatLng
 abstract class BaseEdit(geoman: Geoman) : BaseAction(geoman) {
 
     override val modeType: ModeType = ModeType.EDIT
-
-    // Expose geoman to subclasses
-    protected val geomanInstance: Geoman = geoman
 
     protected var selectedFeature: FeatureData? = null
 
@@ -27,52 +24,18 @@ abstract class BaseEdit(geoman: Geoman) : BaseAction(geoman) {
 
     abstract fun onMapClick(point: LatLng)
 
-    protected suspend fun fireDragStartEvent(feature: FeatureData?) {
-        geomanInstance.events.emit(GmEditEvent.DragStart(feature))
+    /**
+     * Fire an edit event with the given factory and feature.
+     * Reduces boilerplate in subclasses.
+     */
+    protected suspend fun fireEditEvent(eventFactory: (FeatureData?) -> GmEditEvent, feature: FeatureData?) {
+        geoman.events.emit(eventFactory(feature))
     }
 
-    protected suspend fun fireDragEndEvent(feature: FeatureData?) {
-        geomanInstance.events.emit(GmEditEvent.DragEnd(feature))
-    }
-
-    protected suspend fun fireChangeStartEvent(feature: FeatureData?) {
-        geomanInstance.events.emit(GmEditEvent.ChangeStart(feature))
-    }
-
-    protected suspend fun fireChangeEndEvent(feature: FeatureData?) {
-        geomanInstance.events.emit(GmEditEvent.ChangeEnd(feature))
-    }
-
-    protected suspend fun fireRotateStartEvent(feature: FeatureData?) {
-        geomanInstance.events.emit(GmEditEvent.RotateStart(feature))
-    }
-
-    protected suspend fun fireRotateEndEvent(feature: FeatureData?) {
-        geomanInstance.events.emit(GmEditEvent.RotateEnd(feature))
-    }
-
-    protected suspend fun fireCutStartEvent(feature: FeatureData?) {
-        geomanInstance.events.emit(GmEditEvent.CutStart(feature))
-    }
-
-    protected suspend fun fireCutEndEvent(feature: FeatureData?) {
-        geomanInstance.events.emit(GmEditEvent.CutEnd(feature))
-    }
-
-    protected suspend fun fireDeleteEvent(feature: FeatureData?) {
-        geomanInstance.events.emit(GmEditEvent.Delete(feature))
-    }
-
-    protected fun updateFeatureGeometry(
-        feature: FeatureData,
-        newGeometry: com.geoman.maplibre.geoman.types.geojson.Geometry,
-    ) {
+    protected fun updateFeatureGeometry(feature: FeatureData, newGeometry: Geometry) {
         val updatedFeature = feature.copy(
             feature = feature.feature.copy(geometry = newGeometry),
         )
-
-        geomanInstance.features.updateFeature(feature.sourceName, feature.id) {
-            updatedFeature
-        }
+        geoman.features.updateFeature(feature.sourceName, feature.id) { updatedFeature }
     }
 }

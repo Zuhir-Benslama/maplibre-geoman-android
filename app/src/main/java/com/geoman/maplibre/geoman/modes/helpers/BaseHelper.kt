@@ -13,8 +13,6 @@ abstract class BaseHelper(geoman: Geoman) : BaseAction(geoman) {
 
     override val modeType: ModeType = ModeType.HELPER
 
-    protected val geomanInstance: Geoman = geoman
-
     open fun onMapClick(point: LatLng) {
         GeomanLogger.d("BaseHelper", "Unhandled map click for ${this::class.simpleName} at $point")
     }

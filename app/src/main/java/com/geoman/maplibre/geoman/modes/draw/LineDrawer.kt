@@ -39,20 +39,20 @@ class LineDrawer(geoman: Geoman) : BaseDraw(geoman) {
         if (coordinates.size >= 2 && currentFeature != null) {
             // Capture the feature before launching coroutine to avoid race condition
             val featureToFire = currentFeature
-            geomanInstance.scope.launch {
+            geoman.scope.launch {
                 fireCreateEvent(featureToFire)
             }
         }
 
         coordinates.clear()
         currentFeature = null
-        geomanInstance.disableMode(modeType, modeName)
+        geoman.disableMode(modeType, modeName)
     }
 
     override fun disable() {
         // Remove the uncommitted partial line if the mode is cancelled mid-draw
         currentFeature?.let {
-            geomanInstance.features.removeFeature(GeomanCoreConstants.SOURCE_LINES, it.id)
+            geoman.features.removeFeature(GeomanCoreConstants.SOURCE_LINES, it.id)
         }
         currentFeature = null
         coordinates.clear()
@@ -67,7 +67,7 @@ class LineDrawer(geoman: Geoman) : BaseDraw(geoman) {
 
         if (existing != null) {
             val updated = existing.copy(feature = existing.feature.copy(geometry = geometry))
-            geomanInstance.features.updateFeature(GeomanCoreConstants.SOURCE_LINES, existing.id) { updated }
+            geoman.features.updateFeature(GeomanCoreConstants.SOURCE_LINES, existing.id) { updated }
             currentFeature = updated
         } else {
             val now = System.currentTimeMillis()
@@ -79,7 +79,7 @@ class LineDrawer(geoman: Geoman) : BaseDraw(geoman) {
                     "shapeType" to "line",
                 ),
             )
-            currentFeature = geomanInstance.features.addGeoJsonFeature(feature, GeomanCoreConstants.SOURCE_LINES)
+            currentFeature = geoman.features.addGeoJsonFeature(feature, GeomanCoreConstants.SOURCE_LINES)
         }
     }
 }

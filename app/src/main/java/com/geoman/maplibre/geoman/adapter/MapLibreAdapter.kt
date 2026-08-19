@@ -35,6 +35,12 @@ class MapLibreAdapter(map: MapLibreMap, geoman: Geoman, private val mapView: Map
 
     override val mapType: String = "maplibre"
 
+    private companion object {
+        const val TAG = "MapLibreAdapter"
+        const val HIT_TOLERANCE_PX = 20.0
+        const val DEFAULT_CAMERA_PADDING = 100
+    }
+
     private val context: android.content.Context = mapView.context
 
     // Thread-safe collections for event listeners and map objects
@@ -140,7 +146,7 @@ class MapLibreAdapter(map: MapLibreMap, geoman: Geoman, private val mapView: Map
                 options.padding.toInt(),
             )
         } else {
-            org.maplibre.android.camera.CameraUpdateFactory.newLatLngBounds(latLngBounds, 100)
+            org.maplibre.android.camera.CameraUpdateFactory.newLatLngBounds(latLngBounds, DEFAULT_CAMERA_PADDING)
         }
 
         map.animateCamera(cameraUpdate)
@@ -239,7 +245,7 @@ class MapLibreAdapter(map: MapLibreMap, geoman: Geoman, private val mapView: Map
             val dy = markerPoint.y - queryCoordinates.y
             val distance = sqrt(dx * dx + dy * dy)
 
-            if (distance < 20) { // 20px hit tolerance
+            if (distance < HIT_TOLERANCE_PX) {
                 val featureData = FeatureData(
                     id = marker.id,
                     sourceName = marker.sourceName,
@@ -281,7 +287,7 @@ class MapLibreAdapter(map: MapLibreMap, geoman: Geoman, private val mapView: Map
             if (sourceNames.contains(sourceId)) {
                 source.getFeaturesAtPoint(queryCoordinates)?.forEach { feature ->
                     features.add(
-                        GeoJsonFeatureData(
+                        FeatureData(
                             id = feature.id ?: "",
                             sourceName = sourceId,
                             feature = feature,
@@ -366,11 +372,10 @@ class MapLibreAdapter(map: MapLibreMap, geoman: Geoman, private val mapView: Map
     }
 
     override fun once(type: String, listener: (Any?) -> Unit) {
+        val called = java.util.concurrent.atomic.AtomicBoolean(false)
         val wrappedListener = object : (Any?) -> Unit {
-            var called = false
             override fun invoke(data: Any?) {
-                if (!called) {
-                    called = true
+                if (called.compareAndSet(false, true)) {
                     listener(data)
                     off(type, this)
                 }
@@ -393,41 +398,20 @@ class MapLibreAdapter(map: MapLibreMap, geoman: Geoman, private val mapView: Map
         var minDistance = Double.MAX_VALUE
 
         for (i in 0 until lineCoordinates.size - 1) {
-            val start = lineCoordinates[i]
-            val end = lineCoordinates[i + 1]
+            val nearest = com.geoman.maplibre.geoman.utils.GeometryUtils.nearestPointOnSegment(
+                point,
+                lineCoordinates[i],
+                lineCoordinates[i + 1],
+            )
+            val dist = getDistance(nearest, point)
 
-            val nearest = getNearestPointOnSegment(start, end, point)
-            val distance = getDistance(nearest, point)
-
-            if (distance < minDistance) {
-                minDistance = distance
+            if (dist < minDistance) {
+                minDistance = dist
                 closestPoint = nearest
             }
         }
 
         return closestPoint
-    }
-
-    private fun getNearestPointOnSegment(start: LngLat, end: LngLat, point: LngLat): LngLat {
-        val dx = end.longitude - start.longitude
-        val dy = end.latitude - start.latitude
-
-        if (dx == 0.0 && dy == 0.0) {
-            return start
-        }
-
-        val t = (
-            (point.longitude - start.longitude) * dx +
-                (point.latitude - start.latitude) * dy
-            ) /
-            (dx * dx + dy * dy)
-
-        val clampedT = t.coerceIn(0.0, 1.0)
-
-        return LngLat(
-            start.longitude + clampedT * dx,
-            start.latitude + clampedT * dy,
-        )
     }
 
     fun cleanup() {

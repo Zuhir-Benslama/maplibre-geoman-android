@@ -31,14 +31,14 @@ class MarkerDrawer(geoman: Geoman) : BaseDraw(geoman) {
             ),
         )
 
-        val featureData = geomanInstance.features.addGeoJsonFeature(
+        val featureData = geoman.features.addGeoJsonFeature(
             feature,
             GeomanCoreConstants.SOURCE_MARKERS,
         )
 
         temporaryFeatures.add(featureData)
 
-        geomanInstance.scope.launch {
+        geoman.scope.launch {
             fireCreateEvent(featureData)
         }
 
@@ -51,6 +51,6 @@ class MarkerDrawer(geoman: Geoman) : BaseDraw(geoman) {
 
     override fun finishDrawing() {
         temporaryFeatures.clear()
-        geomanInstance.disableMode(modeType, modeName)
+        geoman.disableMode(modeType, modeName)
     }
 }

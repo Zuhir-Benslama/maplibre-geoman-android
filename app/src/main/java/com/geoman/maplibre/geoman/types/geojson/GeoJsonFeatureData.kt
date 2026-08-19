@@ -1,8 +1,9 @@
 package com.geoman.maplibre.geoman.types.geojson
 
+import com.geoman.maplibre.geoman.core.features.FeatureData
+
 /**
- * GeoJSON Feature data class holding feature information with source reference
+ * GeoJSON Feature data class — alias for [FeatureData] for backward compatibility.
+ * Prefer using [FeatureData] directly in new code.
  */
-data class GeoJsonFeatureData(val id: String, val sourceName: String, val feature: Feature) {
-    val geometry: Geometry get() = feature.geometry
-}
+typealias GeoJsonFeatureData = FeatureData

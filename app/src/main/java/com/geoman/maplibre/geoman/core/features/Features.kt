@@ -45,63 +45,53 @@ object FeatureSources {
 }
 
 /**
- * Features manager for handling GeoJSON features
+ * Features manager for handling GeoJSON features.
+ *
+ * Thread safety: all mutable state is guarded by `this` lock via
+ * [synchronized]. Map adapter calls ([syncSourceToMap]) are performed
+ * *outside* the lock to avoid holding it during I/O or re-entrant callbacks.
  */
 class Features(private val geoman: Geoman? = null) {
-    private val featuresMap = java.util.concurrent.ConcurrentHashMap<String, MutableMap<String, FeatureData>>()
-    private val _featuresFlow = MutableStateFlow<Map<String, Map<String, FeatureData>>>(emptyMap())
 
     private companion object {
-        const val COLOR_MASK = 0xFFFFFF
+        const val RGB_MASK = 0xFFFFFF
     }
+
+    // Guarded by `this` — use plain HashMap since we always hold the lock
+    private val featuresMap = HashMap<String, MutableMap<String, FeatureData>>()
+    private val _featuresFlow = MutableStateFlow<Map<String, Map<String, FeatureData>>>(emptyMap())
 
     val featuresFlow: StateFlow<Map<String, Map<String, FeatureData>>> = _featuresFlow.asStateFlow()
 
-    // Map adapter reference for rendering
     @Volatile
     private var mapAdapter: BaseMapAdapter<*>? = null
 
-    /**
-     * Initialize features manager with optional map adapter reference
-     */
     fun init(adapter: BaseMapAdapter<*>? = null) {
         mapAdapter = adapter
     }
 
-    /**
-     * Get all features
-     */
-    @Synchronized
-    fun getAllFeatures(): Map<String, Map<String, FeatureData>> = featuresMap.toMap()
-
-    /**
-     * Get features by source name
-     */
-    @Synchronized
-    fun getFeatures(sourceName: String): Map<String, FeatureData> = featuresMap[sourceName]?.toMap() ?: emptyMap()
-
-    /**
-     * Get a specific feature
-     */
-    @Synchronized
-    fun getFeature(sourceName: String, featureId: String): FeatureData? = featuresMap[sourceName]?.get(featureId)
-
-    /**
-     * Add a feature
-     */
-    @Synchronized
-    fun addFeature(featureData: FeatureData) {
-        val sourceFeatures = featuresMap.getOrPut(featureData.sourceName) {
-            java.util.concurrent.ConcurrentHashMap()
-        }
-        sourceFeatures[featureData.id] = featureData
-        updateFeaturesFlow()
+    fun getAllFeatures(): Map<String, Map<String, FeatureData>> = synchronized(this) {
+        featuresMap.mapValues { it.value.toMap() }
     }
 
-    /**
-     * Add a GeoJSON feature
-     */
-    @Synchronized
+    fun getFeatures(sourceName: String): Map<String, FeatureData> = synchronized(this) {
+        featuresMap[sourceName]?.toMap() ?: emptyMap()
+    }
+
+    fun getFeature(sourceName: String, featureId: String): FeatureData? = synchronized(this) {
+        featuresMap[sourceName]?.get(featureId)
+    }
+
+    fun addFeature(featureData: FeatureData) {
+        val sourcesToSync = synchronized(this) {
+            val sourceFeatures = featuresMap.getOrPut(featureData.sourceName) { HashMap() }
+            sourceFeatures[featureData.id] = featureData
+            updateFeaturesFlow()
+            listOf(featureData.sourceName)
+        }
+        sourcesToSync.forEach { syncSourceToMap(it) }
+    }
+
     fun addGeoJsonFeature(feature: Feature, sourceName: String = FeatureSources.POLYGON): FeatureData {
         val featureId = feature.id ?: generateFeatureId()
         val featureData = FeatureData(
@@ -111,96 +101,75 @@ class Features(private val geoman: Geoman? = null) {
             properties = feature.properties.toMutableMap(),
         )
         addFeature(featureData)
-
-        // Sync to map if adapter is available
-        syncSourceToMap(sourceName)
-
         return featureData
     }
 
-    /**
-     * Update a feature
-     */
-    @Synchronized
     fun updateFeature(sourceName: String, featureId: String, update: (FeatureData) -> FeatureData) {
-        featuresMap[sourceName]?.get(featureId)?.let { existingFeature ->
-            val updatedFeature = update(existingFeature)
-            featuresMap[sourceName]?.put(featureId, updatedFeature)
-            updateFeaturesFlow()
+        val shouldSync = synchronized(this) {
+            featuresMap[sourceName]?.get(featureId)?.let { existingFeature ->
+                val updatedFeature = update(existingFeature)
+                featuresMap[sourceName]?.put(featureId, updatedFeature)
+                updateFeaturesFlow()
+                true
+            } ?: false
+        }
+        if (shouldSync) {
             syncSourceToMap(sourceName)
         }
     }
 
-    /**
-     * Remove a feature
-     */
-    @Synchronized
     fun removeFeature(sourceName: String, featureId: String): FeatureData? {
-        val removedFeature = featuresMap[sourceName]?.remove(featureId)
-        if (featuresMap[sourceName]?.isEmpty() == true) {
-            featuresMap.remove(sourceName)
+        val removedFeature = synchronized(this) {
+            val removed = featuresMap[sourceName]?.remove(featureId)
+            if (featuresMap[sourceName]?.isEmpty() == true) {
+                featuresMap.remove(sourceName)
+            }
+            updateFeaturesFlow()
+            removed
         }
-        updateFeaturesFlow()
-        // Re-sync the source
         syncSourceToMap(sourceName)
         return removedFeature
     }
 
-    /**
-     * Remove all features from a source
-     */
-    @Synchronized
     fun clearSource(sourceName: String) {
-        featuresMap.remove(sourceName)
-        updateFeaturesFlow()
+        synchronized(this) {
+            featuresMap.remove(sourceName)
+            updateFeaturesFlow()
+        }
         syncSourceToMap(sourceName)
     }
 
-    /**
-     * Clear all features
-     */
-    @Synchronized
     fun clearAll() {
-        val sourceNames = featuresMap.keys.toList()
-        featuresMap.clear()
-        updateFeaturesFlow()
-        // Re-sync all sources to clear them
+        val sourceNames = synchronized(this) {
+            val names = featuresMap.keys.toList()
+            featuresMap.clear()
+            updateFeaturesFlow()
+            names
+        }
         sourceNames.forEach { syncSourceToMap(it) }
     }
 
-    /**
-     * Re-sync every in-memory feature to the map.
-     * Used after the map style has been replaced, which destroys all style-bound
-     * sources and layers created for the previous style.
-     */
-    @Synchronized
     fun reSyncAll() {
-        val sourceNames = featuresMap.keys.toList()
+        val sourceNames = synchronized(this) { featuresMap.keys.toList() }
         sourceNames.forEach { syncSourceToMap(it) }
     }
 
-    /**
-     * Get features whose bounding box intersects the given bounds
-     */
-    @Synchronized
     fun getFeaturesInBounds(bounds: List<LngLat>, sourceNames: List<String>? = null): List<FeatureData> {
         require(bounds.isNotEmpty()) { "bounds must contain at least one coordinate" }
-        val sources = sourceNames ?: featuresMap.keys.toList()
-        val boundsBbox = GeometryUtils.bbox(bounds)
-        return sources.flatMap { sourceName ->
-            featuresMap[sourceName]?.values?.filter { feature ->
-                featureBboxIntersects(feature.geometry, boundsBbox)
-            } ?: emptyList()
+        return synchronized(this) {
+            val sources = sourceNames ?: featuresMap.keys.toList()
+            val boundsBbox = GeometryUtils.bbox(bounds)
+            sources.flatMap { sourceName ->
+                featuresMap[sourceName]?.values?.filter { feature ->
+                    featureBboxIntersects(feature.geometry, boundsBbox)
+                } ?: emptyList()
+            }
         }
     }
 
-    /**
-     * Get features at screen coordinates (delegates to the map adapter query)
-     */
-    @Synchronized
     fun getFeaturesAtPoint(point: ScreenPoint, sourceNames: List<String>? = null): List<FeatureData> {
         val adapter = mapAdapter ?: return emptyList()
-        val sources = sourceNames ?: featuresMap.keys.toList()
+        val sources = synchronized(this) { sourceNames ?: featuresMap.keys.toList() }
         return adapter.queryFeaturesByScreenCoordinates(point, sources)
     }
 
@@ -210,32 +179,25 @@ class Features(private val geoman: Geoman? = null) {
             geometryBbox[1] <= boundsBbox[3] && geometryBbox[3] >= boundsBbox[1]
     }
 
-    /**
-     * Sync a source's features to the map
-     */
     private fun syncSourceToMap(sourceName: String) {
         val adapter = mapAdapter ?: return
-        val sourceFeatures = featuresMap[sourceName] ?: emptyMap()
+        val sourceFeatures = synchronized(this) {
+            featuresMap[sourceName]?.toMap() ?: emptyMap()
+        }
 
-        // Build FeatureCollection from in-memory features
         val featureCollection = FeatureCollection(
             features = sourceFeatures.values.map { it.feature }.toList(),
         )
 
-        // Create or update the source on the map
         val existingSource = adapter.getSource(sourceName)
         if (existingSource != null) {
             existingSource.setData(featureCollection)
         } else {
             adapter.addSource(sourceName, featureCollection)
-            // Also add rendering layers for this source
             addRenderingLayersForSource(sourceName, adapter)
         }
     }
 
-    /**
-     * Add rendering layers for a source on the map
-     */
     private fun addRenderingLayersForSource(sourceName: String, adapter: BaseMapAdapter<*>) {
         val layerId = when (sourceName) {
             FeatureSources.MARKER -> "${sourceName}_symbol"
@@ -243,7 +205,6 @@ class Features(private val geoman: Geoman? = null) {
             else -> "${sourceName}_stroke"
         }
 
-        // Only add layers once per source
         if (adapter.getLayer(layerId) != null) return
 
         try {
@@ -318,7 +279,7 @@ class Features(private val geoman: Geoman? = null) {
     }
 
     private fun toHex(color: androidx.compose.ui.graphics.Color): String =
-        String.format("#%06X", color.toArgb() and COLOR_MASK)
+        String.format("#%06X", color.toArgb() and RGB_MASK)
 
     private fun updateFeaturesFlow() {
         _featuresFlow.value = featuresMap.mapValues { it.value.toMap() }

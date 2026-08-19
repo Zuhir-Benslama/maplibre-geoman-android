@@ -4,6 +4,7 @@ import com.geoman.maplibre.geoman.Geoman
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.core.features.FeatureData
 import com.geoman.maplibre.geoman.types.EditModeName
+import com.geoman.maplibre.geoman.types.events.GmEditEvent
 import com.geoman.maplibre.geoman.types.geojson.LineString
 import com.geoman.maplibre.geoman.types.geojson.LngLat
 import com.geoman.maplibre.geoman.types.geojson.Point
@@ -46,8 +47,8 @@ class RotateEditor(geoman: Geoman) : BaseEdit(geoman) {
         if (isRotating) {
             updateRotation(point)
         } else {
-            val features = geomanInstance.mapAdapter.queryFeaturesByScreenCoordinates(
-                geomanInstance.mapAdapter.project(LngLat(point.longitude, point.latitude)),
+            val features = geoman.mapAdapter.queryFeaturesByScreenCoordinates(
+                geoman.mapAdapter.project(LngLat(point.longitude, point.latitude)),
                 listOf(
                     GeomanCoreConstants.SOURCE_LINES,
                     GeomanCoreConstants.SOURCE_POLYGONS,
@@ -71,8 +72,8 @@ class RotateEditor(geoman: Geoman) : BaseEdit(geoman) {
         rotationStartAngle = calculateAngle(c, LngLat(startPoint.longitude, startPoint.latitude))
         initialRotation = 0.0
 
-        geomanInstance.scope.launch {
-            fireRotateStartEvent(feature)
+        geoman.scope.launch {
+            fireEditEvent({ GmEditEvent.RotateStart(it) }, feature)
         }
     }
 
@@ -87,8 +88,8 @@ class RotateEditor(geoman: Geoman) : BaseEdit(geoman) {
 
     private fun finishRotation() {
         rotatingFeature?.let {
-            geomanInstance.scope.launch {
-                fireRotateEndEvent(it)
+            geoman.scope.launch {
+                fireEditEvent({ GmEditEvent.RotateEnd(it) }, it)
             }
         }
 

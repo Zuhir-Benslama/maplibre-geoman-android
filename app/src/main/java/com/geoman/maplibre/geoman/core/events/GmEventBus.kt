@@ -5,22 +5,29 @@ import com.geoman.maplibre.geoman.types.events.GmEvent
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArraySet
 
 /**
- * Event bus for Geoman events
- * Uses Kotlin Flow for reactive event handling
+ * Event bus for Geoman events.
+ *
+ * Uses Kotlin Flow for reactive event handling and a callback-based API
+ * for imperative subscription. The callback API uses [CopyOnWriteArraySet]
+ * so that [off] works correctly with any listener reference (including lambdas
+ * wrapped in objects).
  */
 class GmEventBus {
     private val _events = MutableSharedFlow<GmEvent>(extraBufferCapacity = 64)
     val events: SharedFlow<GmEvent> = _events.asSharedFlow()
 
-    private val eventListeners = java.util.concurrent.ConcurrentHashMap<
-        String,
-        java.util.concurrent.CopyOnWriteArrayList<(GmEvent) -> Unit>,
-        >()
+    private val eventListeners = ConcurrentHashMap<String, CopyOnWriteArraySet<(GmEvent) -> Unit>>()
+
+    private companion object {
+        const val TAG = "GmEventBus"
+    }
 
     /**
-     * Emit an event to all listeners (suspending)
+     * Emit an event to all listeners (suspending).
      */
     suspend fun emit(event: GmEvent) {
         _events.emit(event)
@@ -28,7 +35,7 @@ class GmEventBus {
     }
 
     /**
-     * Emit an event to all listeners (non-suspending, for use in destroy/cleanup paths)
+     * Emit an event to all listeners (non-suspending, for use in destroy/cleanup paths).
      */
     fun tryEmit(event: GmEvent): Boolean {
         val result = _events.tryEmit(event)
@@ -41,27 +48,29 @@ class GmEventBus {
             try {
                 listener(event)
             } catch (e: Exception) {
-                GeomanLogger.e("GmEventBus", "Error in event listener for ${event.type}", e)
+                GeomanLogger.e(TAG, "Error in event listener for ${event.type}", e)
             }
         }
     }
 
     /**
-     * Subscribe to a specific event type
+     * Subscribe to a specific event type.
      */
     fun on(eventType: String, listener: (GmEvent) -> Unit) {
-        eventListeners.getOrPut(eventType) { java.util.concurrent.CopyOnWriteArrayList() }.add(listener)
+        eventListeners.getOrPut(eventType) { CopyOnWriteArraySet() }.add(listener)
     }
 
     /**
-     * Subscribe to a specific event type (once)
+     * Subscribe to a specific event type, firing only once.
+     *
+     * Thread-safe: uses [java.util.concurrent.atomic.AtomicBoolean] to ensure
+     * the listener is invoked at most once even under concurrent emissions.
      */
     fun once(eventType: String, listener: (GmEvent) -> Unit) {
+        val called = java.util.concurrent.atomic.AtomicBoolean(false)
         val wrappedListener = object : (GmEvent) -> Unit {
-            var called = false
             override fun invoke(event: GmEvent) {
-                if (!called) {
-                    called = true
+                if (called.compareAndSet(false, true)) {
                     listener(event)
                     off(eventType, this)
                 }
@@ -71,24 +80,30 @@ class GmEventBus {
     }
 
     /**
-     * Unsubscribe from an event type
+     * Unsubscribe from an event type.
+     *
+     * Because listeners are stored in a [CopyOnWriteArraySet], removal uses
+     * reference equality which works for object-instance listeners and for
+     * listeners registered via [once]. For raw lambda listeners, keep a
+     * reference and pass it here.
      */
     fun off(eventType: String, listener: (GmEvent) -> Unit) {
-        eventListeners[eventType]?.remove(listener)
-        if (eventListeners[eventType]?.isEmpty() == true) {
+        val listeners = eventListeners[eventType] ?: return
+        listeners.remove(listener)
+        if (listeners.isEmpty()) {
             eventListeners.remove(eventType)
         }
     }
 
     /**
-     * Clear all event listeners
+     * Clear all event listeners.
      */
     fun removeAllListeners() {
         eventListeners.clear()
     }
 
     /**
-     * Clear listeners for a specific event type
+     * Clear listeners for a specific event type.
      */
     fun removeAllListeners(eventType: String) {
         eventListeners.remove(eventType)

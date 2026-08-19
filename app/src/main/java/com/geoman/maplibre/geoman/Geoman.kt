@@ -34,6 +34,7 @@ import com.geoman.maplibre.geoman.types.events.GmModeEvent
 import com.geoman.maplibre.geoman.types.geojson.Feature
 import com.geoman.maplibre.geoman.types.geojson.FeatureCollection
 import com.geoman.maplibre.geoman.types.geojson.LngLat
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -59,6 +60,14 @@ import org.maplibre.android.maps.MapView
  * @param options Initial configuration options
  */
 class Geoman(internal val mapView: MapView, private val map: MapLibreMap, options: GmOptionsData = GmOptionsData()) {
+
+    private companion object {
+        const val TAG = "Geoman"
+        const val MODE_KEY_DELIMITER = "__"
+        const val STYLE_LOAD_TIMEOUT_MS = 10_000L
+        const val GEOMAN_LOADED_TIMEOUT_MS = 5_000L
+    }
+
     // Core components
     val options: GmOptions = GmOptions(options)
     val features: Features = Features(this)
@@ -79,7 +88,7 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
     // Mode factory
     private val modeFactory = ModeFactory(this)
 
-    // Action instances (modes) — synchronized for thread safety
+    // Action instances (modes) — guarded by `this` lock for atomic mode switching
     private val actionInstances = java.util.concurrent.ConcurrentHashMap<String, BaseAction>()
 
     // Single source of truth for the set of currently enabled modes
@@ -94,8 +103,11 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
     private val _destroyed = MutableStateFlow(false)
     val destroyed: Boolean get() = _destroyed.value
 
-    // Coroutine scope - internal for use by modes
-    internal val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    // Coroutine scope with exception handler to prevent silent coroutine failures
+    private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        GeomanLogger.e(TAG, "Uncaught coroutine exception", throwable as? Exception ?: Exception(throwable))
+    }
+    internal val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main + exceptionHandler)
 
     // Pending base map wait
     private var pendingBaseMapWait: kotlinx.coroutines.Job? = null
@@ -105,16 +117,29 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
     }
 
     /**
+     * Build a stable map key for an action instance.
+     */
+    private fun modeKey(type: ModeType, name: String): String = "${type.name}$MODE_KEY_DELIMITER$name"
+
+    /**
+     * Parse a mode key back into its type and name components.
+     */
+    private fun parseModeKey(key: String): Pair<ModeType, String>? {
+        val parts = key.split(MODE_KEY_DELIMITER)
+        if (parts.size != 2) return null
+        return try {
+            ModeType.valueOf(parts[0]) to parts[1]
+        } catch (_: IllegalArgumentException) {
+            null
+        }
+    }
+
+    /**
      * Initialize Geoman
      */
     private fun initialize() {
-        // Create map adapter
         _mapAdapter = MapLibreAdapter(map, this, mapView)
-
-        // Create control
         _control = GmControl(this)
-
-        // Wait for map to load
         waitForBaseMap()
     }
 
@@ -128,7 +153,7 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
         }
 
         pendingBaseMapWait = scope.launch {
-            withTimeoutOrNull(10_000L) {
+            withTimeoutOrNull(STYLE_LOAD_TIMEOUT_MS) {
                 suspendCancellableCoroutine { continuation ->
                     val listener = MapView.OnDidFinishLoadingStyleListener {
                         if (continuation.isActive) {
@@ -154,10 +179,8 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
     private fun init() {
         if (_destroyed.value) return
 
-        // Initialize features with map adapter reference for rendering
         features.init(_mapAdapter)
 
-        // Add controls
         scope.launch {
             addControls()
         }
@@ -170,8 +193,6 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
         if (options.settings.useControlsUi) {
             mapAdapter.addControl(control)
         }
-
-        // Fire loaded event
         onMapLoad()
     }
 
@@ -184,8 +205,6 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
         loadMarkerImage()
 
         _loaded.value = true
-
-        // Fire loaded event
         events.emit(GmMapEvent.Loaded)
     }
 
@@ -201,15 +220,15 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
             )
             mapAdapter.loadImage("default-marker", markerBitmap)
         } catch (e: Exception) {
-            GeomanLogger.e("Geoman", "Failed to load default marker", e)
+            GeomanLogger.e(TAG, "Failed to load default marker", e)
         }
     }
 
     /**
-     * Restore rendering after the base map style has been replaced
-     * (e.g. when the base layer changes). Style-bound sources and layers were
-     * destroyed by the style swap, so cached references are dropped, the
-     * default marker image is reloaded, and in-memory features are re-synced.
+     * Restore rendering after the base map style has been replaced.
+     * Style-bound sources and layers were destroyed by the style swap, so
+     * cached references are dropped, the default marker image is reloaded,
+     * and in-memory features are re-synced.
      */
     fun onStyleReloaded() {
         if (_destroyed.value) return
@@ -221,64 +240,66 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
     }
 
     /**
-     * Enable a mode
+     * Enable a mode. Disables other modes of the same type first.
+     *
+     * Mode switching is synchronized to prevent races between concurrent
+     * calls (e.g. rapid UI taps).
      */
     fun enableMode(type: ModeType, name: String) {
         if (_destroyed.value) return
 
-        val key = "${type.name}__$name"
-        GeomanLogger.d("Geoman", "enableMode called: $type.$name (key: $key)")
+        val key = modeKey(type, name)
 
-        // Disable other modes of the same type
-        val keysToDisable = actionInstances.keys.filter { it.startsWith("${type.name}__") && it != key }
-        keysToDisable.forEach { k ->
-            actionInstances[k]?.disable()
-            actionInstances.remove(k)
+        synchronized(this) {
+            // Disable other modes of the same type
+            val keysToDisable = actionInstances.keys.filter {
+                it.startsWith("${type.name}$MODE_KEY_DELIMITER") && it != key
+            }
+            keysToDisable.forEach { k ->
+                actionInstances[k]?.disable()
+                actionInstances.remove(k)
+            }
+
+            // Create and enable the mode
+            val action = modeFactory.create(type, name)
+            action?.let {
+                actionInstances[key] = it
+                it.enable()
+
+                _control?.activeModes?.removeAll { it.first == type }
+                _control?.activeModes?.add(type to name)
+
+                options.enableMode(type, name)
+                _activeModesFlow.value = getEnabledModes()
+            }
         }
 
-        // Create and enable the mode
-        val action = modeFactory.create(type, name)
-        action?.let {
-            actionInstances[key] = it
-            it.enable()
-
-            // Also update control's active modes (for click handling)
-            _control?.activeModes?.removeAll { it.first == type }
-            _control?.activeModes?.add(type to name)
-            GeomanLogger.d("Geoman", "Mode enabled, activeModes now: ${_control?.activeModes}")
-
-            // Keep options and the reactive flow in sync
-            options.enableMode(type, name)
-            _activeModesFlow.value = getEnabledModes()
-
-            // Fire event
+        // Fire event outside the lock to avoid holding it during coroutine dispatch
+        actionInstances[key]?.let {
             scope.launch {
                 events.emit(GmModeEvent.Enable(name, type.name))
             }
         } ?: run {
-            GeomanLogger.e("Geoman", "Failed to create action for $type.$name")
+            GeomanLogger.e(TAG, "Failed to create action for $type.$name")
         }
     }
 
     /**
-     * Disable a mode
+     * Disable a mode.
      */
     fun disableMode(type: ModeType, name: String) {
-        val key = "${type.name}__$name"
-        val action = actionInstances[key]
+        val key = modeKey(type, name)
+
+        val action = synchronized(this) {
+            actionInstances.remove(key)?.also {
+                it.disable()
+                _control?.activeModes?.remove(type to name)
+                options.disableMode(type, name)
+                _activeModesFlow.value = getEnabledModes()
+            }
+        }
 
         action?.let {
-            it.disable()
-            actionInstances.remove(key)
-
-            // Also remove from control's active modes
-            _control?.activeModes?.remove(type to name)
-
-            // Keep options and the reactive flow in sync
-            options.disableMode(type, name)
-            _activeModesFlow.value = getEnabledModes()
-
-            // Fire event
             scope.launch {
                 events.emit(GmModeEvent.Disable(name, type.name))
             }
@@ -289,7 +310,7 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
      * Toggle a mode
      */
     fun toggleMode(type: ModeType, name: String): Boolean {
-        val key = "${type.name}__$name"
+        val key = modeKey(type, name)
         return if (actionInstances.containsKey(key)) {
             disableMode(type, name)
             false
@@ -302,81 +323,62 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
     /**
      * Check if a mode is enabled
      */
-    fun isModeEnabled(type: ModeType, name: String): Boolean = actionInstances.containsKey("${type.name}__$name")
+    fun isModeEnabled(type: ModeType, name: String): Boolean = actionInstances.containsKey(modeKey(type, name))
 
     /**
      * Get all enabled modes
      */
-    fun getEnabledModes(): List<Pair<ModeType, String>> = actionInstances.keys.mapNotNull { key ->
-        val parts = key.split("__")
-        if (parts.size != 2) return@mapNotNull null
-        try {
-            val type = ModeType.valueOf(parts[0])
-            type to parts[1]
-        } catch (_: IllegalArgumentException) {
-            null
-        }
-    }
+    fun getEnabledModes(): List<Pair<ModeType, String>> = actionInstances.keys.mapNotNull { parseModeKey(it) }
 
     /**
      * Disable all modes
      */
     fun disableAllModes() {
-        actionInstances.values.forEach { it.disable() }
-        actionInstances.clear()
-        // Also clear control's active modes
-        _control?.activeModes?.clear()
-        options.disableAllModes()
-        _activeModesFlow.value = emptyList()
-        GeomanLogger.d("Geoman", "disableAllModes called, activeModes cleared")
+        val toDisable: List<BaseAction>
+        synchronized(this) {
+            toDisable = actionInstances.values.toList()
+            actionInstances.clear()
+            _control?.activeModes?.clear()
+            options.disableAllModes()
+            _activeModesFlow.value = emptyList()
+        }
+        // Disable actions outside the lock to avoid holding it during mode cleanup
+        toDisable.forEach { it.disable() }
     }
 
     /**
      * Handle draw mode click
      */
     fun handleDrawClick(modeName: String, point: LatLng) {
-        val key = "${ModeType.DRAW.name}__$modeName"
-        GeomanLogger.d("Geoman", "handleDrawClick called: mode=$modeName, key=$key")
-        GeomanLogger.d("Geoman", "actionInstances keys: ${actionInstances.keys}")
+        val key = modeKey(ModeType.DRAW, modeName)
         val action = actionInstances[key] as? BaseDraw
-        if (action != null) {
-            GeomanLogger.d("Geoman", "Found action, calling onMapClick")
-            action.onMapClick(point)
-        } else {
-            GeomanLogger.e("Geoman", "No action found for key: $key")
-        }
+        action?.onMapClick(point)
     }
 
     /**
      * Handle draw mode long press
      */
     fun handleDrawLongPress(modeName: String, point: LatLng) {
-        val key = "${ModeType.DRAW.name}__$modeName"
-        GeomanLogger.d("Geoman", "handleDrawLongPress called: mode=$modeName, key=$key")
+        val key = modeKey(ModeType.DRAW, modeName)
         val action = actionInstances[key] as? BaseDraw
-        if (action != null) {
-            GeomanLogger.d("Geoman", "Found action, calling onMapLongClick")
-            action.onMapLongClick(point)
-        } else {
-            GeomanLogger.e("Geoman", "No action found for key: $key")
-        }
+        action?.onMapLongClick(point)
     }
 
     /**
      * Start editing a specific feature directly (bypasses click selection)
      */
     fun startEditingFeature(feature: FeatureData) {
-        val key = "${ModeType.EDIT.name}__${EditModeName.CHANGE.name}"
+        val key = modeKey(ModeType.EDIT, EditModeName.CHANGE.name)
         val action = actionInstances[key] as? ChangeEditor
         action?.startEditingFeature(feature)
-            ?: GeomanLogger.w("Geoman", "ChangeEditor not enabled for startEditingFeature")
+            ?: GeomanLogger.w(TAG, "ChangeEditor not enabled for startEditingFeature")
     }
 
     /**
      * Handle edit mode click
      */
     fun handleEditClick(modeName: String, point: LatLng) {
-        val key = "${ModeType.EDIT.name}__$modeName"
+        val key = modeKey(ModeType.EDIT, modeName)
         val action = actionInstances[key] as? BaseEdit
         action?.onMapClick(point)
     }
@@ -386,7 +388,7 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
      * map from panning while a drag handle is being moved)
      */
     fun handleEditTouch(modeName: String, event: android.view.MotionEvent): Boolean {
-        val key = "${ModeType.EDIT.name}__$modeName"
+        val key = modeKey(ModeType.EDIT, modeName)
         val action = actionInstances[key] as? DragEditor
         return action?.onTouchEvent(event) ?: false
     }
@@ -395,7 +397,7 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
      * Handle helper mode click
      */
     fun handleHelperClick(modeName: String, point: LatLng) {
-        val key = "${ModeType.HELPER.name}__$modeName"
+        val key = modeKey(ModeType.HELPER, modeName)
         (actionInstances[key] as? BaseHelper)?.onMapClick(point)
     }
 
@@ -446,7 +448,7 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
         if (_destroyed.value) return null
 
         return try {
-            withTimeoutOrNull(5000L) {
+            withTimeoutOrNull(GEOMAN_LOADED_TIMEOUT_MS) {
                 _loaded.first { it }
                 this@Geoman
             }
@@ -464,27 +466,18 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
         if (_destroyed.value) return
         _destroyed.value = true
 
-        // Cancel pending operations
         pendingBaseMapWait?.cancel()
-
-        // Disable all modes
         disableAllModes()
 
-        // Remove controls synchronously so the cleanup is not cancelled with the scope
         if (options.settings.useControlsUi) {
             mapAdapter.removeControl(control)
         }
 
-        // Clean up map adapter
         (_mapAdapter as? MapLibreAdapter)?.cleanup()
 
-        // Fire destroyed event synchronously so listeners receive it before cleanup
         events.tryEmit(GmMapEvent.Destroyed)
-
-        // Remove event listeners
         events.removeAllListeners()
 
-        // Cancel scope after event is emitted
         scope.cancel()
     }
 

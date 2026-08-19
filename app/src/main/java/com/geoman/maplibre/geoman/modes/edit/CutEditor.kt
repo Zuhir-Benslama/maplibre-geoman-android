@@ -4,6 +4,7 @@ import com.geoman.maplibre.geoman.Geoman
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.core.features.FeatureData
 import com.geoman.maplibre.geoman.types.EditModeName
+import com.geoman.maplibre.geoman.types.events.GmEditEvent
 import com.geoman.maplibre.geoman.types.geojson.Feature
 import com.geoman.maplibre.geoman.types.geojson.LineString
 import com.geoman.maplibre.geoman.types.geojson.LngLat
@@ -38,8 +39,8 @@ class CutEditor(geoman: Geoman) : BaseEdit(geoman) {
 
     private fun findLineAt(point: LatLng): FeatureData? {
         val clickPoint = LngLat(point.longitude, point.latitude)
-        val features = geomanInstance.mapAdapter.queryFeaturesByScreenCoordinates(
-            geomanInstance.mapAdapter.project(clickPoint),
+        val features = geoman.mapAdapter.queryFeaturesByScreenCoordinates(
+            geoman.mapAdapter.project(clickPoint),
             listOf(GeomanCoreConstants.SOURCE_LINES),
         )
         return features.firstOrNull()
@@ -64,7 +65,7 @@ class CutEditor(geoman: Geoman) : BaseEdit(geoman) {
     }
 
     private fun splitFeature(feature: FeatureData, coords: List<LngLat>, segmentIndex: Int, cutPoint: LngLat) {
-        geomanInstance.scope.launch { fireCutStartEvent(feature) }
+        geoman.scope.launch { fireEditEvent({ GmEditEvent.CutStart(it) }, feature) }
 
         val sourceName = feature.sourceName
         val now = System.currentTimeMillis()
@@ -74,11 +75,11 @@ class CutEditor(geoman: Geoman) : BaseEdit(geoman) {
         val firstPart = coords.take(segmentIndex + 1) + cutPoint
         val secondPart = listOf(cutPoint) + coords.drop(segmentIndex + 1)
 
-        geomanInstance.features.removeFeature(sourceName, feature.id)
+        geoman.features.removeFeature(sourceName, feature.id)
         addSplitPart(sourceName, part1Id, firstPart, feature.properties)
         addSplitPart(sourceName, part2Id, secondPart, feature.properties)
 
-        geomanInstance.scope.launch { fireCutEndEvent(feature) }
+        geoman.scope.launch { fireEditEvent({ GmEditEvent.CutEnd(it) }, feature) }
     }
 
     private fun addSplitPart(
@@ -87,7 +88,7 @@ class CutEditor(geoman: Geoman) : BaseEdit(geoman) {
         coordinates: List<LngLat>,
         baseProperties: Map<String, Any?>,
     ) {
-        geomanInstance.features.addGeoJsonFeature(
+        geoman.features.addGeoJsonFeature(
             Feature(
                 id = partId,
                 geometry = LineString.fromLngLats(coordinates),

@@ -17,10 +17,6 @@ object GeometryUtils {
 
     private const val EARTH_RADIUS_METERS = 6371000.0
 
-    /**
-     * Calculate the centroid of a list of coordinates
-     * Similar to @turf/centroid
-     */
     fun centroid(coordinates: List<LngLat>): LngLat {
         require(coordinates.isNotEmpty()) { "Coordinates list cannot be empty" }
 
@@ -56,15 +52,8 @@ object GeometryUtils {
         )
     }
 
-    /**
-     * Calculate centroid from flat coordinate array
-     */
     fun centroidFromFlat(coordinates: List<Double>): LngLat = centroid(toLngLats(coordinates))
 
-    /**
-     * Calculate distance between two points in meters
-     * Uses Haversine formula
-     */
     fun distance(point1: LngLat, point2: LngLat): Double {
         val lat1Rad = Math.toRadians(point1.latitude)
         val lat2Rad = Math.toRadians(point2.latitude)
@@ -80,10 +69,6 @@ object GeometryUtils {
         return EARTH_RADIUS_METERS * c
     }
 
-    /**
-     * Calculate the bounding box of coordinates
-     * Returns [west, south, east, north]
-     */
     fun bbox(coordinates: List<LngLat>): List<Double> {
         require(coordinates.isNotEmpty()) { "Coordinates list cannot be empty" }
 
@@ -102,18 +87,8 @@ object GeometryUtils {
         return listOf(minLon, minLat, maxLon, maxLat)
     }
 
-    /**
-     * Calculate bounding box from flat coordinate array
-     */
     fun bboxFromFlat(coordinates: List<Double>): List<Double> = bbox(toLngLats(coordinates))
 
-    /**
-     * Check if a point is within bounds.
-     *
-     * The bounds are a list of coordinates; their axis-aligned bounding box is used.
-     * Boxes that span the antimeridian (longitude spread > 180 degrees) are handled
-     * correctly: the point is inside if it is on either side of the 180/180 line.
-     */
     fun isPointInBounds(point: LngLat, bounds: List<LngLat>): Boolean {
         require(bounds.isNotEmpty()) { "Bounds must contain at least one point" }
 
@@ -132,23 +107,14 @@ object GeometryUtils {
         return lonInRange && point.latitude in minLat..maxLat
     }
 
-    /**
-     * Check if a point is within bounds (flat array version)
-     */
     fun isPointInBoundsFromFlat(point: LngLat, bounds: List<Double>): Boolean =
         isPointInBounds(point, toLngLats(bounds))
 
-    /**
-     * Check if geometry is within bounds
-     */
     fun isGeometryInBounds(geometry: com.geoman.maplibre.geoman.types.geojson.Geometry, bounds: List<LngLat>): Boolean {
         val coords = extractAllCoordinates(geometry)
         return coords.all { isPointInBounds(it, bounds) }
     }
 
-    /**
-     * Extract all coordinates from a geometry
-     */
     fun extractAllCoordinates(geometry: com.geoman.maplibre.geoman.types.geojson.Geometry): List<LngLat> =
         when (geometry) {
             is com.geoman.maplibre.geoman.types.geojson.Point -> {
@@ -186,10 +152,6 @@ object GeometryUtils {
             else -> emptyList()
         }
 
-    /**
-     * Calculate the area of a polygon in square meters
-     * Uses the shoelace formula with spherical correction
-     */
     fun area(coordinates: List<LngLat>): Double {
         require(coordinates.size >= 3) { "Polygon must have at least 3 coordinates" }
 
@@ -208,14 +170,8 @@ object GeometryUtils {
         return abs(area * EARTH_RADIUS_METERS * EARTH_RADIUS_METERS / 2)
     }
 
-    /**
-     * Calculate the area from flat coordinate array
-     */
     fun areaFromFlat(coordinates: List<Double>): Double = area(toLngLats(coordinates))
 
-    /**
-     * Calculate the perimeter of a polygon in meters
-     */
     fun perimeter(coordinates: List<LngLat>): Double {
         if (coordinates.size < 2) return 0.0
 
@@ -225,7 +181,6 @@ object GeometryUtils {
             perimeter += distance(coordinates[i], coordinates[i + 1])
         }
 
-        // Close the polygon if needed
         if (coordinates.first() != coordinates.last()) {
             perimeter += distance(coordinates.last(), coordinates.first())
         }
@@ -234,68 +189,51 @@ object GeometryUtils {
     }
 
     /**
-     * Simplify coordinates using Douglas-Peucker algorithm
+     * Simplify coordinates using Douglas-Peucker algorithm.
+     * Uses an iterative approach to avoid stack overflow on large coordinate lists.
      */
     fun simplify(coordinates: List<LngLat>, tolerance: Double): List<LngLat> {
         if (coordinates.size <= 2) return coordinates
 
-        val result = mutableListOf<LngLat>()
-        douglasPeucker(coordinates, 0, coordinates.size - 1, tolerance, result)
+        // Each entry: (startIndex, endIndex) to process
+        val stack = ArrayDeque<Pair<Int, Int>>()
+        val keep = BooleanArray(coordinates.size)
 
-        return result
-    }
+        stack.addLast(0 to coordinates.size - 1)
+        keep[0] = true
+        keep[coordinates.size - 1] = true
 
-    private fun douglasPeucker(
-        points: List<LngLat>,
-        start: Int,
-        end: Int,
-        tolerance: Double,
-        result: MutableList<LngLat>,
-    ) {
-        if (end <= start + 1) {
-            if (start == 0) result.add(points[start])
-            result.add(points[end])
-            return
-        }
+        while (stack.isNotEmpty()) {
+            val (start, end) = stack.removeLast()
+            if (end <= start + 1) continue
 
-        var maxDistance = 0.0
-        var index = start
+            var maxDistance = 0.0
+            var index = start
 
-        val lineStart = points[start]
-        val lineEnd = points[end]
+            val lineStart = coordinates[start]
+            val lineEnd = coordinates[end]
 
-        for (i in (start + 1) until end) {
-            val dist = perpendicularDistance(points[i], lineStart, lineEnd)
-            if (dist > maxDistance) {
-                maxDistance = dist
-                index = i
+            for (i in (start + 1) until end) {
+                val nearest = nearestPointOnSegment(coordinates[i], lineStart, lineEnd)
+                val dist = distance(coordinates[i], nearest)
+                if (dist > maxDistance) {
+                    maxDistance = dist
+                    index = i
+                }
+            }
+
+            if (maxDistance > tolerance) {
+                keep[index] = true
+                stack.addLast(start to index)
+                stack.addLast(index to end)
             }
         }
 
-        if (maxDistance > tolerance) {
-            douglasPeucker(points, start, index, tolerance, result)
-            douglasPeucker(points, index, end, tolerance, result)
-        } else {
-            if (start == 0) result.add(points[start])
-            result.add(points[end])
-        }
+        return coordinates.indices.filter { keep[it] }.map { coordinates[it] }
     }
 
-    private fun perpendicularDistance(point: LngLat, lineStart: LngLat, lineEnd: LngLat): Double {
-        val nearest = nearestPointOnSegment(point, lineStart, lineEnd)
-        return distance(point, nearest)
-    }
-
-    /**
-     * Convert flat coordinates to LngLat list.
-     *
-     * @throws IllegalArgumentException if the list does not contain an even number of values
-     */
     fun flatToLngLat(coordinates: List<Double>): List<LngLat> = toLngLats(coordinates)
 
-    /**
-     * Convert LngLat list to flat coordinates
-     */
     fun lngLatToFlat(lngLats: List<LngLat>): List<Double> = lngLats.flatMap { listOf(it.longitude, it.latitude) }
 
     /**
@@ -303,9 +241,6 @@ object GeometryUtils {
      */
     fun calculateDistance(point1: LngLat, point2: LngLat): Double = distance(point1, point2)
 
-    /**
-     * Generate circle coordinates (existing API)
-     */
     fun generateCircleCoordinates(center: LngLat, radius: Double, steps: Int = 64): List<LngLat> {
         val coordinates = mutableListOf<LngLat>()
 
@@ -315,15 +250,10 @@ object GeometryUtils {
             coordinates.add(point)
         }
 
-        // Close the circle
         coordinates.add(coordinates.first())
-
         return coordinates
     }
 
-    /**
-     * Calculate destination point (existing API)
-     */
     fun calculateDestination(start: LngLat, bearing: Double, distance: Double): LngLat {
         val bearingRad = Math.toRadians(bearing)
         val distanceRad = distance / EARTH_RADIUS_METERS
@@ -351,9 +281,6 @@ object GeometryUtils {
      */
     fun calculateCentroid(coordinates: List<LngLat>): LngLat = centroid(coordinates)
 
-    /**
-     * Find nearest point on polyline (existing API)
-     */
     fun nearestPointOnPolyline(point: LngLat, coordinates: List<LngLat>): LngLat {
         require(coordinates.size >= 2) { "Polyline must have at least 2 points" }
 
@@ -373,7 +300,11 @@ object GeometryUtils {
         return nearestPoint
     }
 
-    private fun nearestPointOnSegment(point: LngLat, segmentStart: LngLat, segmentEnd: LngLat): LngLat {
+    /**
+     * Find the nearest point on a line segment defined by [segmentStart] and [segmentEnd]
+     * to the given [point]. Also used by MapLibreAdapter to avoid code duplication.
+     */
+    internal fun nearestPointOnSegment(point: LngLat, segmentStart: LngLat, segmentEnd: LngLat): LngLat {
         val dx = segmentEnd.longitude - segmentStart.longitude
         val dy = segmentEnd.latitude - segmentStart.latitude
 

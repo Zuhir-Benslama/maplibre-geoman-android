@@ -31,7 +31,7 @@ class SnapHelper(geoman: Geoman) : BaseHelper(geoman) {
 
     override fun enable() {
         super.enable()
-        snapDistance = geomanInstance.options.helper.snapDistance
+        snapDistance = geoman.options.helper.snapDistance
     }
 
     override fun onMapClick(point: LatLng) {
@@ -62,7 +62,7 @@ class SnapHelper(geoman: Geoman) : BaseHelper(geoman) {
         val pointLngLat = LngLat(point.longitude, point.latitude)
 
         val allFeatures = sources.flatMap { source ->
-            geomanInstance.features.getFeatures(source).values.toList()
+            geoman.features.getFeatures(source).values.toList()
         }
 
         var nearestPoint: LngLat? = null
@@ -84,8 +84,8 @@ class SnapHelper(geoman: Geoman) : BaseHelper(geoman) {
         if (nearestPoint != null && minDistance < pixelsToMeters(snapDistance, pointLngLat)) {
             snappedCoordinate = nearestPoint
 
-            geomanInstance.scope.launch {
-                geomanInstance.events.emit(GmHelperEvent.SnapStart(snappedFeature))
+            geoman.scope.launch {
+                geoman.events.emit(GmHelperEvent.SnapStart(snappedFeature))
             }
 
             return nearestPoint
@@ -140,8 +140,8 @@ class SnapHelper(geoman: Geoman) : BaseHelper(geoman) {
      */
     fun clearSnap() {
         snappedFeature?.let {
-            geomanInstance.scope.launch {
-                geomanInstance.events.emit(GmHelperEvent.SnapEnd(it))
+            geoman.scope.launch {
+                geoman.events.emit(GmHelperEvent.SnapEnd(it))
             }
         }
         snappedFeature = null
@@ -154,8 +154,8 @@ class SnapHelper(geoman: Geoman) : BaseHelper(geoman) {
      * and measuring the ground distance of one pixel at that location
      */
     private fun pixelsToMeters(pixels: Float, point: LngLat): Double {
-        val screenPoint = geomanInstance.mapAdapter.project(point)
-        val onePixelRight = geomanInstance.mapAdapter.unproject(
+        val screenPoint = geoman.mapAdapter.project(point)
+        val onePixelRight = geoman.mapAdapter.unproject(
             ScreenPoint(screenPoint.x + pixels, screenPoint.y),
         )
         return GeometryUtils.distance(point, onePixelRight)
@@ -184,7 +184,7 @@ class SnapHelper(geoman: Geoman) : BaseHelper(geoman) {
                 ),
             ),
         )
-        geomanInstance.mapAdapter.getSource(FeatureSources.SNAP_GUIDES)?.setData(guide)
+        geoman.mapAdapter.getSource(FeatureSources.SNAP_GUIDES)?.setData(guide)
     }
 
     /**
@@ -192,20 +192,20 @@ class SnapHelper(geoman: Geoman) : BaseHelper(geoman) {
      */
     fun hideSnapGuides() {
         if (!guideAdded) return
-        val source = geomanInstance.mapAdapter.getSource(FeatureSources.SNAP_GUIDES) ?: return
+        val source = geoman.mapAdapter.getSource(FeatureSources.SNAP_GUIDES) ?: return
         source.setData(FeatureCollection(features = emptyList()))
     }
 
     private fun ensureSnapGuidesLayer() {
         if (guideAdded) return
-        if (geomanInstance.mapAdapter.getSource(FeatureSources.SNAP_GUIDES) == null) {
-            geomanInstance.mapAdapter.addSource(
+        if (geoman.mapAdapter.getSource(FeatureSources.SNAP_GUIDES) == null) {
+            geoman.mapAdapter.addSource(
                 FeatureSources.SNAP_GUIDES,
                 FeatureCollection(features = emptyList()),
             )
         }
-        if (geomanInstance.mapAdapter.getLayer(FeatureSources.SNAP_GUIDES + "_layer") == null) {
-            geomanInstance.mapAdapter.addLayer(
+        if (geoman.mapAdapter.getLayer(FeatureSources.SNAP_GUIDES + "_layer") == null) {
+            geoman.mapAdapter.addLayer(
                 LayerOptions(
                     id = FeatureSources.SNAP_GUIDES + "_layer",
                     type = LayerType.LINE,

@@ -8,6 +8,7 @@ import com.geoman.maplibre.geoman.adapter.MarkerAnchor
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.core.features.FeatureData
 import com.geoman.maplibre.geoman.types.EditModeName
+import com.geoman.maplibre.geoman.types.events.GmEditEvent
 import com.geoman.maplibre.geoman.types.geojson.LineString
 import com.geoman.maplibre.geoman.types.geojson.LngLat
 import com.geoman.maplibre.geoman.types.geojson.Point
@@ -45,8 +46,8 @@ class DragEditor(geoman: Geoman) : BaseEdit(geoman) {
         if (!enabled) return
 
         val clickPoint = LngLat(point.longitude, point.latitude)
-        val features = geomanInstance.mapAdapter.queryFeaturesByScreenCoordinates(
-            geomanInstance.mapAdapter.project(clickPoint),
+        val features = geoman.mapAdapter.queryFeaturesByScreenCoordinates(
+            geoman.mapAdapter.project(clickPoint),
             DRAG_SOURCES,
         )
 
@@ -70,7 +71,7 @@ class DragEditor(geoman: Geoman) : BaseEdit(geoman) {
         dragStartPoint = point
 
         dragHandle?.remove()
-        dragHandle = geomanInstance.mapAdapter.createDomMarker(
+        dragHandle = geoman.mapAdapter.createDomMarker(
             DomMarkerOptions(
                 draggable = true,
                 anchor = MarkerAnchor.CENTER,
@@ -78,8 +79,8 @@ class DragEditor(geoman: Geoman) : BaseEdit(geoman) {
             LngLat(point.longitude, point.latitude),
         ).also { handle ->
             handle.onDragStart = {
-                geomanInstance.scope.launch {
-                    fireDragStartEvent(feature)
+                geoman.scope.launch {
+                    fireEditEvent({ GmEditEvent.DragStart(it) }, feature)
                 }
             }
             handle.onDrag = { newLngLat ->
@@ -124,8 +125,8 @@ class DragEditor(geoman: Geoman) : BaseEdit(geoman) {
         dragHandle = null
 
         selectedFeature?.let {
-            geomanInstance.scope.launch {
-                fireDragEndEvent(it)
+            geoman.scope.launch {
+                fireEditEvent({ GmEditEvent.DragEnd(it) }, it)
             }
         }
     }
