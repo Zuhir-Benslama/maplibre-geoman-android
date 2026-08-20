@@ -209,7 +209,7 @@ class Features(private val geoman: Geoman? = null) {
 
         try {
             adapter.addLayer(buildLayerOptions(sourceName, layerId))
-        } catch (e: Exception) {
+        } catch (@Suppress("TooGenericExceptionCaught") e: RuntimeException) {
             GeomanLogger.w("Features", "Error adding layer $layerId: ${e.message}")
         }
     }

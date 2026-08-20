@@ -2,25 +2,11 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>CyclomaticComplexMethod:MapLibreLayer.kt:MapLibreLayer$private fun add</ID>
     <ID>CyclomaticComplexMethod:MapLibreSource.kt:MapLibreSource$private fun geometryToJson: JSONObject</ID>
     <ID>FunctionOnlyReturningConstant:GmControl.kt:GmControl$fun onTouchEvent: Boolean</ID>
     <ID>LongMethod:Features.kt:Features$private fun addRenderingLayersForSource</ID>
     <ID>LongMethod:GmControl.kt:@Composable fun GeomanControls</ID>
     <ID>LongMethod:GmControl.kt:GmControl$fun createControls: View</ID>
-    <ID>LongMethod:MapLibreLayer.kt:MapLibreLayer$private fun add</ID>
-    <ID>LongMethod:MapLibreSource.kt:MapLibreSource$private fun geometryToJson: JSONObject</ID>
-    <ID>MaxLineLength:PolygonDrawer.kt:PolygonDrawer$"finishDrawing: coordinates.size=${coordinates.size}, currentFeature=${currentFeature != null} - SKIPPING"</ID>
-    <ID>SwallowedException:Geoman.kt:Geoman$e: Exception</ID>
-    <ID>SwallowedException:MapLibreAdapter.kt:MapLibreAdapter$e: Exception</ID>
-    <ID>SwallowedException:MapLibreLayer.kt:MapLibreLayer$e: Exception</ID>
-    <ID>TooGenericExceptionCaught:Features.kt:Features$e: Exception</ID>
-    <ID>TooGenericExceptionCaught:Geoman.kt:Geoman$e: Exception</ID>
-    <ID>TooGenericExceptionCaught:GmEventBus.kt:GmEventBus$e: Exception</ID>
-    <ID>TooGenericExceptionCaught:MapLibreAdapter.kt:MapLibreAdapter$e: Exception</ID>
-    <ID>TooGenericExceptionCaught:MapLibreLayer.kt:MapLibreLayer$e: Exception</ID>
-    <ID>TooGenericExceptionCaught:MapLibreSource.kt:MapLibreSource$e2: Exception</ID>
-    <ID>TooGenericExceptionCaught:MapLibreSource.kt:MapLibreSource$e: Exception</ID>
     <ID>TooManyFunctions:BaseMapAdapter.kt:BaseMapAdapter&lt;TMap&gt;</ID>
     <ID>TooManyFunctions:Features.kt:Features</ID>
     <ID>TooManyFunctions:Geoman.kt:Geoman</ID>

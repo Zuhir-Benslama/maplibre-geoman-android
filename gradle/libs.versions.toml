@@ -9,16 +9,16 @@ kotlinx-coroutines = "1.11.0"
 
 # AndroidX
 androidx-core-ktx = "1.19.0"
-androidx-appcompat = "1.7.1"
+androidx-appcompat = "1.8.0"
 androidx-activity = "1.13.0"
 androidx-lifecycle = "2.11.0"
 androidx-test-ext = "1.3.0"
 
 # Compose
-compose-bom = "2026.06.01"
+compose-bom = "2026.08.00"
 
 # MapLibre
-maplibre-sdk = "13.4.1"
+maplibre-sdk = "13.5.0"
 
 # Detekt
 detekt = "2.0.0-alpha.6"
@@ -28,10 +28,10 @@ material = "1.14.0"
 
 # Testing
 junit = "4.13.2"
-androidx-test-espresso = "3.6.1"
+androidx-test-espresso = "3.7.0"
 
 # Formatting
-spotless = "8.9.0"
+spotless = "8.10.0"
 
 [libraries]
 # Kotlin

@@ -108,7 +108,7 @@ class MapLibreAdapter(map: MapLibreMap, geoman: Geoman, private val mapView: Map
     override fun removeImage(id: String) {
         try {
             map.style?.removeImage(id)
-        } catch (e: Exception) {
+        } catch (@Suppress("SwallowedException", "TooGenericExceptionCaught") e: Exception) {
             GeomanLogger.d("MapLibreAdapter", "Failed to remove image $id: ${e.message}")
         }
     }
@@ -361,7 +361,7 @@ class MapLibreAdapter(map: MapLibreMap, geoman: Geoman, private val mapView: Map
         eventListeners[type]?.forEach { listener ->
             try {
                 listener(data)
-            } catch (e: Exception) {
+            } catch (@Suppress("SwallowedException", "TooGenericExceptionCaught") e: Exception) {
                 GeomanLogger.e("MapLibreAdapter", "Error in event listener for $type", e)
             }
         }

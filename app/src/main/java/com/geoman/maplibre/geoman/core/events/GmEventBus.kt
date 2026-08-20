@@ -47,7 +47,7 @@ class GmEventBus {
         eventListeners[event.type]?.forEach { listener ->
             try {
                 listener(event)
-            } catch (e: Exception) {
+            } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
                 GeomanLogger.e(TAG, "Error in event listener for ${event.type}", e)
             }
         }

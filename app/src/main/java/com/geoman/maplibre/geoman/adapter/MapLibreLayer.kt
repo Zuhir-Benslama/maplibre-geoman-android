@@ -30,17 +30,31 @@ class MapLibreLayer(private val geoman: Geoman, private val options: LayerOption
 
         val style = map.style ?: return
 
-        val layer = when (options.type) {
-            LayerType.FILL -> FillLayer(options.id, options.source)
-            LayerType.LINE -> LineLayer(options.id, options.source)
-            LayerType.CIRCLE -> CircleLayer(options.id, options.source)
-            LayerType.SYMBOL -> SymbolLayer(options.id, options.source)
-            else -> null
+        val layer = createLayer() ?: return
+
+        applySourceLayer(layer)
+        applyProperties(layer, options.paint)
+        applyProperties(layer, options.layout)
+        applyFilter(layer)
+        applyZoomBounds(layer)
+
+        try {
+            style.addLayer(layer)
+            isAdded = true
+        } catch (e: IllegalStateException) {
+            GeomanLogger.w("MapLibreLayer", "Failed to add layer $layerId", e)
         }
+    }
 
-        layer ?: return
+    private fun createLayer(): org.maplibre.android.style.layers.Layer? = when (options.type) {
+        LayerType.FILL -> FillLayer(options.id, options.source)
+        LayerType.LINE -> LineLayer(options.id, options.source)
+        LayerType.CIRCLE -> CircleLayer(options.id, options.source)
+        LayerType.SYMBOL -> SymbolLayer(options.id, options.source)
+        else -> null
+    }
 
-        // Apply source layer if specified (SDK 11.x uses sourceLayer property)
+    private fun applySourceLayer(layer: org.maplibre.android.style.layers.Layer) {
         options.sourceLayer?.let {
             when (layer) {
                 is FillLayer -> layer.sourceLayer = it
@@ -49,40 +63,25 @@ class MapLibreLayer(private val geoman: Geoman, private val options: LayerOption
                 is SymbolLayer -> layer.sourceLayer = it
             }
         }
+    }
 
-        // Apply paint properties
-        val paintProperties = mutableListOf<PropertyValue<*>>()
-        options.paint.forEach { (name, value) ->
-            valueToPropertyValue(name, value)?.let { paintProperties.add(it) }
+    private fun applyProperties(layer: org.maplibre.android.style.layers.Layer, properties: Map<String, Any>) {
+        val propertyValues = mutableListOf<PropertyValue<*>>()
+        properties.forEach { (name, value) ->
+            valueToPropertyValue(name, value)?.let { propertyValues.add(it) }
         }
-
-        if (paintProperties.isNotEmpty()) {
+        if (propertyValues.isNotEmpty()) {
             @Suppress("UNCHECKED_CAST")
             when (layer) {
-                is FillLayer -> layer.withProperties(*paintProperties.toTypedArray())
-                is LineLayer -> layer.withProperties(*paintProperties.toTypedArray())
-                is CircleLayer -> layer.withProperties(*paintProperties.toTypedArray())
-                is SymbolLayer -> layer.withProperties(*paintProperties.toTypedArray())
+                is FillLayer -> layer.withProperties(*propertyValues.toTypedArray())
+                is LineLayer -> layer.withProperties(*propertyValues.toTypedArray())
+                is CircleLayer -> layer.withProperties(*propertyValues.toTypedArray())
+                is SymbolLayer -> layer.withProperties(*propertyValues.toTypedArray())
             }
         }
+    }
 
-        // Apply layout properties
-        val layoutProperties = mutableListOf<PropertyValue<*>>()
-        options.layout.forEach { (name, value) ->
-            valueToPropertyValue(name, value)?.let { layoutProperties.add(it) }
-        }
-
-        if (layoutProperties.isNotEmpty()) {
-            @Suppress("UNCHECKED_CAST")
-            when (layer) {
-                is FillLayer -> layer.withProperties(*layoutProperties.toTypedArray())
-                is LineLayer -> layer.withProperties(*layoutProperties.toTypedArray())
-                is CircleLayer -> layer.withProperties(*layoutProperties.toTypedArray())
-                is SymbolLayer -> layer.withProperties(*layoutProperties.toTypedArray())
-            }
-        }
-
-        // Apply filter if specified (SDK 11.x uses setFilter with Expression)
+    private fun applyFilter(layer: org.maplibre.android.style.layers.Layer) {
         options.filter?.let { filter ->
             try {
                 val expression = parseExpression(filter)
@@ -94,21 +93,15 @@ class MapLibreLayer(private val geoman: Geoman, private val options: LayerOption
                         is SymbolLayer -> layer.setFilter(expr)
                     }
                 }
-            } catch (e: Exception) {
+            } catch (e: IllegalArgumentException) {
                 GeomanLogger.w("MapLibreLayer", "Filter conversion failed for layer $layerId", e)
             }
         }
+    }
 
-        // Apply zoom bounds
+    private fun applyZoomBounds(layer: org.maplibre.android.style.layers.Layer) {
         options.minZoom?.let { layer.minZoom = it }
         options.maxZoom?.let { layer.maxZoom = it }
-
-        try {
-            style.addLayer(layer)
-            isAdded = true
-        } catch (e: Exception) {
-            GeomanLogger.w("MapLibreLayer", "Failed to add layer $layerId", e)
-        }
     }
 
     private fun valueToPropertyValue(name: String, value: Any): PropertyValue<*>? = when (value) {
@@ -124,7 +117,7 @@ class MapLibreLayer(private val geoman: Geoman, private val options: LayerOption
 
     private fun parseExpression(filter: List<Any>): Expression? = try {
         Expression.Converter.convert(JSONArray(filter).toString())
-    } catch (e: Exception) {
+    } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
         GeomanLogger.w("MapLibreLayer", "Failed to parse filter expression for layer $layerId", e)
         null
     }
@@ -160,7 +153,7 @@ class MapLibreLayer(private val geoman: Geoman, private val options: LayerOption
     override fun remove() {
         try {
             map.style?.removeLayer(layerId)
-        } catch (e: Exception) {
+        } catch (@Suppress("SwallowedException") e: IllegalArgumentException) {
             GeomanLogger.d("MapLibreLayer", "Layer $layerId may not exist during removal: ${e.message}")
         }
         isAdded = false

@@ -1,4 +1,8 @@
+@file:SuppressLint("LogNotTimber")
+
 package com.geoman.maplibre.geoman
+
+import android.annotation.SuppressLint
 
 /**
  * Logger interface for the Geoman library.

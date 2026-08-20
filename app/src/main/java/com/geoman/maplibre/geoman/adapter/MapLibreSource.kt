@@ -32,7 +32,7 @@ class MapLibreSource(
             // Update existing source
             try {
                 maplibreSource?.setGeoJson(geoJsonString)
-            } catch (e: Exception) {
+            } catch (e: IllegalStateException) {
                 GeomanLogger.w("MapLibreSource", "Error updating source: ${e.message}")
             }
         } else {
@@ -41,14 +41,14 @@ class MapLibreSource(
                 maplibreSource = GeoJsonSource(sourceId, geoJsonString)
                 map.style?.addSource(maplibreSource!!)
                 GeomanLogger.d("MapLibreSource", "Created source: $sourceId with ${geoJson.features.size} features")
-            } catch (e: Exception) {
+            } catch (e: IllegalStateException) {
                 // Source may already exist, try to update
                 GeomanLogger.w("MapLibreSource", "Error creating source: ${e.message}, trying update")
                 try {
                     map.style?.removeSource(sourceId)
                     maplibreSource = GeoJsonSource(sourceId, geoJsonString)
                     map.style?.addSource(maplibreSource!!)
-                } catch (e2: Exception) {
+                } catch (e2: IllegalStateException) {
                     GeomanLogger.e("MapLibreSource", "Failed to create/update source: ${e2.message}")
                 }
             }
@@ -121,74 +121,63 @@ class MapLibreSource(
         }
     }
 
-    /**
-     * Convert Geometry to JSON using org.json
-     */
+    @Suppress("CyclomaticComplexMethod")
     private fun geometryToJson(geometry: com.geoman.maplibre.geoman.types.geojson.Geometry): JSONObject =
         when (geometry) {
-            is com.geoman.maplibre.geoman.types.geojson.Point -> {
-                JSONObject().apply {
-                    put("type", "Point")
-                    put("coordinates", JSONArray(geometry.coordinates))
-                }
+            is com.geoman.maplibre.geoman.types.geojson.Point -> JSONObject().apply {
+                put("type", "Point")
+                put("coordinates", JSONArray(geometry.coordinates))
             }
 
-            is com.geoman.maplibre.geoman.types.geojson.LineString -> {
-                JSONObject().apply {
-                    put("type", "LineString")
-                    put("coordinates", JSONArray(geometry.coordinates.map { JSONArray(it) }))
-                }
+            is com.geoman.maplibre.geoman.types.geojson.LineString -> JSONObject().apply {
+                put("type", "LineString")
+                put("coordinates", JSONArray(geometry.coordinates.map { JSONArray(it) }))
             }
 
-            is com.geoman.maplibre.geoman.types.geojson.Polygon -> {
-                JSONObject().apply {
-                    put("type", "Polygon")
-                    val rings = JSONArray()
-                    geometry.coordinates.forEach { ring ->
-                        rings.put(JSONArray(ring.map { JSONArray(it) }))
-                    }
-                    put("coordinates", rings)
-                }
+            is com.geoman.maplibre.geoman.types.geojson.Polygon -> JSONObject().apply {
+                put("type", "Polygon")
+                put(
+                    "coordinates",
+                    JSONArray(
+                        geometry.coordinates.map { ring ->
+                            JSONArray(ring.map { JSONArray(it) })
+                        },
+                    ),
+                )
             }
 
-            is com.geoman.maplibre.geoman.types.geojson.MultiPolygon -> {
-                JSONObject().apply {
-                    put("type", "MultiPolygon")
-                    val polygons = JSONArray()
-                    geometry.coordinates.forEach { polygon ->
-                        val rings = JSONArray()
-                        polygon.forEach { ring ->
-                            rings.put(JSONArray(ring.map { JSONArray(it) }))
-                        }
-                        polygons.put(rings)
-                    }
-                    put("coordinates", polygons)
-                }
+            is com.geoman.maplibre.geoman.types.geojson.MultiPolygon -> JSONObject().apply {
+                put("type", "MultiPolygon")
+                put(
+                    "coordinates",
+                    JSONArray(
+                        geometry.coordinates.map { polygon ->
+                            JSONArray(polygon.map { ring -> JSONArray(ring.map { JSONArray(it) }) })
+                        },
+                    ),
+                )
             }
 
-            is com.geoman.maplibre.geoman.types.geojson.MultiPoint -> {
-                JSONObject().apply {
-                    put("type", "MultiPoint")
-                    put("coordinates", JSONArray(geometry.coordinates.map { JSONArray(it) }))
-                }
+            is com.geoman.maplibre.geoman.types.geojson.MultiPoint -> JSONObject().apply {
+                put("type", "MultiPoint")
+                put("coordinates", JSONArray(geometry.coordinates.map { JSONArray(it) }))
             }
 
-            is com.geoman.maplibre.geoman.types.geojson.MultiLineString -> {
-                JSONObject().apply {
-                    put("type", "MultiLineString")
-                    val lines = JSONArray()
-                    geometry.coordinates.forEach { line ->
-                        lines.put(JSONArray(line.map { JSONArray(it) }))
-                    }
-                    put("coordinates", lines)
-                }
+            is com.geoman.maplibre.geoman.types.geojson.MultiLineString -> JSONObject().apply {
+                put("type", "MultiLineString")
+                put(
+                    "coordinates",
+                    JSONArray(
+                        geometry.coordinates.map { line ->
+                            JSONArray(line.map { JSONArray(it) })
+                        },
+                    ),
+                )
             }
 
-            is com.geoman.maplibre.geoman.types.geojson.GeometryCollection -> {
-                JSONObject().apply {
-                    put("type", "GeometryCollection")
-                    put("geometries", JSONArray(geometry.geometries.map { geometryToJson(it) }))
-                }
+            is com.geoman.maplibre.geoman.types.geojson.GeometryCollection -> JSONObject().apply {
+                put("type", "GeometryCollection")
+                put("geometries", JSONArray(geometry.geometries.map { geometryToJson(it) }))
             }
         }
 

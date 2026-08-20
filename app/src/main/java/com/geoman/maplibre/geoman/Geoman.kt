@@ -219,7 +219,7 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
                 android.R.drawable.ic_menu_mylocation,
             )
             mapAdapter.loadImage("default-marker", markerBitmap)
-        } catch (e: Exception) {
+        } catch (e: IllegalArgumentException) {
             GeomanLogger.e(TAG, "Failed to load default marker", e)
         }
     }
@@ -454,7 +454,7 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
             }
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
-        } catch (_: Exception) {
+        } catch (_: IllegalStateException) { // SwallowedException: returns null on timeout/error
             null
         }
     }
