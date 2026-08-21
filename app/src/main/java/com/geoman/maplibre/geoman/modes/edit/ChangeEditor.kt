@@ -1,6 +1,6 @@
 package com.geoman.maplibre.geoman.modes.edit
 
-import com.geoman.maplibre.geoman.Geoman
+import com.geoman.maplibre.geoman.GeomanApi
 import com.geoman.maplibre.geoman.GeomanLogger
 import com.geoman.maplibre.geoman.adapter.DomMarkerOptions
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
@@ -16,7 +16,7 @@ import org.maplibre.android.geometry.LatLng
 /**
  * Change editing mode - allows editing vertices of polygons and lines
  */
-class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
+open class ChangeEditor(geoman: GeomanApi) : BaseEdit(geoman) {
 
     override val modeName: String = EditModeName.CHANGE.name
 
@@ -173,20 +173,9 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
         }
 
         vertices.forEach { vertex ->
-            val markerOptions = DomMarkerOptions(
-                element = createVertexMarkerView(),
-                anchor = com.geoman.maplibre.geoman.adapter.MarkerAnchor.CENTER,
-                draggable = true,
-            )
-
-            val domMarker = geoman.mapAdapter.createDomMarker(markerOptions, vertex.lngLat)
-            domMarker.addToMap() // Actually add the marker to the map
-
-            // Set drag callback to update geometry
-            domMarker.onDrag = { newLngLat ->
+            val domMarker = createDraggableMarker(vertex.lngLat) { newLngLat ->
                 moveVertex(vertex.index, LatLng(newLngLat.latitude, newLngLat.longitude))
             }
-
             vertexMarkers.add(VertexMarker(vertex.index, domMarker))
         }
 
@@ -198,8 +187,11 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
     /**
      * Shape markers: clickable midpoints on every segment. Tapping one inserts
      * a new vertex at the midpoint (web Geoman's shape_markers behavior).
+     * Toggled via `helperOptions.shapeMarkersEnabled`.
      */
     private fun createMidpointMarkers(geometry: com.geoman.maplibre.geoman.types.geojson.Geometry) {
+        if (!geoman.options.helper.shapeMarkersEnabled) return
+
         val midpoints: List<MidpointData> = when (geometry) {
             is com.geoman.maplibre.geoman.types.geojson.LineString -> {
                 val coords = geometry.coordinates
@@ -228,61 +220,11 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
         }
 
         midpoints.forEach { data ->
-            val markerOptions = DomMarkerOptions(
-                element = createMidpointMarkerView(),
-                anchor = com.geoman.maplibre.geoman.adapter.MarkerAnchor.CENTER,
-                draggable = false,
-            )
-
-            val domMarker = geoman.mapAdapter.createDomMarker(markerOptions, data.lngLat)
-            domMarker.addToMap()
-            domMarker.onClick = {
+            val domMarker = createClickableMarker(data.lngLat) {
                 addVertex(data.segmentIndex, LatLng(data.lngLat.latitude, data.lngLat.longitude))
             }
-
             midpointMarkers.add(MidpointMarker(data.segmentIndex, domMarker))
         }
-    }
-
-    /**
-     * Create a small red circle view for vertex markers
-     */
-    private fun createVertexMarkerView(): android.view.View {
-        val context = geoman.mapView.context
-        val size = (14 * context.resources.displayMetrics.density).toInt()
-        val view = android.view.View(context)
-        view.layoutParams = android.view.ViewGroup.LayoutParams(size, size)
-
-        // Draw a red circle with white border
-        val drawable = android.graphics.drawable.GradientDrawable().apply {
-            shape = android.graphics.drawable.GradientDrawable.OVAL
-            setColor(android.graphics.Color.RED)
-            setStroke((2 * context.resources.displayMetrics.density).toInt(), android.graphics.Color.WHITE)
-            setSize(size, size)
-        }
-        view.background = drawable
-
-        return view
-    }
-
-    /**
-     * Create a small blue circle view for midpoint (shape) markers
-     */
-    private fun createMidpointMarkerView(): android.view.View {
-        val context = geoman.mapView.context
-        val size = (10 * context.resources.displayMetrics.density).toInt()
-        val view = android.view.View(context)
-        view.layoutParams = android.view.ViewGroup.LayoutParams(size, size)
-
-        val drawable = android.graphics.drawable.GradientDrawable().apply {
-            shape = android.graphics.drawable.GradientDrawable.OVAL
-            setColor(android.graphics.Color.BLUE)
-            setStroke((1.5f * context.resources.displayMetrics.density).toInt(), android.graphics.Color.WHITE)
-            setSize(size, size)
-        }
-        view.background = drawable
-
-        return view
     }
 
     private fun clearVertexMarkers() {

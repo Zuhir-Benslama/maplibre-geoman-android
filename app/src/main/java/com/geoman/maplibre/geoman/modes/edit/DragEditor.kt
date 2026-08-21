@@ -1,7 +1,7 @@
 package com.geoman.maplibre.geoman.modes.edit
 
 import android.view.MotionEvent
-import com.geoman.maplibre.geoman.Geoman
+import com.geoman.maplibre.geoman.GeomanApi
 import com.geoman.maplibre.geoman.adapter.DomMarker
 import com.geoman.maplibre.geoman.adapter.DomMarkerOptions
 import com.geoman.maplibre.geoman.adapter.MarkerAnchor
@@ -21,7 +21,7 @@ import org.maplibre.android.geometry.LatLng
  * dragging the handle that appears. The handle is a draggable DOM marker whose
  * callbacks drive the feature translation.
  */
-class DragEditor(geoman: Geoman) : BaseEdit(geoman) {
+open class DragEditor(geoman: GeomanApi) : BaseEdit(geoman) {
 
     override val modeName: String = EditModeName.DRAG.name
 
@@ -42,10 +42,7 @@ class DragEditor(geoman: Geoman) : BaseEdit(geoman) {
         if (!enabled) return
 
         val clickPoint = LngLat(point.longitude, point.latitude)
-        val features = geoman.mapAdapter.queryFeaturesByScreenCoordinates(
-            geoman.mapAdapter.project(clickPoint),
-            DRAG_SOURCES,
-        )
+        val features = queryFeaturesAt(clickPoint, DRAG_SOURCES)
 
         if (features.isNotEmpty()) {
             selectFeature(features.first())
@@ -67,7 +64,7 @@ class DragEditor(geoman: Geoman) : BaseEdit(geoman) {
         dragStartPoint = point
 
         dragHandle?.remove()
-        dragHandle = geoman.mapAdapter.createDomMarker(
+        dragHandle = createDomMarkerAt(
             DomMarkerOptions(
                 draggable = true,
                 anchor = MarkerAnchor.CENTER,

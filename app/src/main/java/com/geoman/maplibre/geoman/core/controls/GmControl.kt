@@ -305,9 +305,8 @@ fun GeomanControls(geoman: Geoman, modifier: Modifier = Modifier) {
     }
 }
 
-// Modes with a working implementation in ModeFactory. Enum entries without
-// one (SHAPE_MARKERS) are hidden from the panel so users can't toggle
-// buttons that silently do nothing.
+// Modes with a working implementation in ModeFactory. All enum entries have
+// one; shape markers are a ChangeEditor option rather than a mode.
 private val supportedDrawModes = listOf(
     DrawModeName.MARKER,
     DrawModeName.CIRCLE_MARKER,
@@ -339,7 +338,6 @@ private fun EditModeName.icon(): ImageVector = when (this) {
 
 private fun HelperModeName.icon(): ImageVector = when (this) {
     HelperModeName.SNAP, HelperModeName.ZOOM_TO_FEATURES -> Icons.Default.CenterFocusStrong
-    HelperModeName.SHAPE_MARKERS -> Icons.Default.Place
 }
 
 @Composable

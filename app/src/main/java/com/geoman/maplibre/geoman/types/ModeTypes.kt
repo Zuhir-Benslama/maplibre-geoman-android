@@ -34,10 +34,13 @@ enum class EditModeName {
 
 /**
  * Helper mode names
+ *
+ * Note: shape markers are not a mode; midpoint handles are rendered by
+ * [com.geoman.maplibre.geoman.modes.edit.ChangeEditor] and toggled via
+ * `helperOptions.shapeMarkersEnabled`.
  */
 enum class HelperModeName {
     SNAP,
-    SHAPE_MARKERS,
     ZOOM_TO_FEATURES,
 }
 

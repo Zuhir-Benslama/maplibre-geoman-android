@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.toArgb
 import com.geoman.maplibre.geoman.Geoman
 import com.geoman.maplibre.geoman.GeomanLogger
 import com.geoman.maplibre.geoman.adapter.BaseMapAdapter
+import com.geoman.maplibre.geoman.adapter.FeatureStoreRenderer
 import com.geoman.maplibre.geoman.adapter.LayerOptions
 import com.geoman.maplibre.geoman.adapter.LayerType
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
@@ -13,6 +14,10 @@ import com.geoman.maplibre.geoman.types.geojson.Geometry
 import com.geoman.maplibre.geoman.types.geojson.LngLat
 import com.geoman.maplibre.geoman.types.geojson.ScreenPoint
 import com.geoman.maplibre.geoman.utils.GeometryUtils
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -60,10 +65,21 @@ object FeatureSources {
  * Features manager for handling GeoJSON features.
  *
  * Thread safety: all mutable state is guarded by `this` lock via
- * [synchronized]. Map adapter calls ([syncSourceToMap]) are performed
- * *outside* the lock to avoid holding it during I/O or re-entrant callbacks.
+ * [synchronized]. Map adapter calls are performed *outside* the lock to
+ * avoid holding it during I/O or re-entrant callbacks.
+ *
+ * Rendering: source creation is applied synchronously (layers must exist
+ * before the next frame); subsequent updates for an existing source are
+ * coalesced through [SourceUpdateManager] so drag-frame edits produce one
+ * `setData` per debounce window instead of one per frame. Call
+ * [flushPendingUpdates] when the final state must land immediately, and
+ * [shutdown] on teardown.
  */
-class Features(private val geoman: Geoman? = null) {
+class Features(
+    private val geoman: Geoman? = null,
+    updateScope: CoroutineScope? = null,
+    debounceMs: Long = SourceUpdateManager.DEFAULT_DEBOUNCE_MS,
+) {
 
     private companion object {
         const val RGB_MASK = 0xFFFFFF
@@ -85,8 +101,31 @@ class Features(private val geoman: Geoman? = null) {
     @Volatile
     private var mapAdapter: BaseMapAdapter<*>? = null
 
+    @Volatile
+    private var renderer: FeatureStoreRenderer? = null
+
+    private val updateScope: CoroutineScope = updateScope ?: CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    private val ownsUpdateScope = updateScope == null
+
+    private val updateManager = SourceUpdateManager(
+        applyUpdate = { sourceName, collection -> applySourceUpdate(sourceName, collection) },
+        scope = this.updateScope,
+        debounceMs = debounceMs,
+    )
+
     fun init(adapter: BaseMapAdapter<*>? = null) {
         mapAdapter = adapter
+        renderer = adapter
+    }
+
+    /**
+     * Initialize with a renderer only; screen-coordinate queries stay
+     * unavailable. Used by tests.
+     */
+    fun init(renderer: FeatureStoreRenderer?) {
+        renderer?.let { mapAdapter = it as? BaseMapAdapter<*> }
+        this.renderer = renderer
     }
 
     fun getAllFeatures(): Map<String, Map<String, FeatureData>> = synchronized(this) {
@@ -309,26 +348,60 @@ class Features(private val geoman: Geoman? = null) {
         }
     }
 
-    private fun syncSourceToMap(sourceName: String) {
-        val adapter = mapAdapter ?: return
+    /**
+     * Apply every pending debounced source update immediately.
+     */
+    fun flushPendingUpdates() {
+        updateManager.flushAll()
+    }
+
+    /**
+     * Flush pending updates and stop the internal update scope. The store
+     * remains usable for in-memory queries, but no further map syncs occur.
+     */
+    fun shutdown() {
+        updateManager.flushAll()
+        if (ownsUpdateScope) {
+            updateScope.cancel()
+        }
+        renderer = null
+    }
+
+    private fun buildSourceCollection(sourceName: String): FeatureCollection {
         val sourceFeatures = synchronized(this) {
             featuresMap[sourceName]?.toMap() ?: emptyMap()
         }
-
-        val featureCollection = FeatureCollection(
+        return FeatureCollection(
             features = sourceFeatures.values.map { it.feature }.toList(),
         )
+    }
 
-        val existingSource = adapter.getSource(sourceName)
-        if (existingSource != null) {
-            existingSource.setData(featureCollection)
+    private fun syncSourceToMap(sourceName: String) {
+        val target = renderer ?: return
+        val collection = buildSourceCollection(sourceName)
+
+        // Source creation must be synchronous so layers are registered before
+        // the next frame; existing sources get coalesced debounced updates.
+        if (target.getSource(sourceName) == null) {
+            applySourceUpdate(sourceName, collection)
         } else {
-            adapter.addSource(sourceName, featureCollection)
-            addRenderingLayersForSource(sourceName, adapter)
+            updateManager.schedule(sourceName, collection)
         }
     }
 
-    private fun addRenderingLayersForSource(sourceName: String, adapter: BaseMapAdapter<*>) {
+    private fun applySourceUpdate(sourceName: String, collection: FeatureCollection) {
+        val target = renderer ?: return
+
+        val existingSource = target.getSource(sourceName)
+        if (existingSource != null) {
+            existingSource.setData(collection)
+        } else {
+            target.addSource(sourceName, collection)
+            addRenderingLayersForSource(sourceName, target)
+        }
+    }
+
+    private fun addRenderingLayersForSource(sourceName: String, target: FeatureStoreRenderer) {
         val layerId = when (sourceName) {
             FeatureSources.MARKER -> "${sourceName}_symbol"
             FeatureSources.CIRCLE_MARKER -> "${sourceName}_circle"
@@ -336,10 +409,10 @@ class Features(private val geoman: Geoman? = null) {
             else -> "${sourceName}_stroke"
         }
 
-        if (adapter.getLayer(layerId) != null) return
+        if (target.getLayer(layerId) != null) return
 
         try {
-            adapter.addLayer(buildLayerOptions(sourceName, layerId))
+            target.addLayer(buildLayerOptions(sourceName, layerId))
         } catch (@Suppress("TooGenericExceptionCaught") e: RuntimeException) {
             GeomanLogger.w("Features", "Error adding layer $layerId: ${e.message}")
         }

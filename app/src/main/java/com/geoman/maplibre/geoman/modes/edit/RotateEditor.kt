@@ -1,6 +1,6 @@
 package com.geoman.maplibre.geoman.modes.edit
 
-import com.geoman.maplibre.geoman.Geoman
+import com.geoman.maplibre.geoman.GeomanApi
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.core.features.FeatureData
 import com.geoman.maplibre.geoman.types.EditModeName
@@ -18,7 +18,7 @@ import kotlin.math.cos
 /**
  * Rotate editing mode - allows rotating features around their centroid
  */
-class RotateEditor(geoman: Geoman) : BaseEdit(geoman) {
+open class RotateEditor(geoman: GeomanApi) : BaseEdit(geoman) {
 
     override val modeName: String = EditModeName.ROTATE.name
 
@@ -42,8 +42,8 @@ class RotateEditor(geoman: Geoman) : BaseEdit(geoman) {
         if (isRotating) {
             updateRotation(point)
         } else {
-            val features = geoman.mapAdapter.queryFeaturesByScreenCoordinates(
-                geoman.mapAdapter.project(LngLat(point.longitude, point.latitude)),
+            val features = queryFeaturesAt(
+                LngLat(point.longitude, point.latitude),
                 listOf(
                     GeomanCoreConstants.SOURCE_LINES,
                     GeomanCoreConstants.SOURCE_POLYGONS,

@@ -1,6 +1,6 @@
 package com.geoman.maplibre.geoman.modes.edit
 
-import com.geoman.maplibre.geoman.Geoman
+import com.geoman.maplibre.geoman.GeomanApi
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.core.features.FeatureData
 import com.geoman.maplibre.geoman.types.EditModeName
@@ -12,15 +12,15 @@ import org.maplibre.android.geometry.LatLng
 /**
  * Delete editing mode - allows deleting features by clicking on them
  */
-class DeleteEditor(geoman: Geoman) : BaseEdit(geoman) {
+open class DeleteEditor(geoman: GeomanApi) : BaseEdit(geoman) {
 
     override val modeName: String = EditModeName.DELETE.name
 
     override fun onMapClick(point: LatLng) {
         if (!enabled) return
 
-        val features = geoman.mapAdapter.queryFeaturesByScreenCoordinates(
-            geoman.mapAdapter.project(LngLat(point.longitude, point.latitude)),
+        val features = queryFeaturesAt(
+            LngLat(point.longitude, point.latitude),
             listOf(
                 GeomanCoreConstants.SOURCE_MARKERS,
                 GeomanCoreConstants.SOURCE_CIRCLE_MARKERS,

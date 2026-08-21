@@ -2,17 +2,22 @@ package com.geoman.maplibre.geoman.modes.edit
 
 import com.geoman.maplibre.geoman.BaseAction
 import com.geoman.maplibre.geoman.Geoman
+import com.geoman.maplibre.geoman.GeomanApi
+import com.geoman.maplibre.geoman.adapter.DomMarker
+import com.geoman.maplibre.geoman.adapter.DomMarkerOptions
+import com.geoman.maplibre.geoman.adapter.MarkerAnchor
 import com.geoman.maplibre.geoman.core.features.FeatureData
 import com.geoman.maplibre.geoman.core.history.GeometryChange
 import com.geoman.maplibre.geoman.types.ModeType
 import com.geoman.maplibre.geoman.types.events.GmEditEvent
 import com.geoman.maplibre.geoman.types.geojson.Geometry
+import com.geoman.maplibre.geoman.types.geojson.LngLat
 import org.maplibre.android.geometry.LatLng
 
 /**
  * Base class for all edit modes
  */
-abstract class BaseEdit(geoman: Geoman) : BaseAction(geoman) {
+abstract class BaseEdit(geoman: GeomanApi) : BaseAction(geoman) {
 
     override val modeType: ModeType = ModeType.EDIT
 
@@ -24,6 +29,76 @@ abstract class BaseEdit(geoman: Geoman) : BaseAction(geoman) {
     }
 
     abstract fun onMapClick(point: LatLng)
+
+    /**
+     * Query features under a geographic point. Seam over the map adapter so
+     * tests can substitute hit-testing.
+     */
+    protected open fun queryFeaturesAt(lngLat: LngLat, sources: List<String>): List<FeatureData> =
+        geoman.mapActions.queryFeaturesByScreenCoordinates(geoman.mapActions.project(lngLat), sources)
+
+    /**
+     * Create a platform DOM marker. Seam over the map adapter so tests can
+     * substitute fake markers.
+     */
+    protected open fun createDomMarkerAt(options: DomMarkerOptions, position: LngLat): DomMarker =
+        geoman.mapActions.createDomMarker(options, position)
+
+    /**
+     * Draggable vertex-style handle with the default red circle view.
+     */
+    protected open fun createDraggableMarker(position: LngLat, onDrag: (LngLat) -> Unit): DomMarker {
+        val marker = createDomMarkerAt(
+            DomMarkerOptions(
+                element = createHandleView(handleColor = HANDLE_COLOR_VERTEX, strokeDp = 2f),
+                anchor = MarkerAnchor.CENTER,
+                draggable = true,
+            ),
+            position,
+        )
+        marker.onDrag = onDrag
+        marker.addToMap()
+        return marker
+    }
+
+    /**
+     * Clickable midpoint-style handle with the default blue circle view.
+     */
+    protected open fun createClickableMarker(position: LngLat, onClick: () -> Unit): DomMarker {
+        val marker = createDomMarkerAt(
+            DomMarkerOptions(
+                element = createHandleView(handleColor = HANDLE_COLOR_MIDPOINT, strokeDp = 1.5f),
+                anchor = MarkerAnchor.CENTER,
+                draggable = false,
+            ),
+            position,
+        )
+        marker.onClick = onClick
+        marker.addToMap()
+        return marker
+    }
+
+    /**
+     * Build the circular handle view. Requires the platform [Geoman] for a
+     * context; tests override the marker seams above and never reach this.
+     */
+    private fun createHandleView(handleColor: Int, strokeDp: Float): android.view.View {
+        val context = (geoman as? Geoman)?.mapView?.context
+            ?: throw IllegalStateException("handle views require the platform Geoman")
+        val size = (HANDLE_SIZE_DP * context.resources.displayMetrics.density).toInt()
+        val view = android.view.View(context)
+        view.layoutParams = android.view.ViewGroup.LayoutParams(size, size)
+
+        val drawable = android.graphics.drawable.GradientDrawable().apply {
+            shape = android.graphics.drawable.GradientDrawable.OVAL
+            setColor(handleColor)
+            setStroke((strokeDp * context.resources.displayMetrics.density).toInt(), android.graphics.Color.WHITE)
+            setSize(size, size)
+        }
+        view.background = drawable
+
+        return view
+    }
 
     /**
      * Fire an edit event with the given factory and feature.
@@ -68,4 +143,10 @@ abstract class BaseEdit(geoman: Geoman) : BaseAction(geoman) {
      */
     protected fun refreshFeature(feature: FeatureData): FeatureData? =
         geoman.features.getFeature(feature.sourceName, feature.id)
+
+    private companion object {
+        const val HANDLE_SIZE_DP = 14f
+        const val HANDLE_COLOR_VERTEX = android.graphics.Color.RED
+        const val HANDLE_COLOR_MIDPOINT = android.graphics.Color.BLUE
+    }
 }

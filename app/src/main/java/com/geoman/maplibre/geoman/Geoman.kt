@@ -63,7 +63,8 @@ import org.maplibre.android.maps.MapView
  * @param map The MapLibreMap instance
  * @param options Initial configuration options
  */
-class Geoman(internal val mapView: MapView, private val map: MapLibreMap, options: GmOptionsData = GmOptionsData()) {
+class Geoman(internal val mapView: MapView, private val map: MapLibreMap, options: GmOptionsData = GmOptionsData()) :
+    GeomanApi {
 
     private companion object {
         const val TAG = "Geoman"
@@ -73,10 +74,10 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
     }
 
     // Core components
-    val options: GmOptions = GmOptions(options)
-    val features: Features = Features(this)
-    val events: GmEventBus = GmEventBus()
-    val history: ChangeTracker = ChangeTracker()
+    override val options: GmOptions = GmOptions(options)
+    override val features: Features = Features(this)
+    override val events: GmEventBus = GmEventBus()
+    override val history: ChangeTracker = ChangeTracker()
 
     // Map adapter
     @Volatile
@@ -112,7 +113,23 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
         GeomanLogger.e(TAG, "Uncaught coroutine exception", throwable as? Exception ?: Exception(throwable))
     }
-    internal val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main + exceptionHandler)
+    override val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main + exceptionHandler)
+
+    /** Adapter-backed slice used by edit modes; safe to call after init. */
+    override val mapActions: EditorMapActions = object : EditorMapActions {
+        override fun project(lngLat: LngLat): com.geoman.maplibre.geoman.types.geojson.ScreenPoint =
+            mapAdapter.project(lngLat)
+
+        override fun queryFeaturesByScreenCoordinates(
+            point: com.geoman.maplibre.geoman.types.geojson.ScreenPoint,
+            sourceNames: List<String>,
+        ): List<FeatureData> = mapAdapter.queryFeaturesByScreenCoordinates(point, sourceNames)
+
+        override fun createDomMarker(
+            options: com.geoman.maplibre.geoman.adapter.DomMarkerOptions,
+            position: LngLat,
+        ): com.geoman.maplibre.geoman.adapter.DomMarker = mapAdapter.createDomMarker(options, position)
+    }
 
     // Pending base map wait
     private var pendingBaseMapWait: kotlinx.coroutines.Job? = null
@@ -292,7 +309,7 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
     /**
      * Disable a mode.
      */
-    fun disableMode(type: ModeType, name: String) {
+    override fun disableMode(type: ModeType, name: String) {
         val key = modeKey(type, name)
 
         val action = synchronized(this) {
@@ -523,6 +540,7 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
 
         pendingBaseMapWait?.cancel()
         disableAllModes()
+        features.shutdown()
 
         if (options.settings.useControlsUi) {
             mapAdapter.removeControl(control)

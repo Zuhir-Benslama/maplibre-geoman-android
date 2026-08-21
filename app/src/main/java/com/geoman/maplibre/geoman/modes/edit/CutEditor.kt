@@ -1,6 +1,6 @@
 package com.geoman.maplibre.geoman.modes.edit
 
-import com.geoman.maplibre.geoman.Geoman
+import com.geoman.maplibre.geoman.GeomanApi
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.core.features.FeatureData
 import com.geoman.maplibre.geoman.types.EditModeName
@@ -16,7 +16,7 @@ import org.maplibre.android.geometry.LatLng
  * Cut editing mode - splits a line feature into two features at the click point.
  * Non-line geometries are ignored (they fire no events).
  */
-class CutEditor(geoman: Geoman) : BaseEdit(geoman) {
+open class CutEditor(geoman: GeomanApi) : BaseEdit(geoman) {
 
     override val modeName: String = EditModeName.CUT.name
 
@@ -39,10 +39,7 @@ class CutEditor(geoman: Geoman) : BaseEdit(geoman) {
 
     private fun findLineAt(point: LatLng): FeatureData? {
         val clickPoint = LngLat(point.longitude, point.latitude)
-        val features = geoman.mapAdapter.queryFeaturesByScreenCoordinates(
-            geoman.mapAdapter.project(clickPoint),
-            listOf(GeomanCoreConstants.SOURCE_LINES),
-        )
+        val features = queryFeaturesAt(clickPoint, listOf(GeomanCoreConstants.SOURCE_LINES))
         return features.firstOrNull()
     }
 

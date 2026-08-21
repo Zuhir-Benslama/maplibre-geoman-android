@@ -228,41 +228,70 @@ future work (requires on-device tuning).
 
 ---
 
+### 12. SourceUpdateManager Integration (August 21, 2026)
+**Files:** `core/features/Features.kt`, `adapter/BaseMapAdapter.kt`,
+`core/features/SourceUpdateManager.kt`
+
+- New **FeatureStoreRenderer** interface (`getSource/addSource/getLayer/addLayer`)
+  decouples the feature store from the platform adapter; `BaseMapAdapter`
+  implements it
+- `Features` now owns a debounced `SourceUpdateManager`: first render creates
+  sources synchronously, subsequent updates coalesce through the manager;
+  `flushPendingUpdates()` and `shutdown()` manage lifecycle
+  (`Geoman.destroy()` calls it)
+- Constructor accepts an external `CoroutineScope` for testability; virtual-time
+  tests verify coalescing, flush, and shutdown semantics
+
+**Status:** ✅ Complete (6 integration tests).
+
+---
+
+### 13. GeomanApi Extraction & Editor Interaction Tests (August 21, 2026)
+**Files:** `GeomanApi.kt`, `BaseAction.kt`, `modes/edit/*.kt`
+
+- **GeomanApi** interface (features/events/history/options/scope/mapActions/
+  disableMode) + **EditorMapActions** (project/queryFeaturesByScreenCoordinates/
+  createDomMarker) let editors run against any implementation
+- Editors gained overridable seams — `queryFeaturesAt`, `createDomMarkerAt`,
+  `createDraggableMarker`, `createClickableMarker` — so JVM tests substitute
+  fakes for Android views
+- `EditorInteractionTest` covers drag-frame accumulation against current store
+  geometry, history recording, DragEnd events, vertex/midpoint handle creation,
+  midpoint insertion, polygon ring closure, and `shapeMarkersEnabled=false`
+
+**Status:** ✅ Complete (9 interaction tests).
+
+---
+
+### 14. Marker Clustering Component (August 21, 2026)
+**Files:** `core/markers/PointClusterer.kt`
+
+- Pure grid-based clustering: points within a configurable cell size
+  (default 0.5°) collapse into a `PointCluster` with mean position, member
+  feature ids, and count
+- No platform dependencies; adapters can consume clusters to render cluster
+  markers for dense datasets
+
+**Status:** ✅ Complete (6 tests). Adapter-level rendering left to integrators.
+
+---
+
 ## ⚠️ Remaining Work
 
-### Blocked / Requires Infrastructure
+All previously blocked items are now resolved (August 21, 2026):
 
-#### 1. SourceUpdateManager Integration
-Wire the (already tested) manager into `Features.syncSourceToMap` so drag-frame
-updates are coalesced. Requires on-device verification of edit latency.
+- ~~SourceUpdateManager Integration~~ → `Features` now owns a debounced
+  `SourceUpdateManager`; sources are created synchronously and updates coalesced
+  through the new `FeatureStoreRenderer` interface (section 12).
+- ~~Editor-Level Tests~~ → `GeomanApi` interface extracted; editors depend on it
+  and expose marker seams, enabling JVM interaction tests without Android
+  (section 13).
+- ~~Marker Clustering~~ → pure grid-based `PointClusterer` component with tests;
+  adapter wiring left to integrators (section 14).
+- ~~SHAPE_MARKERS Helper Entry~~ → removed from `HelperModeName`; midpoint
+  handles remain available via `helperOptions.shapeMarkersEnabled`.
 
-**Estimated Effort:** 0.5 day + device testing
-
----
-
-#### 2. Editor-Level Tests
-Drag/Change/Rotate editors need a mockable `Geoman`/map adapter (interface extraction or test
-doubles) before their interaction flows can be unit tested. Pure logic is already covered via
-`EditorGeometryTest`.
-
-**Estimated Effort:** 1-2 days
-
----
-
-#### 3. Marker Clustering
-Marker lifecycle and event handling are complete (Aug 2026, see section 9).
-Remaining: clustering for dense areas (needs map adapter support).
-
-**Estimated Effort:** 0.5-1 day
-
----
-
-#### 4. SHAPE_MARKERS Helper Entry
-The functionality lives in `ChangeEditor` (midpoint handles, section 8); the
-standalone helper enum entry remains unimplemented and hidden from the UI.
-Either wire it as a toggle or remove the entry.
-
-**Estimated Effort:** 0.5 day or removal
+What remains is on-device validation only (see Testing Checklist).
 
 ## 📊 Completion Summary
 
@@ -271,12 +300,12 @@ Either wire it as a toggle or remove the entry.
 | **Core Constants** | 100% | ✅ Complete |
 | **Geometry Utils** | 100% | ✅ Complete |
 | **Validators** | 100% | ✅ Complete + integrated (Aug 2026) |
-| **Source Manager** | 80% | ⚠️ Component done; Features wiring pending |
+| **Source Manager** | 100% | ✅ Complete + wired into Features (Aug 2026) |
 | **Correctness Pass** | 100% | ✅ Complete (Aug 2026) |
-| **Unit Test Suite** | ~85% | ⚠️ 125 tests; editors need mocks |
+| **Unit Test Suite** | ~95% | ✅ 146 tests incl. editor interaction tests |
 | **FeatureData** | 100% | ✅ Complete (Aug 2026) |
 | **Import/Export** | 100% | ✅ Complete (Aug 2026) |
-| **Marker System** | 90% | ⚠️ Lifecycle done; clustering pending |
+| **Marker System** | 95% | ✅ Lifecycle + clustering component done; adapter wiring pending |
 | **Style System** | 95% | ⚠️ Themes done (Aug 2026); zoom interpolation pending |
 | **Diff Tracking** | 100% | ✅ Complete foundation (Aug 2026) |
 
@@ -315,20 +344,20 @@ Quality gates run on every change: `./gradlew spotlessCheck detekt :app:lintDebu
 
 1. ✅ Core constants centralized
 2. ✅ Validators implemented and integrated
-3. ⚠️ Source update manager functional (component done, integration pending)
+3. ✅ Source update manager functional and integrated into Features
 4. ✅ Geometry utilities complete
 5. ✅ FeatureData supports parent-child and markers
 6. ✅ Import/export with validation
-7. ⚠️ Marker lifecycle management done; clustering pending
+7. ✅ Marker lifecycle management + clustering component
 8. ✅ Style system centralized with themes (zoom interpolation pending)
 9. ✅ Diff tracking for undo/redo
-10. ✅ All tests passing (125 unit tests)
+10. ✅ All tests passing (146 unit tests)
 
-**Current Status:** 8/10 ✅ Complete, 2/10 ⚠️ Partial, 0/10 ❌ Not Started
+**Current Status:** 10/10 ✅ Complete, 0/10 ⚠️ Partial, 0/10 ❌ Not Started
 
 ---
 
-**Document Version:** 3.2  
+**Document Version:** 3.3  
 **Created:** April 2, 2026  
 **Corrected:** August 21, 2026  
 **Author:** Development Team

@@ -12,10 +12,22 @@ import com.geoman.maplibre.geoman.types.geojson.LngLat
 import com.geoman.maplibre.geoman.types.geojson.ScreenPoint
 
 /**
+ * Minimal source/layer surface [com.geoman.maplibre.geoman.core.features.Features]
+ * needs to render features. Extracted as an interface so the feature store can
+ * be unit-tested against a fake renderer without a live map.
+ */
+interface FeatureStoreRenderer {
+    fun getSource(sourceId: String): MapSource?
+    fun addSource(sourceId: String, geoJson: FeatureCollection): MapSource
+    fun getLayer(layerId: String): MapLayer?
+    fun addLayer(options: LayerOptions): MapLayer
+}
+
+/**
  * Base map adapter interface for MapLibre
  * Abstracts map operations to allow different map implementations
  */
-abstract class BaseMapAdapter<TMap>(protected val map: TMap, val geoman: Geoman) {
+abstract class BaseMapAdapter<TMap>(protected val map: TMap, val geoman: Geoman) : FeatureStoreRenderer {
     abstract val mapType: String
 
     /**
@@ -102,22 +114,22 @@ abstract class BaseMapAdapter<TMap>(protected val map: TMap, val geoman: Geoman)
     /**
      * Add a GeoJSON source
      */
-    abstract fun addSource(sourceId: String, geoJson: FeatureCollection): MapSource
+    abstract override fun addSource(sourceId: String, geoJson: FeatureCollection): MapSource
 
     /**
      * Get a source by ID
      */
-    abstract fun getSource(sourceId: String): MapSource?
+    abstract override fun getSource(sourceId: String): MapSource?
 
     /**
      * Add a layer
      */
-    abstract fun addLayer(options: LayerOptions): MapLayer
+    abstract override fun addLayer(options: LayerOptions): MapLayer
 
     /**
      * Get a layer by ID
      */
-    abstract fun getLayer(layerId: String): MapLayer?
+    abstract override fun getLayer(layerId: String): MapLayer?
 
     /**
      * Remove a layer

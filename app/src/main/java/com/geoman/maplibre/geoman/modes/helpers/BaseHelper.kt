@@ -7,9 +7,12 @@ import com.geoman.maplibre.geoman.types.ModeType
 import org.maplibre.android.geometry.LatLng
 
 /**
- * Base class for all helper modes
+ * Base class for all helper modes.
+ *
+ * Helpers use the full platform adapter (fitBounds, unproject, source/layer
+ * management), so unlike edit modes they require the concrete [Geoman].
  */
-abstract class BaseHelper(geoman: Geoman) : BaseAction(geoman) {
+abstract class BaseHelper(protected override val geoman: Geoman) : BaseAction(geoman) {
 
     override val modeType: ModeType = ModeType.HELPER
 

@@ -24,7 +24,7 @@ class SourceUpdateManager(
     private val debounceMs: Long = DEFAULT_DEBOUNCE_MS,
 ) {
 
-    private companion object {
+    companion object {
         const val DEFAULT_DEBOUNCE_MS = 100L
     }
 
