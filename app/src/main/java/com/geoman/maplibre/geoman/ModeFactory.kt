@@ -2,6 +2,7 @@ package com.geoman.maplibre.geoman
 
 import com.geoman.maplibre.geoman.modes.draw.BaseDraw
 import com.geoman.maplibre.geoman.modes.draw.CircleDrawer
+import com.geoman.maplibre.geoman.modes.draw.CircleMarkerDrawer
 import com.geoman.maplibre.geoman.modes.draw.LineDrawer
 import com.geoman.maplibre.geoman.modes.draw.MarkerDrawer
 import com.geoman.maplibre.geoman.modes.draw.PolygonDrawer
@@ -12,7 +13,9 @@ import com.geoman.maplibre.geoman.modes.edit.CutEditor
 import com.geoman.maplibre.geoman.modes.edit.DeleteEditor
 import com.geoman.maplibre.geoman.modes.edit.DragEditor
 import com.geoman.maplibre.geoman.modes.edit.RotateEditor
+import com.geoman.maplibre.geoman.modes.helpers.BaseHelper
 import com.geoman.maplibre.geoman.modes.helpers.SnapHelper
+import com.geoman.maplibre.geoman.modes.helpers.ZoomToFitHelper
 import com.geoman.maplibre.geoman.types.DrawModeName
 import com.geoman.maplibre.geoman.types.EditModeName
 import com.geoman.maplibre.geoman.types.HelperModeName
@@ -28,6 +31,7 @@ class ModeFactory(private val geoman: Geoman) {
 
     private fun createDraw(name: String): BaseDraw? = when (name) {
         DrawModeName.MARKER.name -> MarkerDrawer(geoman)
+        DrawModeName.CIRCLE_MARKER.name -> CircleMarkerDrawer(geoman)
         DrawModeName.LINE.name -> LineDrawer(geoman)
         DrawModeName.POLYGON.name -> PolygonDrawer(geoman)
         DrawModeName.CIRCLE.name -> CircleDrawer(geoman)
@@ -46,6 +50,7 @@ class ModeFactory(private val geoman: Geoman) {
 
     private fun createHelper(name: String): BaseAction? = when (name) {
         HelperModeName.SNAP.name -> SnapHelper(geoman)
+        HelperModeName.ZOOM_TO_FEATURES.name -> ZoomToFitHelper(geoman)
         else -> null
     }
 }

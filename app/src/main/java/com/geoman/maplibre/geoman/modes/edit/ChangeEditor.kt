@@ -8,6 +8,7 @@ import com.geoman.maplibre.geoman.core.features.FeatureData
 import com.geoman.maplibre.geoman.types.EditModeName
 import com.geoman.maplibre.geoman.types.events.GmEditEvent
 import com.geoman.maplibre.geoman.types.geojson.LngLat
+import com.geoman.maplibre.geoman.types.geojson.Polygon
 import com.geoman.maplibre.geoman.utils.GeometryUtils
 import kotlinx.coroutines.launch
 import org.maplibre.android.geometry.LatLng
@@ -22,15 +23,20 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
     private var isEditing = false
     private var editingFeature: FeatureData? = null
     private var vertexMarkers = mutableListOf<VertexMarker>()
+    private var midpointMarkers = mutableListOf<MidpointMarker>()
 
     /**
      * Wrapper holding a DOM marker and its vertex index
      */
     private data class VertexMarker(val index: Int, val domMarker: com.geoman.maplibre.geoman.adapter.DomMarker)
 
-    override fun enable() {
-        super.enable()
-    }
+    /**
+     * Wrapper holding a clickable midpoint marker and the segment it splits
+     */
+    private data class MidpointMarker(
+        val segmentIndex: Int,
+        val domMarker: com.geoman.maplibre.geoman.adapter.DomMarker,
+    )
 
     override fun disable() {
         if (isEditing) {
@@ -44,12 +50,7 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
      * Start editing a specific feature directly (bypassing click selection)
      */
     fun startEditingFeature(feature: FeatureData) {
-        editingFeature = feature
-        isEditing = true
-        createVertexMarkers(feature)
-        geoman.scope.launch {
-            fireEditEvent({ GmEditEvent.ChangeStart(it) }, feature)
-        }
+        startEditing(feature)
     }
 
     override fun onMapClick(point: LatLng) {
@@ -133,9 +134,10 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
     }
 
     private fun finishEditing() {
-        editingFeature?.let {
+        editingFeature?.let { stale ->
+            val current = refreshFeature(stale) ?: stale
             geoman.scope.launch {
-                fireEditEvent({ GmEditEvent.ChangeEnd(it) }, it)
+                fireEditEvent({ GmEditEvent.ChangeEnd(it) }, current)
             }
         }
 
@@ -155,7 +157,7 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
                 }
             }
 
-            is com.geoman.maplibre.geoman.types.geojson.Polygon -> {
+            is Polygon -> {
                 if (geometry.coordinates.isNotEmpty()) {
                     val ring = geometry.coordinates[0]
                     // Exclude the closing coordinate (duplicate of first)
@@ -185,15 +187,61 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
                 moveVertex(vertex.index, LatLng(newLngLat.latitude, newLngLat.longitude))
             }
 
-            domMarker.onDragEnd = {
-                // Re-sync the source to ensure map reflects final position
-                geoman.features.updateFeature(feature.sourceName, feature.id) { it }
-            }
-
             vertexMarkers.add(VertexMarker(vertex.index, domMarker))
         }
 
+        createMidpointMarkers(geometry)
+
         GeomanLogger.d("ChangeEditor", "Created ${vertexMarkers.size} vertex markers")
+    }
+
+    /**
+     * Shape markers: clickable midpoints on every segment. Tapping one inserts
+     * a new vertex at the midpoint (web Geoman's shape_markers behavior).
+     */
+    private fun createMidpointMarkers(geometry: com.geoman.maplibre.geoman.types.geojson.Geometry) {
+        val midpoints: List<MidpointData> = when (geometry) {
+            is com.geoman.maplibre.geoman.types.geojson.LineString -> {
+                val coords = geometry.coordinates
+                (0 until coords.size - 1).mapNotNull { i ->
+                    val mid = EditorGeometry.midpoint(coords[i], coords[i + 1])
+                    MidpointData(i, LngLat(mid[0], mid[1]))
+                }
+            }
+
+            is Polygon -> {
+                val ring = geometry.coordinates.firstOrNull() ?: return
+                val unique = ring.dropLast(1)
+                if (unique.size < 2) return
+
+                // Segments between consecutive vertices plus the wrap-around
+                // closing segment; segmentIndex matches addVertex() indexing
+                (unique.indices).map { i ->
+                    val a = unique[i]
+                    val b = unique[(i + 1) % unique.size]
+                    val mid = EditorGeometry.midpoint(a, b)
+                    MidpointData(i, LngLat(mid[0], mid[1]))
+                }
+            }
+
+            else -> emptyList()
+        }
+
+        midpoints.forEach { data ->
+            val markerOptions = DomMarkerOptions(
+                element = createMidpointMarkerView(),
+                anchor = com.geoman.maplibre.geoman.adapter.MarkerAnchor.CENTER,
+                draggable = false,
+            )
+
+            val domMarker = geoman.mapAdapter.createDomMarker(markerOptions, data.lngLat)
+            domMarker.addToMap()
+            domMarker.onClick = {
+                addVertex(data.segmentIndex, LatLng(data.lngLat.latitude, data.lngLat.longitude))
+            }
+
+            midpointMarkers.add(MidpointMarker(data.segmentIndex, domMarker))
+        }
     }
 
     /**
@@ -217,9 +265,31 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
         return view
     }
 
+    /**
+     * Create a small blue circle view for midpoint (shape) markers
+     */
+    private fun createMidpointMarkerView(): android.view.View {
+        val context = geoman.mapView.context
+        val size = (10 * context.resources.displayMetrics.density).toInt()
+        val view = android.view.View(context)
+        view.layoutParams = android.view.ViewGroup.LayoutParams(size, size)
+
+        val drawable = android.graphics.drawable.GradientDrawable().apply {
+            shape = android.graphics.drawable.GradientDrawable.OVAL
+            setColor(android.graphics.Color.BLUE)
+            setStroke((1.5f * context.resources.displayMetrics.density).toInt(), android.graphics.Color.WHITE)
+            setSize(size, size)
+        }
+        view.background = drawable
+
+        return view
+    }
+
     private fun clearVertexMarkers() {
         vertexMarkers.forEach { it.domMarker.remove() }
         vertexMarkers.clear()
+        midpointMarkers.forEach { it.domMarker.remove() }
+        midpointMarkers.clear()
     }
 
     /**
@@ -227,32 +297,23 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
      */
     private fun moveVertex(index: Int, newPoint: LatLng) {
         val feature = editingFeature ?: return
-        val geometry = feature.geometry
+        val coord = listOf(newPoint.longitude, newPoint.latitude)
 
-        when (geometry) {
-            is com.geoman.maplibre.geoman.types.geojson.LineString -> {
-                val coords = geometry.coordinates.toMutableList()
-                if (index in coords.indices) {
-                    coords[index] = listOf(newPoint.longitude, newPoint.latitude)
-                    val newGeometry = com.geoman.maplibre.geoman.types.geojson.LineString(coordinates = coords)
-                    updateFeatureGeometry(feature, newGeometry)
-                }
-            }
-
-            is com.geoman.maplibre.geoman.types.geojson.Polygon -> {
-                if (geometry.coordinates.isNotEmpty()) {
-                    val rings = geometry.coordinates.map { ring -> ring.toMutableList() }
-                    val exteriorRing = rings[0]
-                    if (index in exteriorRing.indices) {
-                        exteriorRing[index] = listOf(newPoint.longitude, newPoint.latitude)
-                        val newGeometry = com.geoman.maplibre.geoman.types.geojson.Polygon(coordinates = rings)
-                        updateFeatureGeometry(feature, newGeometry)
+        editingFeature = updateFeatureGeometry(feature) { geometry ->
+            when (geometry) {
+                is com.geoman.maplibre.geoman.types.geojson.LineString -> {
+                    val coords = geometry.coordinates.toMutableList()
+                    if (index in coords.indices) {
+                        coords[index] = coord
                     }
+                    com.geoman.maplibre.geoman.types.geojson.LineString(coordinates = coords)
                 }
-            }
 
-            else -> {
-                // Unsupported geometry type for vertex movement
+                is Polygon -> Polygon(
+                    coordinates = EditorGeometry.movePolygonVertex(geometry.coordinates, index, coord),
+                )
+
+                else -> geometry
             }
         }
     }
@@ -264,32 +325,37 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
      */
     fun addVertex(segmentIndex: Int, newPoint: LatLng) {
         val feature = editingFeature ?: return
-        val geometry = feature.geometry
+        val coord = listOf(newPoint.longitude, newPoint.latitude)
 
-        when (geometry) {
-            is com.geoman.maplibre.geoman.types.geojson.LineString -> {
-                val coords = geometry.coordinates.toMutableList()
-                if (segmentIndex !in 0 until coords.size - 1) return
-                coords.add(segmentIndex + 1, listOf(newPoint.longitude, newPoint.latitude))
-                val newGeometry = com.geoman.maplibre.geoman.types.geojson.LineString(coordinates = coords)
-                updateFeatureGeometry(feature, newGeometry)
-            }
-
-            is com.geoman.maplibre.geoman.types.geojson.Polygon -> {
-                if (geometry.coordinates.isNotEmpty()) {
-                    val rings = geometry.coordinates.map { ring -> ring.toMutableList() }
-                    val exteriorRing = rings[0]
-                    if (segmentIndex !in 0 until exteriorRing.size - 1) return
-                    exteriorRing.add(segmentIndex + 1, listOf(newPoint.longitude, newPoint.latitude))
-                    val newGeometry = com.geoman.maplibre.geoman.types.geojson.Polygon(coordinates = rings)
-                    updateFeatureGeometry(feature, newGeometry)
+        val updated = updateFeatureGeometry(feature) { geometry ->
+            when (geometry) {
+                is com.geoman.maplibre.geoman.types.geojson.LineString -> {
+                    val coords = geometry.coordinates.toMutableList()
+                    if (segmentIndex in 0 until coords.size - 1) {
+                        coords.add(segmentIndex + 1, coord)
+                    }
+                    com.geoman.maplibre.geoman.types.geojson.LineString(coordinates = coords)
                 }
-            }
 
-            else -> {
-                // Unsupported geometry type for adding vertices
+                is Polygon -> {
+                    if (geometry.coordinates.isEmpty()) {
+                        geometry
+                    } else {
+                        val rings = geometry.coordinates.map { ring -> ring.toMutableList() }
+                        val exteriorRing = rings[0]
+                        if (segmentIndex in 0 until exteriorRing.size - 1) {
+                            exteriorRing.add(segmentIndex + 1, coord)
+                        }
+                        Polygon(coordinates = rings)
+                    }
+                }
+
+                else -> geometry
             }
-        }
+        } ?: return
+
+        editingFeature = updated
+        createVertexMarkers(updated)
     }
 
     /**
@@ -299,36 +365,35 @@ class ChangeEditor(geoman: Geoman) : BaseEdit(geoman) {
      */
     fun removeVertex(index: Int) {
         val feature = editingFeature ?: return
-        val geometry = feature.geometry
 
-        when (geometry) {
-            is com.geoman.maplibre.geoman.types.geojson.LineString -> {
-                if (geometry.coordinates.size <= 2) return // Can't remove if only 2 points
-                val coords = geometry.coordinates.toMutableList()
-                if (index !in coords.indices) return
-                coords.removeAt(index)
-                val newGeometry = com.geoman.maplibre.geoman.types.geojson.LineString(coordinates = coords)
-                updateFeatureGeometry(feature, newGeometry)
-            }
-
-            is com.geoman.maplibre.geoman.types.geojson.Polygon -> {
-                if (geometry.coordinates.isNotEmpty()) {
-                    val rings = geometry.coordinates.map { ring -> ring.toMutableList() }
-                    val exteriorRing = rings[0]
-                    if (exteriorRing.size <= 4) return // Can't remove if only 3 unique points + closing
-                    // The closing coordinate duplicates the first; never remove it
-                    if (index !in 0 until exteriorRing.size - 1) return
-                    exteriorRing.removeAt(index)
-                    val newGeometry = com.geoman.maplibre.geoman.types.geojson.Polygon(coordinates = rings)
-                    updateFeatureGeometry(feature, newGeometry)
+        val updated = updateFeatureGeometry(feature) { geometry ->
+            when (geometry) {
+                is com.geoman.maplibre.geoman.types.geojson.LineString -> {
+                    if (geometry.coordinates.size <= 2) {
+                        geometry // Can't remove if only 2 points
+                    } else {
+                        val coords = geometry.coordinates.toMutableList()
+                        if (index in coords.indices) {
+                            coords.removeAt(index)
+                        }
+                        com.geoman.maplibre.geoman.types.geojson.LineString(coordinates = coords)
+                    }
                 }
-            }
 
-            else -> {
-                // Unsupported geometry type for vertex removal
+                is Polygon -> removePolygonVertex(geometry, index)
+
+                else -> geometry
             }
-        }
+        } ?: return
+
+        editingFeature = updated
+        createVertexMarkers(updated)
     }
 
+    private fun removePolygonVertex(geometry: Polygon, index: Int): Polygon =
+        Polygon(coordinates = EditorGeometry.removePolygonVertex(geometry.coordinates, index))
+
     private data class VertexMarkerData(val index: Int, val lngLat: LngLat)
+
+    private data class MidpointData(val segmentIndex: Int, val lngLat: LngLat)
 }

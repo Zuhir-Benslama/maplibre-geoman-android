@@ -33,6 +33,12 @@ abstract class BaseDraw(geoman: Geoman) : BaseAction(geoman) {
     abstract fun onMapLongClick(point: LatLng)
     abstract fun finishDrawing()
 
+    /**
+     * Generate a collision-free feature ID. Timestamp-based IDs collided when
+     * two features were created within the same millisecond.
+     */
+    protected fun createFeatureId(prefix: String): String = "$prefix-${java.util.UUID.randomUUID()}"
+
     protected suspend fun fireCreateEvent(feature: FeatureData?) {
         val featureRef = feature ?: run {
             GeomanLogger.w("BaseDraw", "fireCreateEvent called with null feature")

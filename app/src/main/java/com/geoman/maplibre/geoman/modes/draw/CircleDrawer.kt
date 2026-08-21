@@ -55,12 +55,12 @@ class CircleDrawer(geoman: Geoman) : BaseDraw(geoman) {
 
         val geometry = Polygon.fromLngLats(listOf(circleCoordinates))
 
-        val now = System.currentTimeMillis()
+        val featureId = createFeatureId("circle")
         val feature = Feature(
-            id = "circle_$now",
+            id = featureId,
             geometry = geometry,
             properties = mapOf(
-                GeomanCoreConstants.FEATURE_ID_PROPERTY to "circle_$now",
+                GeomanCoreConstants.FEATURE_ID_PROPERTY to featureId,
                 "shapeType" to "circle",
                 "center" to center,
                 "radius" to radius,

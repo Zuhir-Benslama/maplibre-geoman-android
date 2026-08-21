@@ -14,8 +14,6 @@ import kotlinx.coroutines.launch
 import org.maplibre.android.geometry.LatLng
 import kotlin.math.atan2
 import kotlin.math.cos
-import kotlin.math.sin
-import kotlin.math.sqrt
 
 /**
  * Rotate editing mode - allows rotating features around their centroid
@@ -29,10 +27,7 @@ class RotateEditor(geoman: Geoman) : BaseEdit(geoman) {
     private var centroid: LngLat? = null
     private var rotationStartAngle: Double = 0.0
     private var initialRotation: Double = 0.0
-
-    override fun enable() {
-        super.enable()
-    }
+    private var lastAppliedRotation: Double = 0.0
 
     override fun disable() {
         if (isRotating) {
@@ -71,6 +66,7 @@ class RotateEditor(geoman: Geoman) : BaseEdit(geoman) {
         centroid = c
         rotationStartAngle = calculateAngle(c, LngLat(startPoint.longitude, startPoint.latitude))
         initialRotation = 0.0
+        lastAppliedRotation = 0.0
 
         geoman.scope.launch {
             fireEditEvent({ GmEditEvent.RotateStart(it) }, feature)
@@ -82,14 +78,22 @@ class RotateEditor(geoman: Geoman) : BaseEdit(geoman) {
         val c = centroid ?: return
 
         val currentAngle = calculateAngle(c, LngLat(point.longitude, point.latitude))
-        val rotationDelta = currentAngle - rotationStartAngle
-        rotateFeature(feature, c, initialRotation + rotationDelta)
+        val totalRotation = initialRotation + (currentAngle - rotationStartAngle)
+
+        // Apply only the frame delta to the current stored geometry; applying
+        // the cumulative angle to already-rotated coordinates would compound
+        val frameDelta = totalRotation - lastAppliedRotation
+        if (frameDelta == 0.0) return
+
+        rotateFeature(feature, c, frameDelta)
+        lastAppliedRotation = totalRotation
     }
 
     private fun finishRotation() {
-        rotatingFeature?.let {
+        rotatingFeature?.let { stale ->
+            val current = refreshFeature(stale) ?: stale
             geoman.scope.launch {
-                fireEditEvent({ GmEditEvent.RotateEnd(it) }, it)
+                fireEditEvent({ GmEditEvent.RotateEnd(it) }, current)
             }
         }
 
@@ -98,6 +102,7 @@ class RotateEditor(geoman: Geoman) : BaseEdit(geoman) {
         centroid = null
         rotationStartAngle = 0.0
         initialRotation = 0.0
+        lastAppliedRotation = 0.0
     }
 
     private fun calculateCentroid(feature: FeatureData): LngLat {
@@ -134,51 +139,31 @@ class RotateEditor(geoman: Geoman) : BaseEdit(geoman) {
     }
 
     private fun rotateFeature(feature: FeatureData, center: LngLat, angle: Double) {
-        val geometry = feature.geometry
         val angleRad = Math.toRadians(angle)
 
-        when (geometry) {
-            is LineString -> {
-                val newCoords = geometry.coordinates.map { coord ->
-                    rotatePoint(LngLat(coord[0], coord[1]), center, angleRad)
-                }
-                val newGeometry = LineString(coordinates = newCoords.map { listOf(it.longitude, it.latitude) })
-                updateFeatureGeometry(feature, newGeometry)
-            }
-
-            is Polygon -> {
-                val newRings = geometry.coordinates.map { ring ->
-                    ring.map { coord ->
+        updateFeatureGeometry(feature) { geometry ->
+            when (geometry) {
+                is LineString -> LineString(
+                    coordinates = geometry.coordinates.map { coord ->
                         rotatePoint(LngLat(coord[0], coord[1]), center, angleRad)
-                    }
-                }
-                val newGeometry =
-                    Polygon(coordinates = newRings.map { ring -> ring.map { listOf(it.longitude, it.latitude) } })
-                updateFeatureGeometry(feature, newGeometry)
-            }
+                            .let { listOf(it.longitude, it.latitude) }
+                    },
+                )
 
-            else -> {
-                // Unsupported geometry type for rotation
+                is Polygon -> Polygon(
+                    coordinates = geometry.coordinates.map { ring ->
+                        ring.map { coord ->
+                            rotatePoint(LngLat(coord[0], coord[1]), center, angleRad)
+                                .let { listOf(it.longitude, it.latitude) }
+                        }
+                    },
+                )
+
+                else -> geometry
             }
         }
     }
 
-    private fun rotatePoint(point: LngLat, center: LngLat, angleRad: Double): LngLat {
-        val cosA = cos(angleRad)
-        val sinA = sin(angleRad)
-
-        // Rotate in equirectangular (metre-like) space so shapes keep their
-        // proportions when the map is projected
-        val cosLat = cos(Math.toRadians(center.latitude)).coerceAtLeast(1e-6)
-        val ex = (point.longitude - center.longitude) * cosLat
-        val ey = point.latitude - center.latitude
-
-        val rotatedEx = ex * cosA - ey * sinA
-        val rotatedEy = ex * sinA + ey * cosA
-
-        return LngLat(
-            longitude = center.longitude + rotatedEx / cosLat,
-            latitude = center.latitude + rotatedEy,
-        )
-    }
+    private fun rotatePoint(point: LngLat, center: LngLat, angleRad: Double): LngLat =
+        EditorGeometry.rotatePoint(point, center, angleRad)
 }

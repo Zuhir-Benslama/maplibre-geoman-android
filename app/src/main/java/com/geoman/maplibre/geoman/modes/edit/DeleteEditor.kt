@@ -23,6 +23,7 @@ class DeleteEditor(geoman: Geoman) : BaseEdit(geoman) {
             geoman.mapAdapter.project(LngLat(point.longitude, point.latitude)),
             listOf(
                 GeomanCoreConstants.SOURCE_MARKERS,
+                GeomanCoreConstants.SOURCE_CIRCLE_MARKERS,
                 GeomanCoreConstants.SOURCE_LINES,
                 GeomanCoreConstants.SOURCE_POLYGONS,
                 GeomanCoreConstants.SOURCE_CIRCLES,

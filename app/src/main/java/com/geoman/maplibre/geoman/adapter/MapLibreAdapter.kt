@@ -1,7 +1,6 @@
 package com.geoman.maplibre.geoman.adapter
 
 import android.graphics.PointF
-import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import com.geoman.maplibre.geoman.Geoman
@@ -10,22 +9,16 @@ import com.geoman.maplibre.geoman.core.controls.GmControl
 import com.geoman.maplibre.geoman.core.features.FeatureData
 import com.geoman.maplibre.geoman.types.CursorType
 import com.geoman.maplibre.geoman.types.MapInteraction
-import com.geoman.maplibre.geoman.types.geojson.Feature
 import com.geoman.maplibre.geoman.types.geojson.FeatureCollection
 import com.geoman.maplibre.geoman.types.geojson.GeoJsonFeatureData
 import com.geoman.maplibre.geoman.types.geojson.LatLngBounds
 import com.geoman.maplibre.geoman.types.geojson.LngLat
 import com.geoman.maplibre.geoman.types.geojson.ScreenPoint
-import kotlinx.coroutines.suspendCancellableCoroutine
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
-import org.maplibre.android.maps.Projection
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
-import kotlin.coroutines.resume
-import kotlin.math.pow
-import kotlin.math.sqrt
 
 /**
  * MapLibre Android SDK implementation of the base map adapter
@@ -87,7 +80,7 @@ class MapLibreAdapter(map: MapLibreMap, geoman: Geoman, private val mapView: Map
             if (event.action == android.view.MotionEvent.ACTION_UP) {
                 view.performClick()
             }
-            control.onTouchEvent(event as MotionEvent)
+            control.onTouchEvent(event)
         }
         mapView.renderView.setOnTouchListener(touchListener)
     }
@@ -235,31 +228,12 @@ class MapLibreAdapter(map: MapLibreMap, geoman: Geoman, private val mapView: Map
         queryCoordinates: ScreenPoint,
         sourceNames: List<String>,
     ): List<FeatureData> {
-        // Query rendered features at point
+        // Hit-test the in-memory features of the requested sources against the
+        // projected geometry. DOM markers (vertex/drag handles) are deliberately
+        // excluded: they are interaction affordances, not features, and their
+        // generated IDs have no counterpart in the feature store.
         val features = mutableListOf<FeatureData>()
 
-        // Check markers first
-        markers.forEach { marker ->
-            val markerPoint = project(marker.getLngLat())
-            val dx = markerPoint.x - queryCoordinates.x
-            val dy = markerPoint.y - queryCoordinates.y
-            val distance = sqrt(dx * dx + dy * dy)
-
-            if (distance < HIT_TOLERANCE_PX) {
-                val featureData = FeatureData(
-                    id = marker.id,
-                    sourceName = marker.sourceName,
-                    feature = Feature(
-                        geometry = com.geoman.maplibre.geoman.types.geojson.Point.fromLngLat(marker.getLngLat()),
-                    ),
-                )
-                if (sourceNames.contains(marker.sourceName)) {
-                    features.add(featureData)
-                }
-            }
-        }
-
-        // Query vector tile features if using vector sources
         sources.forEach { (sourceId, source) ->
             if (sourceNames.contains(sourceId)) {
                 source.getFeaturesAtPoint(queryCoordinates)?.forEach { geoJsonFeature ->

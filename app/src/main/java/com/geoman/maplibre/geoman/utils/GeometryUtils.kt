@@ -98,8 +98,10 @@ object GeometryUtils {
         val east = bounds.maxOf { it.longitude }
         val crossesAntimeridian = (east - west) > 180.0
 
+        // When the bound span exceeds 180°, the enclosed range wraps around the
+        // antimeridian: [east, 180] ∪ [-180, west]
         val lonInRange = if (crossesAntimeridian) {
-            point.longitude >= west || point.longitude <= east
+            point.longitude >= east || point.longitude <= west
         } else {
             point.longitude in west..east
         }

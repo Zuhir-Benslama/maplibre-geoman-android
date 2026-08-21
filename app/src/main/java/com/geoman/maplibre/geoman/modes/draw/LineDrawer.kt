@@ -70,12 +70,12 @@ class LineDrawer(geoman: Geoman) : BaseDraw(geoman) {
             geoman.features.updateFeature(GeomanCoreConstants.SOURCE_LINES, existing.id) { updated }
             currentFeature = updated
         } else {
-            val now = System.currentTimeMillis()
+            val featureId = createFeatureId("line")
             val feature = Feature(
-                id = "line_$now",
+                id = featureId,
                 geometry = geometry,
                 properties = mapOf(
-                    GeomanCoreConstants.FEATURE_ID_PROPERTY to "line_$now",
+                    GeomanCoreConstants.FEATURE_ID_PROPERTY to featureId,
                     "shapeType" to "line",
                 ),
             )

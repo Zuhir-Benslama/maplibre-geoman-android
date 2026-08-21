@@ -14,6 +14,9 @@ import com.geoman.maplibre.geoman.core.controls.GmControl
 import com.geoman.maplibre.geoman.core.events.GmEventBus
 import com.geoman.maplibre.geoman.core.features.FeatureData
 import com.geoman.maplibre.geoman.core.features.Features
+import com.geoman.maplibre.geoman.core.history.ChangeTracker
+import com.geoman.maplibre.geoman.core.io.GeoJsonCodec
+import com.geoman.maplibre.geoman.core.io.ImportResult
 import com.geoman.maplibre.geoman.core.options.GmOptions
 import com.geoman.maplibre.geoman.core.options.GmOptionsData
 import com.geoman.maplibre.geoman.modes.draw.BaseDraw
@@ -33,6 +36,7 @@ import com.geoman.maplibre.geoman.types.events.GmMapEvent
 import com.geoman.maplibre.geoman.types.events.GmModeEvent
 import com.geoman.maplibre.geoman.types.geojson.Feature
 import com.geoman.maplibre.geoman.types.geojson.FeatureCollection
+import com.geoman.maplibre.geoman.types.geojson.Geometry
 import com.geoman.maplibre.geoman.types.geojson.LngLat
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
@@ -72,6 +76,7 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
     val options: GmOptions = GmOptions(options)
     val features: Features = Features(this)
     val events: GmEventBus = GmEventBus()
+    val history: ChangeTracker = ChangeTracker()
 
     // Map adapter
     @Volatile
@@ -438,6 +443,56 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
      */
     fun clearAllFeatures() {
         features.clearAll()
+    }
+
+    /**
+     * Export every stored feature as a pretty-printed GeoJSON FeatureCollection.
+     */
+    fun exportGeoJson(): String = GeoJsonCodec.encodeFeatureCollection(
+        features.getAllFeatures().values.flatMap {
+            it.values
+        },
+    )
+
+    /**
+     * Import a GeoJSON FeatureCollection (or single Feature) document.
+     *
+     * Structurally valid features are added to [sourceName]; invalid ones are
+     * reported per index in the returned [ImportResult] without aborting the
+     * rest of the batch.
+     */
+    fun importGeoJson(json: String, sourceName: String = GeomanCoreConstants.SOURCE_POLYGONS): ImportResult {
+        val result = GeoJsonCodec.decode(json, sourceName)
+        result.features.forEach { featureData ->
+            features.addGeoJsonFeature(featureData.feature, sourceName)
+        }
+        return result
+    }
+
+    /**
+     * Undo the most recent geometry edit. Returns true when a change was
+     * restored.
+     */
+    fun undo(): Boolean {
+        val change = history.undo() ?: return false
+        applyGeometry(change.sourceName, change.featureId, change.before)
+        return true
+    }
+
+    /**
+     * Re-apply the most recently undone geometry edit. Returns true when a
+     * change was restored.
+     */
+    fun redo(): Boolean {
+        val change = history.redo() ?: return false
+        applyGeometry(change.sourceName, change.featureId, change.after)
+        return true
+    }
+
+    private fun applyGeometry(sourceName: String, featureId: String, geometry: Geometry) {
+        features.updateFeature(sourceName, featureId) { current ->
+            current.copy(feature = current.feature.copy(geometry = geometry))
+        }
     }
 
     /**

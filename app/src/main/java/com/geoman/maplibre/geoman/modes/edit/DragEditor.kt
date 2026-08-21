@@ -29,10 +29,6 @@ class DragEditor(geoman: Geoman) : BaseEdit(geoman) {
     private var dragStartPoint: LatLng? = null
     private var dragHandle: DomMarker? = null
 
-    override fun enable() {
-        super.enable()
-    }
-
     override fun disable() {
         if (isDragging) {
             finishDrag()
@@ -100,14 +96,15 @@ class DragEditor(geoman: Geoman) : BaseEdit(geoman) {
         if (!enabled || !isDragging || selectedFeature == null) return
 
         val startPoint = dragStartPoint ?: return
+        val feature = selectedFeature ?: return
 
         // Calculate offset
         val deltaLon = point.longitude - startPoint.longitude
         val deltaLat = point.latitude - startPoint.latitude
 
-        // Move the feature
-        val feature = selectedFeature ?: return
-        moveFeature(feature, deltaLon, deltaLat)
+        // Apply the incremental delta to the *current* stored geometry so that
+        // successive drag frames accumulate instead of overwriting each other
+        selectedFeature = moveFeature(feature, deltaLon, deltaLat)
 
         dragStartPoint = point
     }
@@ -124,9 +121,10 @@ class DragEditor(geoman: Geoman) : BaseEdit(geoman) {
         dragHandle?.remove()
         dragHandle = null
 
-        selectedFeature?.let {
+        selectedFeature?.let { stale ->
+            val current = refreshFeature(stale) ?: stale
             geoman.scope.launch {
-                fireEditEvent({ GmEditEvent.DragEnd(it) }, it)
+                fireEditEvent({ GmEditEvent.DragEnd(it) }, current)
             }
         }
     }
@@ -141,44 +139,29 @@ class DragEditor(geoman: Geoman) : BaseEdit(geoman) {
         selectedFeature = feature
     }
 
-    private fun moveFeature(feature: FeatureData, deltaLon: Double, deltaLat: Double) {
-        val geometry = feature.geometry
+    private fun moveFeature(feature: FeatureData, deltaLon: Double, deltaLat: Double): FeatureData? =
+        updateFeatureGeometry(feature) { geometry ->
+            when (geometry) {
+                is Point -> Point(
+                    coordinates = EditorGeometry.translatePoint(geometry.coordinates, deltaLon, deltaLat),
+                )
 
-        when (geometry) {
-            is Point -> {
-                val coords = geometry.coordinates
-                val newLngLat = LngLat(coords[0] + deltaLon, coords[1] + deltaLat)
-                val newGeometry = Point.fromLngLat(newLngLat)
-                updateFeatureGeometry(feature, newGeometry)
-            }
+                is LineString -> LineString(
+                    coordinates = EditorGeometry.translateLine(geometry.coordinates, deltaLon, deltaLat),
+                )
 
-            is LineString -> {
-                val newCoords = geometry.coordinates.map { coord ->
-                    listOf(coord[0] + deltaLon, coord[1] + deltaLat)
-                }
-                val newGeometry = LineString(coordinates = newCoords)
-                updateFeatureGeometry(feature, newGeometry)
-            }
+                is Polygon -> Polygon(
+                    coordinates = EditorGeometry.translatePolygonRings(geometry.coordinates, deltaLon, deltaLat),
+                )
 
-            is Polygon -> {
-                val newRings = geometry.coordinates.map { ring ->
-                    ring.map { coord ->
-                        listOf(coord[0] + deltaLon, coord[1] + deltaLat)
-                    }
-                }
-                val newGeometry = Polygon(coordinates = newRings)
-                updateFeatureGeometry(feature, newGeometry)
-            }
-
-            else -> {
-                // Unsupported geometry type
+                else -> geometry
             }
         }
-    }
 
     private companion object {
         val DRAG_SOURCES = listOf(
             GeomanCoreConstants.SOURCE_MARKERS,
+            GeomanCoreConstants.SOURCE_CIRCLE_MARKERS,
             GeomanCoreConstants.SOURCE_LINES,
             GeomanCoreConstants.SOURCE_POLYGONS,
             GeomanCoreConstants.SOURCE_CIRCLES,

@@ -88,7 +88,17 @@ class MapLibreDomMarker(
         view = options.element ?: createDefaultMarkerView()
         if (draggable) {
             attachDragListener()
+        } else {
+            attachClickListener()
         }
+    }
+
+    private fun attachClickListener() {
+        view?.setOnClickListener { onClick?.invoke() }
+    }
+
+    private fun removeClickListener() {
+        view?.setOnClickListener(null)
     }
 
     private fun attachDragListener() {
@@ -291,11 +301,12 @@ class MapLibreDomMarker(
         if (!isAdded) return
 
         mapLibreMap.style?.removeImage("marker-icon-$id")
-        val map = markersByMap[mapLibreMap]
-        synchronized(map ?: Any()) {
-            map?.remove(id)
-            if (map?.isEmpty() == true) {
-                markersByMap.remove(mapLibreMap)
+        markersByMap[mapLibreMap]?.let { map ->
+            synchronized(map) {
+                map.remove(id)
+                if (map.isEmpty()) {
+                    markersByMap.remove(mapLibreMap)
+                }
             }
         }
 
@@ -312,9 +323,11 @@ class MapLibreDomMarker(
         if (this.draggable == draggable) return
         this.draggable = draggable
         if (draggable) {
+            removeClickListener()
             attachDragListener()
         } else {
             removeDragListener()
+            attachClickListener()
         }
     }
 

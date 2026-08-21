@@ -25,8 +25,20 @@ data class FeatureData(
     val sourceName: String,
     val feature: Feature,
     val properties: Map<String, Any?> = emptyMap(),
+    val shape: FeatureShape? = null,
 ) {
     val geometry: Geometry get() = feature.geometry
+
+    /**
+     * A copy that shares no mutable collections with the original: the
+     * property maps are duplicated. Leaf values are assumed immutable
+     * (JSON-style primitives, lists, and maps), matching what the store and
+     * GeoJSON codec produce.
+     */
+    fun deepCopy(): FeatureData = copy(
+        feature = feature.copy(properties = feature.properties.mapValues { (_, value) -> value }),
+        properties = properties.toMutableMap(),
+    )
 }
 
 /**
@@ -38,7 +50,7 @@ object FeatureSources {
     const val POLYGON = GeomanCoreConstants.SOURCE_POLYGONS
     const val CIRCLE = GeomanCoreConstants.SOURCE_CIRCLES
     const val RECTANGLE = GeomanCoreConstants.SOURCE_RECTANGLES
-    const val CIRCLE_MARKER = "gm_circle_markers"
+    const val CIRCLE_MARKER = GeomanCoreConstants.SOURCE_CIRCLE_MARKERS
     const val EDIT = GeomanCoreConstants.SOURCE_EDIT
     const val HELPER = GeomanCoreConstants.SOURCE_HELPER
     const val SNAP_GUIDES = "gm_snap_guides"
@@ -55,10 +67,17 @@ class Features(private val geoman: Geoman? = null) {
 
     private companion object {
         const val RGB_MASK = 0xFFFFFF
+        const val DEFAULT_CIRCLE_MARKER_RADIUS = 10.0f
     }
 
     // Guarded by `this` — use plain HashMap since we always hold the lock
     private val featuresMap = HashMap<String, MutableMap<String, FeatureData>>()
+
+    // Parent-child registry (web parity: FeatureData.parent/children).
+    // childId -> parentId, and the reverse index. Guarded by `this`.
+    private val childToParent = HashMap<String, String>()
+    private val parentToChildren = HashMap<String, MutableSet<String>>()
+
     private val _featuresFlow = MutableStateFlow<Map<String, Map<String, FeatureData>>>(emptyMap())
 
     val featuresFlow: StateFlow<Map<String, Map<String, FeatureData>>> = _featuresFlow.asStateFlow()
@@ -92,13 +111,31 @@ class Features(private val geoman: Geoman? = null) {
         sourcesToSync.forEach { syncSourceToMap(it) }
     }
 
+    /**
+     * Add a GeoJSON feature after structural validation.
+     *
+     * A missing feature ID is generated before validation, so only explicitly
+     * supplied invalid IDs (blank, oversized) are rejected.
+     *
+     * @throws IllegalArgumentException when [PropertyValidators.validateFeature]
+     * reports errors (non-finite coordinates, out-of-range latitudes, unclosed
+     * polygon rings, malformed IDs). The feature is not stored in that case.
+     */
     fun addGeoJsonFeature(feature: Feature, sourceName: String = FeatureSources.POLYGON): FeatureData {
         val featureId = feature.id ?: generateFeatureId()
+        val resolved = feature.copy(id = featureId)
+
+        val result = PropertyValidators.validateFeature(resolved)
+        require(result.isValid) {
+            "Invalid GeoJSON feature: ${result.errors.joinToString("; ")}"
+        }
+
         val featureData = FeatureData(
             id = featureId,
             sourceName = sourceName,
-            feature = feature.copy(id = featureId),
+            feature = resolved,
             properties = feature.properties.toMutableMap(),
+            shape = FeatureShape.fromSourceName(sourceName),
         )
         addFeature(featureData)
         return featureData
@@ -118,24 +155,39 @@ class Features(private val geoman: Geoman? = null) {
         }
     }
 
+    /**
+     * Remove a feature; its descendants (transitive children) are removed
+     * with it. Returns the removed feature, or null when unknown.
+     */
     fun removeFeature(sourceName: String, featureId: String): FeatureData? {
-        val removedFeature = synchronized(this) {
-            val removed = featuresMap[sourceName]?.remove(featureId)
+        val sourcesToSync: List<String>
+        val removedFeature: FeatureData?
+        synchronized(this) {
+            removedFeature = featuresMap[sourceName]?.remove(featureId)
             if (featuresMap[sourceName]?.isEmpty() == true) {
                 featuresMap.remove(sourceName)
             }
+
+            val cascadeIds = getDescendantFeatureIds(featureId) + featureId
+            sourcesToSync = cascadeIds.mapNotNull { id ->
+                val owningSource = featuresMap.entries.firstOrNull { entry -> id in entry.value }?.key
+                if (owningSource != null) featuresMap[owningSource]?.remove(id)
+                owningSource
+            }
+            cascadeIds.forEach { detachParent(it) }
             updateFeaturesFlow()
-            removed
         }
-        syncSourceToMap(sourceName)
+        (sourcesToSync + sourceName).distinct().forEach { syncSourceToMap(it) }
         return removedFeature
     }
 
     fun clearSource(sourceName: String) {
-        synchronized(this) {
-            featuresMap.remove(sourceName)
+        val removedIds: List<String> = synchronized(this) {
+            val ids = featuresMap.remove(sourceName)?.keys.orEmpty()
             updateFeaturesFlow()
+            ids.toList()
         }
+        synchronized(this) { removedIds.forEach { detachParent(it) } }
         syncSourceToMap(sourceName)
     }
 
@@ -143,6 +195,8 @@ class Features(private val geoman: Geoman? = null) {
         val sourceNames = synchronized(this) {
             val names = featuresMap.keys.toList()
             featuresMap.clear()
+            childToParent.clear()
+            parentToChildren.clear()
             updateFeaturesFlow()
             names
         }
@@ -173,10 +227,86 @@ class Features(private val geoman: Geoman? = null) {
         return adapter.queryFeaturesByScreenCoordinates(point, sources)
     }
 
+    /**
+     * Link [childId] as a child of [parentId] (web parity: helper features
+     * belonging to a shape). Pass `null` to clear the link.
+     *
+     * Both features must exist; linking may not create a cycle.
+     *
+     * @throws IllegalArgumentException on unknown ids or cyclic links
+     */
+    fun setFeatureParent(childId: String, parentId: String?) {
+        synchronized(this) {
+            if (parentId == null) {
+                detachParent(childId)
+                return
+            }
+
+            requireFeatureExists(childId, "child")
+            requireFeatureExists(parentId, "parent")
+            // Walking up from parentId must never reach childId, otherwise
+            // linking would close a cycle in the ancestry chain.
+            require(!isAncestor(childId, parentId)) {
+                "linking $childId to $parentId would create a cycle"
+            }
+
+            detachParent(childId)
+            childToParent[childId] = parentId
+            parentToChildren.getOrPut(parentId) { mutableSetOf() }.add(childId)
+        }
+    }
+
+    /** The registered parent of [featureId], or null when it has none. */
+    fun getParentFeatureId(featureId: String): String? = synchronized(this) {
+        childToParent[featureId]
+    }
+
+    /** Direct children of [parentId]; empty when it has none. */
+    fun getChildFeatureIds(parentId: String): Set<String> = synchronized(this) {
+        parentToChildren[parentId]?.toSet() ?: emptySet()
+    }
+
+    /** All descendants of [parentId], breadth-first, excluding the parent itself. */
+    fun getDescendantFeatureIds(parentId: String): Set<String> = synchronized(this) {
+        val descendants = mutableSetOf<String>()
+        val queue = ArrayDeque(parentToChildren[parentId].orEmpty())
+        while (queue.isNotEmpty()) {
+            val childId = queue.removeFirst()
+            if (descendants.add(childId)) {
+                queue.addAll(parentToChildren[childId].orEmpty())
+            }
+        }
+        descendants
+    }
+
     private fun featureBboxIntersects(geometry: Geometry, boundsBbox: List<Double>): Boolean {
         val geometryBbox = GeometryUtils.bbox(GeometryUtils.extractAllCoordinates(geometry))
         return geometryBbox[0] <= boundsBbox[2] && geometryBbox[2] >= boundsBbox[0] &&
             geometryBbox[1] <= boundsBbox[3] && geometryBbox[3] >= boundsBbox[1]
+    }
+
+    private fun requireFeatureExists(featureId: String, role: String) {
+        require(featuresMap.any { entry -> entry.value.containsKey(featureId) }) {
+            "unknown $role feature id: $featureId"
+        }
+    }
+
+    /** True when [candidateAncestor] is [featureId] itself or a transitive parent. */
+    private fun isAncestor(candidateAncestor: String, featureId: String): Boolean {
+        var current: String? = featureId
+        while (current != null) {
+            if (current == candidateAncestor) return true
+            current = childToParent[current]
+        }
+        return false
+    }
+
+    private fun detachParent(childId: String) {
+        val previousParent = childToParent.remove(childId) ?: return
+        parentToChildren[previousParent]?.let { children ->
+            children.remove(childId)
+            if (children.isEmpty()) parentToChildren.remove(previousParent)
+        }
     }
 
     private fun syncSourceToMap(sourceName: String) {
@@ -201,6 +331,7 @@ class Features(private val geoman: Geoman? = null) {
     private fun addRenderingLayersForSource(sourceName: String, adapter: BaseMapAdapter<*>) {
         val layerId = when (sourceName) {
             FeatureSources.MARKER -> "${sourceName}_symbol"
+            FeatureSources.CIRCLE_MARKER -> "${sourceName}_circle"
             FeatureSources.LINE -> "${sourceName}_line"
             else -> "${sourceName}_stroke"
         }
@@ -228,6 +359,27 @@ class Features(private val geoman: Geoman? = null) {
             )
         }
 
+        if (sourceName == FeatureSources.CIRCLE_MARKER) {
+            val styles = geoman?.options?.layerStyles
+            val circleMarkerStyle = styles?.circleMarker
+            val fillColor = resolveLineColor(styles, sourceName)
+                ?: circleMarkerStyle?.fillColor?.let { toHex(it) }
+                ?: resolveDefaults(sourceName).color
+
+            return LayerOptions(
+                id = layerId,
+                type = LayerType.CIRCLE,
+                source = sourceName,
+                paint = mapOf<String, Any>(
+                    "circle-radius" to (circleMarkerStyle?.radius ?: DEFAULT_CIRCLE_MARKER_RADIUS),
+                    "circle-color" to fillColor,
+                    "circle-opacity" to (circleMarkerStyle?.opacity ?: 1.0f),
+                    "circle-stroke-width" to (circleMarkerStyle?.width ?: 2.0f),
+                    "circle-stroke-color" to (circleMarkerStyle?.color?.let { toHex(it) } ?: "#FFFFFF"),
+                ),
+            )
+        }
+
         val (defaultColor, defaultWidth) = resolveDefaults(sourceName)
         val layerStyles = geoman?.options?.layerStyles
         val color = resolveLineColor(layerStyles, sourceName) ?: defaultColor
@@ -250,6 +402,7 @@ class Features(private val geoman: Geoman? = null) {
         FeatureSources.LINE -> LayerDefaults("#3498db", 3f)
         FeatureSources.POLYGON -> LayerDefaults("#8e44ad", 2f)
         FeatureSources.CIRCLE -> LayerDefaults("#e74c3c", 2f)
+        FeatureSources.CIRCLE_MARKER -> LayerDefaults("#3498db", 2f)
         else -> LayerDefaults("#2ecc71", 2f)
     }
 
@@ -262,6 +415,7 @@ class Features(private val geoman: Geoman? = null) {
             FeatureSources.LINE -> styles?.line?.color
             FeatureSources.POLYGON -> styles?.polygon?.color
             FeatureSources.CIRCLE -> styles?.circle?.color
+            FeatureSources.CIRCLE_MARKER -> styles?.circleMarker?.fillColor
             else -> styles?.rectangle?.color
         }
         return color?.let { toHex(it) }
@@ -275,6 +429,7 @@ class Features(private val geoman: Geoman? = null) {
         FeatureSources.LINE -> styles?.line?.width
         FeatureSources.POLYGON -> styles?.polygon?.width
         FeatureSources.CIRCLE -> styles?.circle?.width
+        FeatureSources.CIRCLE_MARKER -> styles?.circleMarker?.width
         else -> styles?.rectangle?.width
     }
 

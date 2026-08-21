@@ -46,9 +46,16 @@ class SnapHelper(geoman: Geoman) : BaseHelper(geoman) {
     }
 
     /**
-     * Snap a point to nearby features
+     * Outcome of a snap lookup: the snapped coordinate, the feature it belongs
+     * to, and the distance in meters from the query point.
      */
-    fun snap(point: LatLng, sourceNames: List<String>? = null): LngLat? {
+    private data class SnapResult(val point: LngLat, val feature: FeatureData, val distanceMeters: Double)
+
+    /**
+     * Pure snap lookup: computes the nearest snap target without touching
+     * helper state or emitting events.
+     */
+    private fun findSnap(point: LatLng, sourceNames: List<String>?): SnapResult? {
         if (!enabled) return null
 
         val sources = sourceNames ?: listOf(
@@ -66,6 +73,7 @@ class SnapHelper(geoman: Geoman) : BaseHelper(geoman) {
         }
 
         var nearestPoint: LngLat? = null
+        var nearestFeature: FeatureData? = null
         var minDistance = Double.MAX_VALUE
 
         for (feature in allFeatures) {
@@ -76,22 +84,33 @@ class SnapHelper(geoman: Geoman) : BaseHelper(geoman) {
                 if (distance < minDistance) {
                     minDistance = distance
                     nearestPoint = snapped
-                    snappedFeature = feature
+                    nearestFeature = feature
                 }
             }
         }
 
-        if (nearestPoint != null && minDistance < pixelsToMeters(snapDistance, pointLngLat)) {
-            snappedCoordinate = nearestPoint
+        val candidate = nearestPoint ?: return null
+        val target = nearestFeature ?: return null
+        if (minDistance >= pixelsToMeters(snapDistance, pointLngLat)) return null
 
-            geoman.scope.launch {
-                geoman.events.emit(GmHelperEvent.SnapStart(snappedFeature))
-            }
+        return SnapResult(candidate, target, minDistance)
+    }
 
-            return nearestPoint
+    /**
+     * Snap a point to nearby features, recording the result as helper state and
+     * firing [GmHelperEvent.SnapStart].
+     */
+    fun snap(point: LatLng, sourceNames: List<String>? = null): LngLat? {
+        val result = findSnap(point, sourceNames) ?: return null
+
+        snappedFeature = result.feature
+        snappedCoordinate = result.point
+
+        geoman.scope.launch {
+            geoman.events.emit(GmHelperEvent.SnapStart(result.feature))
         }
 
-        return null
+        return result.point
     }
 
     /**
@@ -162,9 +181,10 @@ class SnapHelper(geoman: Geoman) : BaseHelper(geoman) {
     }
 
     /**
-     * Check if a point is snappable
+     * Check if a point is snappable. Side-effect free: unlike [snap], it does
+     * not record state or emit events.
      */
-    fun isSnappable(point: LatLng): Boolean = snap(point) != null
+    fun isSnappable(point: LatLng): Boolean = findSnap(point, null) != null
 
     /**
      * Show snap guides (visual indicators) from the press point to the snap target

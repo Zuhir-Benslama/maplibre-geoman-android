@@ -3,6 +3,7 @@ package com.geoman.maplibre.geoman.modes.edit
 import com.geoman.maplibre.geoman.BaseAction
 import com.geoman.maplibre.geoman.Geoman
 import com.geoman.maplibre.geoman.core.features.FeatureData
+import com.geoman.maplibre.geoman.core.history.GeometryChange
 import com.geoman.maplibre.geoman.types.ModeType
 import com.geoman.maplibre.geoman.types.events.GmEditEvent
 import com.geoman.maplibre.geoman.types.geojson.Geometry
@@ -32,10 +33,39 @@ abstract class BaseEdit(geoman: Geoman) : BaseAction(geoman) {
         geoman.events.emit(eventFactory(feature))
     }
 
-    protected fun updateFeatureGeometry(feature: FeatureData, newGeometry: Geometry) {
-        val updatedFeature = feature.copy(
-            feature = feature.feature.copy(geometry = newGeometry),
+    /**
+     * Apply [transform] to the *current* geometry of the feature, as stored in
+     * [com.geoman.maplibre.geoman.core.features.Features].
+     *
+     * Editors keep long-lived references to features which go stale as soon as
+     * the store is updated; reading through the store here prevents edits from
+     * being computed against outdated geometry. Returns the updated
+     * [FeatureData] so callers can refresh their reference, or `null` if the
+     * feature no longer exists in the store.
+     */
+    protected fun updateFeatureGeometry(feature: FeatureData, transform: (Geometry) -> Geometry): FeatureData? {
+        val current = geoman.features.getFeature(feature.sourceName, feature.id) ?: return null
+        val newGeometry = transform(current.geometry)
+        if (newGeometry == current.geometry) return current
+
+        geoman.history.record(
+            GeometryChange(
+                sourceName = current.sourceName,
+                featureId = current.id,
+                before = current.geometry,
+                after = newGeometry,
+            ),
         )
-        geoman.features.updateFeature(feature.sourceName, feature.id) { updatedFeature }
+
+        val updated = current.copy(feature = current.feature.copy(geometry = newGeometry))
+        geoman.features.updateFeature(current.sourceName, current.id) { updated }
+        return updated
     }
+
+    /**
+     * Fetch the latest state of [feature] from the store, for firing events with
+     * up-to-date data.
+     */
+    protected fun refreshFeature(feature: FeatureData): FeatureData? =
+        geoman.features.getFeature(feature.sourceName, feature.id)
 }

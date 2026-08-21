@@ -75,27 +75,27 @@ class GmControl(private val geoman: Geoman) {
         // Draw controls section
         val drawSection = createSection(layout.context, "Draw")
         drawSection.addView(
-            createButton(layout.context, "Marker") {
+            createButton(layout.context, "Marker", android.R.drawable.ic_menu_myplaces) {
                 toggleMode(ModeType.DRAW, DrawModeName.MARKER.name)
             },
         )
         drawSection.addView(
-            createButton(layout.context, "Line") {
+            createButton(layout.context, "Line", android.R.drawable.ic_menu_edit) {
                 toggleMode(ModeType.DRAW, DrawModeName.LINE.name)
             },
         )
         drawSection.addView(
-            createButton(layout.context, "Polygon") {
+            createButton(layout.context, "Polygon", android.R.drawable.ic_menu_mapmode) {
                 toggleMode(ModeType.DRAW, DrawModeName.POLYGON.name)
             },
         )
         drawSection.addView(
-            createButton(layout.context, "Circle") {
+            createButton(layout.context, "Circle", android.R.drawable.ic_menu_compass) {
                 toggleMode(ModeType.DRAW, DrawModeName.CIRCLE.name)
             },
         )
         drawSection.addView(
-            createButton(layout.context, "Rectangle") {
+            createButton(layout.context, "Rectangle", android.R.drawable.ic_menu_gallery) {
                 toggleMode(ModeType.DRAW, DrawModeName.RECTANGLE.name)
             },
         )
@@ -104,27 +104,27 @@ class GmControl(private val geoman: Geoman) {
         // Edit controls section
         val editSection = createSection(layout.context, "Edit")
         editSection.addView(
-            createButton(layout.context, "Drag") {
+            createButton(layout.context, "Drag", android.R.drawable.ic_menu_directions) {
                 toggleMode(ModeType.EDIT, EditModeName.DRAG.name)
             },
         )
         editSection.addView(
-            createButton(layout.context, "Change") {
+            createButton(layout.context, "Change", android.R.drawable.ic_menu_manage) {
                 toggleMode(ModeType.EDIT, EditModeName.CHANGE.name)
             },
         )
         editSection.addView(
-            createButton(layout.context, "Rotate") {
+            createButton(layout.context, "Rotate", android.R.drawable.ic_menu_rotate) {
                 toggleMode(ModeType.EDIT, EditModeName.ROTATE.name)
             },
         )
         editSection.addView(
-            createButton(layout.context, "Cut") {
+            createButton(layout.context, "Cut", android.R.drawable.ic_menu_crop) {
                 toggleMode(ModeType.EDIT, EditModeName.CUT.name)
             },
         )
         editSection.addView(
-            createButton(layout.context, "Delete") {
+            createButton(layout.context, "Delete", android.R.drawable.ic_menu_delete) {
                 toggleMode(ModeType.EDIT, EditModeName.DELETE.name)
             },
         )
@@ -133,7 +133,7 @@ class GmControl(private val geoman: Geoman) {
         // Helper controls section
         val helperSection = createSection(layout.context, "Helpers")
         helperSection.addView(
-            createButton(layout.context, "Snap") {
+            createButton(layout.context, "Snap", android.R.drawable.ic_menu_zoom) {
                 toggleMode(ModeType.HELPER, HelperModeName.SNAP.name)
             },
         )
@@ -162,13 +162,16 @@ class GmControl(private val geoman: Geoman) {
         return layout
     }
 
-    private fun createButton(context: android.content.Context, label: String, onClick: () -> Unit): View =
-        ImageButton(context).apply {
+    private fun createButton(context: android.content.Context, label: String, iconRes: Int, onClick: () -> Unit): View {
+        val sizePx = (48 * context.resources.displayMetrics.density).toInt()
+        return ImageButton(context).apply {
             setBackgroundColor(android.graphics.Color.TRANSPARENT)
-            layoutParams = ViewGroup.LayoutParams(48, 48)
+            layoutParams = ViewGroup.LayoutParams(sizePx, sizePx)
+            setImageResource(iconRes)
             setOnClickListener { onClick() }
             contentDescription = label
         }
+    }
 
     /**
      * Remove controls
@@ -232,18 +235,12 @@ class GmControl(private val geoman: Geoman) {
         removeControls()
     }
 
+    /**
+     * Toggle a mode. State bookkeeping ([activeModes], options, flow) is owned
+     * by [Geoman.enableMode]/[Geoman.disableMode]; do not mutate it here.
+     */
     private fun toggleMode(type: ModeType, name: String) {
-        val wasEnabled = activeModes.any { it.first == type && it.second == name }
-
-        if (wasEnabled) {
-            activeModes.remove(type to name)
-            geoman.disableMode(type, name)
-        } else {
-            // Disable all modes of the same type first
-            activeModes.removeAll { it.first == type }
-            activeModes.add(type to name)
-            geoman.enableMode(type, name)
-        }
+        geoman.toggleMode(type, name)
     }
 }
 
@@ -270,7 +267,7 @@ fun GeomanControls(geoman: Geoman, modifier: Modifier = Modifier) {
                 .padding(8.dp),
         ) {
             ControlSection(title = "Draw") {
-                DrawModeName.entries.forEach { mode ->
+                supportedDrawModes.forEach { mode ->
                     ControlButton(
                         icon = mode.icon(),
                         contentDescription = mode.name,
@@ -294,7 +291,7 @@ fun GeomanControls(geoman: Geoman, modifier: Modifier = Modifier) {
             }
 
             ControlSection(title = "Helpers") {
-                HelperModeName.entries.forEach { mode ->
+                supportedHelperModes.forEach { mode ->
                     ControlButton(
                         icon = mode.icon(),
                         contentDescription = mode.name,
@@ -307,6 +304,23 @@ fun GeomanControls(geoman: Geoman, modifier: Modifier = Modifier) {
         }
     }
 }
+
+// Modes with a working implementation in ModeFactory. Enum entries without
+// one (SHAPE_MARKERS) are hidden from the panel so users can't toggle
+// buttons that silently do nothing.
+private val supportedDrawModes = listOf(
+    DrawModeName.MARKER,
+    DrawModeName.CIRCLE_MARKER,
+    DrawModeName.LINE,
+    DrawModeName.POLYGON,
+    DrawModeName.CIRCLE,
+    DrawModeName.RECTANGLE,
+)
+
+private val supportedHelperModes = listOf(
+    HelperModeName.SNAP,
+    HelperModeName.ZOOM_TO_FEATURES,
+)
 
 private fun DrawModeName.icon(): ImageVector = when (this) {
     DrawModeName.MARKER, DrawModeName.CIRCLE_MARKER -> Icons.Default.Place

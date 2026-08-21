@@ -17,6 +17,9 @@ object GeomanCoreConstants {
     /** Feature ID property name */
     const val FEATURE_ID_PROPERTY = "${FEATURE_PROPERTY_PREFIX}id"
 
+    /** Feature shape property name (web parity: gmShape tracking) */
+    const val FEATURE_SHAPE_PROPERTY = "${FEATURE_PROPERTY_PREFIX}shape"
+
     /** Load timeout in milliseconds */
     const val LOAD_TIMEOUT = 60000L
 
@@ -26,6 +29,7 @@ object GeomanCoreConstants {
     const val SOURCE_POLYGONS = "${GM_PREFIX}_polygons"
     const val SOURCE_CIRCLES = "${GM_PREFIX}_circles"
     const val SOURCE_RECTANGLES = "${GM_PREFIX}_rectangles"
+    const val SOURCE_CIRCLE_MARKERS = "${GM_PREFIX}_circle_markers"
     const val SOURCE_EDIT = "${GM_PREFIX}_edit"
     const val SOURCE_HELPER = "${GM_PREFIX}_helper"
 

@@ -79,12 +79,12 @@ class PolygonDrawer(geoman: Geoman) : BaseDraw(geoman) {
             geoman.features.updateFeature(GeomanCoreConstants.SOURCE_POLYGONS, existing.id) { updated }
             currentFeature = updated
         } else {
-            val now = System.currentTimeMillis()
+            val featureId = createFeatureId("polygon")
             val feature = Feature(
-                id = "polygon_$now",
+                id = featureId,
                 geometry = geometry,
                 properties = mapOf(
-                    GeomanCoreConstants.FEATURE_ID_PROPERTY to "polygon_$now",
+                    GeomanCoreConstants.FEATURE_ID_PROPERTY to featureId,
                     "shapeType" to "polygon",
                 ),
             )

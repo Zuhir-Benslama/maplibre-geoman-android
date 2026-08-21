@@ -20,13 +20,13 @@ class MarkerDrawer(geoman: Geoman) : BaseDraw(geoman) {
     override fun onMapClick(point: LatLng) {
         if (!enabled) return
 
-        val currentTime = System.currentTimeMillis()
+        val featureId = createFeatureId("marker")
 
         val feature = Feature(
-            id = "marker_$currentTime",
+            id = featureId,
             geometry = Point.fromLngLat(LngLat(point.longitude, point.latitude)),
             properties = mapOf(
-                GeomanCoreConstants.FEATURE_ID_PROPERTY to "marker_$currentTime",
+                GeomanCoreConstants.FEATURE_ID_PROPERTY to featureId,
                 "markerType" to "default",
             ),
         )

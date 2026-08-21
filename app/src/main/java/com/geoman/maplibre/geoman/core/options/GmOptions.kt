@@ -188,6 +188,7 @@ data class EditMarkersStyle(
  * GmOptions class that manages the current state of options
  */
 class GmOptions(initialData: GmOptionsData = GmOptionsData()) {
+    @Volatile
     private var _data = initialData
     val data: GmOptionsData get() = _data
 
@@ -204,6 +205,13 @@ class GmOptions(initialData: GmOptionsData = GmOptionsData()) {
      */
     fun update(update: GmOptionsData.() -> GmOptionsData) {
         _data = _data.update()
+    }
+
+    /**
+     * Apply a named style theme to layer styles.
+     */
+    fun applyTheme(theme: StyleTheme) {
+        update { copy(layerStyles = StyleThemes.resolve(theme)) }
     }
 
     /**

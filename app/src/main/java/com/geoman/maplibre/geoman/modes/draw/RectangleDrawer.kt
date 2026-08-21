@@ -60,12 +60,12 @@ class RectangleDrawer(geoman: Geoman) : BaseDraw(geoman) {
 
         val geometry = Polygon.fromLngLats(listOf(corners))
 
-        val now = System.currentTimeMillis()
+        val featureId = createFeatureId("rectangle")
         val feature = Feature(
-            id = "rectangle_$now",
+            id = featureId,
             geometry = geometry,
             properties = mapOf(
-                GeomanCoreConstants.FEATURE_ID_PROPERTY to "rectangle_$now",
+                GeomanCoreConstants.FEATURE_ID_PROPERTY to featureId,
                 "shapeType" to "rectangle",
                 "corner1" to corner1,
                 "corner2" to corner2,
