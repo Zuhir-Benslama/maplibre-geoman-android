@@ -1,6 +1,13 @@
 package com.geoman.maplibre.geoman.utils
 
+import com.geoman.maplibre.geoman.types.geojson.Geometry
+import com.geoman.maplibre.geoman.types.geojson.LineString
 import com.geoman.maplibre.geoman.types.geojson.LngLat
+import com.geoman.maplibre.geoman.types.geojson.MultiLineString
+import com.geoman.maplibre.geoman.types.geojson.MultiPoint
+import com.geoman.maplibre.geoman.types.geojson.MultiPolygon
+import com.geoman.maplibre.geoman.types.geojson.Point
+import com.geoman.maplibre.geoman.types.geojson.Polygon
 import kotlin.math.abs
 import kotlin.math.asin
 import kotlin.math.atan2
@@ -112,47 +119,46 @@ object GeometryUtils {
     fun isPointInBoundsFromFlat(point: LngLat, bounds: List<Double>): Boolean =
         isPointInBounds(point, toLngLats(bounds))
 
-    fun isGeometryInBounds(geometry: com.geoman.maplibre.geoman.types.geojson.Geometry, bounds: List<LngLat>): Boolean {
+    fun isGeometryInBounds(geometry: Geometry, bounds: List<LngLat>): Boolean {
         val coords = extractAllCoordinates(geometry)
         return coords.all { isPointInBounds(it, bounds) }
     }
 
-    fun extractAllCoordinates(geometry: com.geoman.maplibre.geoman.types.geojson.Geometry): List<LngLat> =
-        when (geometry) {
-            is com.geoman.maplibre.geoman.types.geojson.Point -> {
-                listOf(LngLat(geometry.coordinates[0], geometry.coordinates[1]))
-            }
-
-            is com.geoman.maplibre.geoman.types.geojson.MultiPoint -> {
-                geometry.coordinates.map { LngLat(it[0], it[1]) }
-            }
-
-            is com.geoman.maplibre.geoman.types.geojson.LineString -> {
-                geometry.coordinates.map { LngLat(it[0], it[1]) }
-            }
-
-            is com.geoman.maplibre.geoman.types.geojson.MultiLineString -> {
-                geometry.coordinates.flatMap { ring ->
-                    ring.map { LngLat(it[0], it[1]) }
-                }
-            }
-
-            is com.geoman.maplibre.geoman.types.geojson.Polygon -> {
-                geometry.coordinates.flatMap { ring ->
-                    ring.map { LngLat(it[0], it[1]) }
-                }
-            }
-
-            is com.geoman.maplibre.geoman.types.geojson.MultiPolygon -> {
-                geometry.coordinates.flatMap { polygon ->
-                    polygon.flatMap { ring ->
-                        ring.map { LngLat(it[0], it[1]) }
-                    }
-                }
-            }
-
-            else -> emptyList()
+    fun extractAllCoordinates(geometry: Geometry): List<LngLat> = when (geometry) {
+        is Point -> {
+            listOf(LngLat(geometry.coordinates[0], geometry.coordinates[1]))
         }
+
+        is MultiPoint -> {
+            geometry.coordinates.map { LngLat(it[0], it[1]) }
+        }
+
+        is LineString -> {
+            geometry.coordinates.map { LngLat(it[0], it[1]) }
+        }
+
+        is MultiLineString -> {
+            geometry.coordinates.flatMap { ring ->
+                ring.map { LngLat(it[0], it[1]) }
+            }
+        }
+
+        is Polygon -> {
+            geometry.coordinates.flatMap { ring ->
+                ring.map { LngLat(it[0], it[1]) }
+            }
+        }
+
+        is MultiPolygon -> {
+            geometry.coordinates.flatMap { polygon ->
+                polygon.flatMap { ring ->
+                    ring.map { LngLat(it[0], it[1]) }
+                }
+            }
+        }
+
+        else -> emptyList()
+    }
 
     fun area(coordinates: List<LngLat>): Double {
         require(coordinates.size >= 3) { "Polygon must have at least 3 coordinates" }
@@ -303,8 +309,16 @@ object GeometryUtils {
     }
 
     /**
-     * Find the nearest point on a line segment defined by [segmentStart] and [segmentEnd]
-     * to the given [point]. Also used by MapLibreAdapter to avoid code duplication.
+     * Find the nearest point on a line segment defined by [segmentStart] and
+     * [segmentEnd] to the given [point]. Also used by MapLibreAdapter to avoid
+     * code duplication.
+     *
+     * The orthogonal projection runs in equirectangular space: longitude
+     * differences are scaled by cos(mean segment latitude) so degrees of
+     * longitude carry their true metric weight relative to degrees of
+     * latitude. Without this correction, east-west offsets dominate near the
+     * poles and the projection point drifts. The result remains a local
+     * planar approximation, not a geodesic projection.
      */
     internal fun nearestPointOnSegment(point: LngLat, segmentStart: LngLat, segmentEnd: LngLat): LngLat {
         val dx = segmentEnd.longitude - segmentStart.longitude
@@ -314,12 +328,18 @@ object GeometryUtils {
             return segmentStart
         }
 
-        val u = (
-            (point.longitude - segmentStart.longitude) * dx +
-                (point.latitude - segmentStart.latitude) * dy
-            ) /
-            (dx * dx + dy * dy)
+        // x-scale in equirectangular space; ~1 at the equator, → 0 at the poles.
+        val latScale = cos(Math.toRadians((segmentStart.latitude + segmentEnd.latitude) / 2))
+        val bx = dx * latScale
 
+        if (bx == 0.0 && dy == 0.0) {
+            return segmentStart
+        }
+
+        val px = (point.longitude - segmentStart.longitude) * latScale
+        val py = point.latitude - segmentStart.latitude
+
+        val u = ((px * bx) + (py * dy)) / (bx * bx + dy * dy)
         val clampedU = u.coerceIn(0.0, 1.0)
 
         return LngLat(

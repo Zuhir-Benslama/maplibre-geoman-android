@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArraySet
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Event bus for Geoman events.
@@ -63,11 +64,11 @@ class GmEventBus {
     /**
      * Subscribe to a specific event type, firing only once.
      *
-     * Thread-safe: uses [java.util.concurrent.atomic.AtomicBoolean] to ensure
+     * Thread-safe: uses [AtomicBoolean] to ensure
      * the listener is invoked at most once even under concurrent emissions.
      */
     fun once(eventType: String, listener: (GmEvent) -> Unit) {
-        val called = java.util.concurrent.atomic.AtomicBoolean(false)
+        val called = AtomicBoolean(false)
         val wrappedListener = object : (GmEvent) -> Unit {
             override fun invoke(event: GmEvent) {
                 if (called.compareAndSet(false, true)) {

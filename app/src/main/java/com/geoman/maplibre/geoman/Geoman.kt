@@ -1,6 +1,8 @@
 package com.geoman.maplibre.geoman
 
 import android.content.Context
+import android.graphics.BitmapFactory
+import android.view.MotionEvent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -8,6 +10,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.geoman.maplibre.geoman.adapter.BaseMapAdapter
+import com.geoman.maplibre.geoman.adapter.DomMarker
+import com.geoman.maplibre.geoman.adapter.DomMarkerOptions
 import com.geoman.maplibre.geoman.adapter.MapLibreAdapter
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.core.controls.GmControl
@@ -24,9 +28,7 @@ import com.geoman.maplibre.geoman.modes.edit.BaseEdit
 import com.geoman.maplibre.geoman.modes.edit.ChangeEditor
 import com.geoman.maplibre.geoman.modes.edit.DragEditor
 import com.geoman.maplibre.geoman.modes.helpers.BaseHelper
-import com.geoman.maplibre.geoman.types.DrawModeName
 import com.geoman.maplibre.geoman.types.EditModeName
-import com.geoman.maplibre.geoman.types.HelperModeName
 import com.geoman.maplibre.geoman.types.ModeType
 import com.geoman.maplibre.geoman.types.events.GmDrawEvent
 import com.geoman.maplibre.geoman.types.events.GmEditEvent
@@ -38,9 +40,12 @@ import com.geoman.maplibre.geoman.types.geojson.Feature
 import com.geoman.maplibre.geoman.types.geojson.FeatureCollection
 import com.geoman.maplibre.geoman.types.geojson.Geometry
 import com.geoman.maplibre.geoman.types.geojson.LngLat
+import com.geoman.maplibre.geoman.types.geojson.ScreenPoint
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -53,6 +58,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Main Geoman class for MapLibre Android
@@ -95,7 +101,7 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
     private val modeFactory = ModeFactory(this)
 
     // Action instances (modes) — guarded by `this` lock for atomic mode switching
-    private val actionInstances = java.util.concurrent.ConcurrentHashMap<String, BaseAction>()
+    private val actionInstances = ConcurrentHashMap<String, BaseAction>()
 
     // Single source of truth for the set of currently enabled modes
     private val _activeModesFlow = MutableStateFlow<List<Pair<ModeType, String>>>(emptyList())
@@ -117,25 +123,22 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
 
     /** Adapter-backed slice used by edit modes; safe to call after init. */
     override val mapActions: EditorMapActions = object : EditorMapActions {
-        override fun project(lngLat: LngLat): com.geoman.maplibre.geoman.types.geojson.ScreenPoint =
-            mapAdapter.project(lngLat)
+        override fun project(lngLat: LngLat): ScreenPoint = mapAdapter.project(lngLat)
 
         override fun queryFeaturesByScreenCoordinates(
-            point: com.geoman.maplibre.geoman.types.geojson.ScreenPoint,
+            point: ScreenPoint,
             sourceNames: List<String>,
         ): List<FeatureData> = mapAdapter.queryFeaturesByScreenCoordinates(point, sourceNames)
 
-        override fun createDomMarker(
-            options: com.geoman.maplibre.geoman.adapter.DomMarkerOptions,
-            position: LngLat,
-        ): com.geoman.maplibre.geoman.adapter.DomMarker = mapAdapter.createDomMarker(options, position)
+        override fun createDomMarker(options: DomMarkerOptions, position: LngLat): DomMarker =
+            mapAdapter.createDomMarker(options, position)
     }
 
     // Pending base map wait
-    private var pendingBaseMapWait: kotlinx.coroutines.Job? = null
+    private var pendingBaseMapWait: Job? = null
 
     init {
-        initialize()
+        createAdapterAndControl()
     }
 
     /**
@@ -157,9 +160,9 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
     }
 
     /**
-     * Initialize Geoman
+     * Create the map adapter and control, then wait for the base map style.
      */
-    private fun initialize() {
+    private fun createAdapterAndControl() {
         _mapAdapter = MapLibreAdapter(map, this, mapView)
         _control = GmControl(this)
         waitForBaseMap()
@@ -170,7 +173,7 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
      */
     private fun waitForBaseMap() {
         if (mapAdapter.isLoaded()) {
-            init()
+            onBaseMapReady()
             return
         }
 
@@ -190,15 +193,15 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
             }
 
             if (!_destroyed.value) {
-                init()
+                onBaseMapReady()
             }
         }
     }
 
     /**
-     * Initialize Geoman after map is loaded
+     * Wire up features and controls once the base map style is ready.
      */
-    private fun init() {
+    private fun onBaseMapReady() {
         if (_destroyed.value) return
 
         features.init(_mapAdapter)
@@ -236,7 +239,7 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
     private suspend fun loadMarkerImage() {
         try {
             val context = mapView.context
-            val markerBitmap = android.graphics.BitmapFactory.decodeResource(
+            val markerBitmap = BitmapFactory.decodeResource(
                 context.resources,
                 android.R.drawable.ic_menu_mylocation,
             )
@@ -329,11 +332,13 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
     }
 
     /**
-     * Toggle a mode
+     * Toggle a mode. The enabled check and the enable/disable act happen under
+     * one lock so concurrent calls cannot both observe the same prior state
+     * (monitor locks are reentrant, so nesting with [enableMode] is safe).
      */
-    fun toggleMode(type: ModeType, name: String): Boolean {
+    fun toggleMode(type: ModeType, name: String): Boolean = synchronized(this) {
         val key = modeKey(type, name)
-        return if (actionInstances.containsKey(key)) {
+        if (actionInstances.containsKey(key)) {
             disableMode(type, name)
             false
         } else {
@@ -409,7 +414,7 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
      * Handle edit mode touch events (currently used by DragEditor to prevent the
      * map from panning while a drag handle is being moved)
      */
-    fun handleEditTouch(modeName: String, event: android.view.MotionEvent): Boolean {
+    fun handleEditTouch(modeName: String, event: MotionEvent): Boolean {
         val key = modeKey(ModeType.EDIT, modeName)
         val action = actionInstances[key] as? DragEditor
         return action?.onTouchEvent(event) ?: false
@@ -524,7 +529,7 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
                 _loaded.first { it }
                 this@Geoman
             }
-        } catch (e: kotlinx.coroutines.CancellationException) {
+        } catch (e: CancellationException) {
             throw e
         } catch (_: IllegalStateException) { // SwallowedException: returns null on timeout/error
             null
@@ -553,22 +558,4 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
 
         scope.cancel()
     }
-
-    // Convenience methods for draw modes
-    fun enableDraw(mode: DrawModeName) = enableMode(ModeType.DRAW, mode.name)
-    fun disableDraw(mode: DrawModeName) = disableMode(ModeType.DRAW, mode.name)
-    fun toggleDraw(mode: DrawModeName) = toggleMode(ModeType.DRAW, mode.name)
-    fun drawEnabled(mode: DrawModeName) = isModeEnabled(ModeType.DRAW, mode.name)
-
-    // Convenience methods for edit modes
-    fun enableEdit(mode: EditModeName) = enableMode(ModeType.EDIT, mode.name)
-    fun disableEdit(mode: EditModeName) = disableMode(ModeType.EDIT, mode.name)
-    fun toggleEdit(mode: EditModeName) = toggleMode(ModeType.EDIT, mode.name)
-    fun editEnabled(mode: EditModeName) = isModeEnabled(ModeType.EDIT, mode.name)
-
-    // Convenience methods for helper modes
-    fun enableHelper(mode: HelperModeName) = enableMode(ModeType.HELPER, mode.name)
-    fun disableHelper(mode: HelperModeName) = disableMode(ModeType.HELPER, mode.name)
-    fun toggleHelper(mode: HelperModeName) = toggleMode(ModeType.HELPER, mode.name)
-    fun helperEnabled(mode: HelperModeName) = isModeEnabled(ModeType.HELPER, mode.name)
 }

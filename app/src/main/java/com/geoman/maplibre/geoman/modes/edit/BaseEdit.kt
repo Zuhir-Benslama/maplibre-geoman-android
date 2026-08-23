@@ -1,5 +1,9 @@
 package com.geoman.maplibre.geoman.modes.edit
 
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
+import android.view.View
+import android.view.ViewGroup
 import com.geoman.maplibre.geoman.BaseAction
 import com.geoman.maplibre.geoman.Geoman
 import com.geoman.maplibre.geoman.GeomanApi
@@ -82,17 +86,17 @@ abstract class BaseEdit(geoman: GeomanApi) : BaseAction(geoman) {
      * Build the circular handle view. Requires the platform [Geoman] for a
      * context; tests override the marker seams above and never reach this.
      */
-    private fun createHandleView(handleColor: Int, strokeDp: Float): android.view.View {
+    private fun createHandleView(handleColor: Int, strokeDp: Float): View {
         val context = (geoman as? Geoman)?.mapView?.context
             ?: throw IllegalStateException("handle views require the platform Geoman")
         val size = (HANDLE_SIZE_DP * context.resources.displayMetrics.density).toInt()
-        val view = android.view.View(context)
-        view.layoutParams = android.view.ViewGroup.LayoutParams(size, size)
+        val view = View(context)
+        view.layoutParams = ViewGroup.LayoutParams(size, size)
 
-        val drawable = android.graphics.drawable.GradientDrawable().apply {
-            shape = android.graphics.drawable.GradientDrawable.OVAL
+        val drawable = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
             setColor(handleColor)
-            setStroke((strokeDp * context.resources.displayMetrics.density).toInt(), android.graphics.Color.WHITE)
+            setStroke((strokeDp * context.resources.displayMetrics.density).toInt(), Color.WHITE)
             setSize(size, size)
         }
         view.background = drawable
@@ -146,7 +150,7 @@ abstract class BaseEdit(geoman: GeomanApi) : BaseAction(geoman) {
 
     private companion object {
         const val HANDLE_SIZE_DP = 14f
-        const val HANDLE_COLOR_VERTEX = android.graphics.Color.RED
-        const val HANDLE_COLOR_MIDPOINT = android.graphics.Color.BLUE
+        const val HANDLE_COLOR_VERTEX = Color.RED
+        const val HANDLE_COLOR_MIDPOINT = Color.BLUE
     }
 }

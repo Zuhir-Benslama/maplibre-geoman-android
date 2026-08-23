@@ -2,10 +2,6 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>CyclomaticComplexMethod:MapLibreSource.kt:MapLibreSource$private fun geometryToJson: JSONObject</ID>
-    <ID>FunctionOnlyReturningConstant:GmControl.kt:GmControl$fun onTouchEvent: Boolean</ID>
-    <ID>LongMethod:Features.kt:Features$private fun addRenderingLayersForSource</ID>
-    <ID>LongMethod:GmControl.kt:@Composable fun GeomanControls</ID>
     <ID>LongMethod:GmControl.kt:GmControl$fun createControls: View</ID>
     <ID>TooManyFunctions:BaseMapAdapter.kt:BaseMapAdapter&lt;TMap&gt; : FeatureStoreRenderer</ID>
     <ID>TooManyFunctions:Features.kt:Features</ID>

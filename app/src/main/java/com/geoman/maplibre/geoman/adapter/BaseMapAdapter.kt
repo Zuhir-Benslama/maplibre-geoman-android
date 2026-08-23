@@ -1,5 +1,8 @@
 package com.geoman.maplibre.geoman.adapter
 
+import android.graphics.Bitmap
+import android.view.View
+import android.view.ViewGroup
 import com.geoman.maplibre.geoman.Geoman
 import com.geoman.maplibre.geoman.core.controls.GmControl
 import com.geoman.maplibre.geoman.core.features.FeatureData
@@ -10,6 +13,7 @@ import com.geoman.maplibre.geoman.types.geojson.GeoJsonFeatureData
 import com.geoman.maplibre.geoman.types.geojson.LatLngBounds
 import com.geoman.maplibre.geoman.types.geojson.LngLat
 import com.geoman.maplibre.geoman.types.geojson.ScreenPoint
+import com.geoman.maplibre.geoman.utils.GeometryUtils
 
 /**
  * Minimal source/layer surface [com.geoman.maplibre.geoman.core.features.Features]
@@ -38,7 +42,7 @@ abstract class BaseMapAdapter<TMap>(protected val map: TMap, val geoman: Geoman)
     /**
      * Get the map container view
      */
-    abstract fun getContainer(): android.view.ViewGroup
+    abstract fun getContainer(): ViewGroup
 
     /**
      * Get the map canvas/surface
@@ -58,7 +62,7 @@ abstract class BaseMapAdapter<TMap>(protected val map: TMap, val geoman: Geoman)
     /**
      * Load an image for use in markers/icons
      */
-    abstract suspend fun loadImage(id: String, image: android.graphics.Bitmap)
+    abstract suspend fun loadImage(id: String, image: Bitmap)
 
     /**
      * Remove a loaded image
@@ -189,8 +193,7 @@ abstract class BaseMapAdapter<TMap>(protected val map: TMap, val geoman: Geoman)
     /**
      * Calculate distance between two points in meters
      */
-    open fun getDistance(lngLat1: LngLat, lngLat2: LngLat): Double =
-        com.geoman.maplibre.geoman.utils.GeometryUtils.distance(lngLat1, lngLat2)
+    open fun getDistance(lngLat1: LngLat, lngLat2: LngLat): Double = GeometryUtils.distance(lngLat1, lngLat2)
 
     /**
      * Get the nearest point on a line to a given point
@@ -239,7 +242,7 @@ enum class LayerType {
  * Dom marker options
  */
 data class DomMarkerOptions(
-    val element: android.view.View? = null,
+    val element: View? = null,
     val anchor: MarkerAnchor = MarkerAnchor.CENTER,
     val draggable: Boolean = false,
     val rotation: Float = 0f,
@@ -297,7 +300,7 @@ interface MapLayer {
 abstract class DomMarker(protected val map: Any) : com.geoman.maplibre.geoman.core.markers.ManagedMarker {
     abstract override fun getLngLat(): LngLat
     abstract override fun setLngLat(lngLat: LngLat)
-    abstract fun getElement(): android.view.View
+    abstract fun getElement(): View
     abstract fun addToMap(): DomMarker
     abstract override fun remove()
     abstract fun setDraggable(draggable: Boolean)

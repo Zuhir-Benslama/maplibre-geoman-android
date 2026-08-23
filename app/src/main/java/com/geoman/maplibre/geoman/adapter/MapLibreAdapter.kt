@@ -1,6 +1,8 @@
 package com.geoman.maplibre.geoman.adapter
 
+import android.graphics.Bitmap
 import android.graphics.PointF
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import com.geoman.maplibre.geoman.Geoman
@@ -14,6 +16,7 @@ import com.geoman.maplibre.geoman.types.geojson.GeoJsonFeatureData
 import com.geoman.maplibre.geoman.types.geojson.LatLngBounds
 import com.geoman.maplibre.geoman.types.geojson.LngLat
 import com.geoman.maplibre.geoman.types.geojson.ScreenPoint
+import com.geoman.maplibre.geoman.utils.GeometryUtils
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
@@ -77,7 +80,7 @@ class MapLibreAdapter(map: MapLibreMap, geoman: Geoman, private val mapView: Map
         map.addOnMapLongClickListener(mapLongClickListener!!)
 
         val touchListener = View.OnTouchListener { view, event ->
-            if (event.action == android.view.MotionEvent.ACTION_UP) {
+            if (event.action == MotionEvent.ACTION_UP) {
                 view.performClick()
             }
             control.onTouchEvent(event)
@@ -94,7 +97,7 @@ class MapLibreAdapter(map: MapLibreMap, geoman: Geoman, private val mapView: Map
         mapView.renderView.setOnTouchListener(null)
     }
 
-    override suspend fun loadImage(id: String, image: android.graphics.Bitmap) {
+    override suspend fun loadImage(id: String, image: Bitmap) {
         map.style?.addImage(id, image)
     }
 
@@ -372,7 +375,7 @@ class MapLibreAdapter(map: MapLibreMap, geoman: Geoman, private val mapView: Map
         var minDistance = Double.MAX_VALUE
 
         for (i in 0 until lineCoordinates.size - 1) {
-            val nearest = com.geoman.maplibre.geoman.utils.GeometryUtils.nearestPointOnSegment(
+            val nearest = GeometryUtils.nearestPointOnSegment(
                 point,
                 lineCoordinates[i],
                 lineCoordinates[i + 1],

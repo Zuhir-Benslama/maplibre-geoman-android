@@ -1,12 +1,8 @@
 package com.geoman.maplibre.geoman.core.features
 
-import androidx.compose.ui.graphics.toArgb
 import com.geoman.maplibre.geoman.Geoman
-import com.geoman.maplibre.geoman.GeomanLogger
 import com.geoman.maplibre.geoman.adapter.BaseMapAdapter
 import com.geoman.maplibre.geoman.adapter.FeatureStoreRenderer
-import com.geoman.maplibre.geoman.adapter.LayerOptions
-import com.geoman.maplibre.geoman.adapter.LayerType
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.types.geojson.Feature
 import com.geoman.maplibre.geoman.types.geojson.FeatureCollection
@@ -35,14 +31,15 @@ data class FeatureData(
     val geometry: Geometry get() = feature.geometry
 
     /**
-     * A copy that shares no mutable collections with the original: the
-     * property maps are duplicated. Leaf values are assumed immutable
-     * (JSON-style primitives, lists, and maps), matching what the store and
-     * GeoJSON codec produce.
+     * A copy that shares no mutable collections with the original: both
+     * property-map containers are recreated, so later mutation of either
+     * instance's maps cannot leak into the other. Leaf values are shared and
+     * assumed immutable (JSON-style primitives, lists, and maps), matching
+     * what the store and GeoJSON codec produce.
      */
     fun deepCopy(): FeatureData = copy(
-        feature = feature.copy(properties = feature.properties.mapValues { (_, value) -> value }),
-        properties = properties.toMutableMap(),
+        feature = feature.copy(properties = HashMap(feature.properties)),
+        properties = HashMap(properties),
     )
 }
 
@@ -80,19 +77,14 @@ class Features(
     updateScope: CoroutineScope? = null,
     debounceMs: Long = SourceUpdateManager.DEFAULT_DEBOUNCE_MS,
 ) {
-
-    private companion object {
-        const val RGB_MASK = 0xFFFFFF
-        const val DEFAULT_CIRCLE_MARKER_RADIUS = 10.0f
-    }
+    private val styler = FeatureLayerStyler(geoman)
 
     // Guarded by `this` — use plain HashMap since we always hold the lock
     private val featuresMap = HashMap<String, MutableMap<String, FeatureData>>()
 
     // Parent-child registry (web parity: FeatureData.parent/children).
-    // childId -> parentId, and the reverse index. Guarded by `this`.
-    private val childToParent = HashMap<String, String>()
-    private val parentToChildren = HashMap<String, MutableSet<String>>()
+    // Guarded by `this` like the store itself.
+    private val relationships = FeatureRelationships()
 
     private val _featuresFlow = MutableStateFlow<Map<String, Map<String, FeatureData>>>(emptyMap())
 
@@ -213,7 +205,7 @@ class Features(
                 if (owningSource != null) featuresMap[owningSource]?.remove(id)
                 owningSource
             }
-            cascadeIds.forEach { detachParent(it) }
+            cascadeIds.forEach { relationships.detach(it) }
             updateFeaturesFlow()
         }
         (sourcesToSync + sourceName).distinct().forEach { syncSourceToMap(it) }
@@ -223,10 +215,12 @@ class Features(
     fun clearSource(sourceName: String) {
         val removedIds: List<String> = synchronized(this) {
             val ids = featuresMap.remove(sourceName)?.keys.orEmpty()
+            // Detach within the same critical section so no reader can observe
+            // features that are gone while their parent-child links remain.
+            ids.forEach { relationships.detach(it) }
             updateFeaturesFlow()
             ids.toList()
         }
-        synchronized(this) { removedIds.forEach { detachParent(it) } }
         syncSourceToMap(sourceName)
     }
 
@@ -234,8 +228,7 @@ class Features(
         val sourceNames = synchronized(this) {
             val names = featuresMap.keys.toList()
             featuresMap.clear()
-            childToParent.clear()
-            parentToChildren.clear()
+            relationships.clear()
             updateFeaturesFlow()
             names
         }
@@ -277,7 +270,7 @@ class Features(
     fun setFeatureParent(childId: String, parentId: String?) {
         synchronized(this) {
             if (parentId == null) {
-                detachParent(childId)
+                relationships.detach(childId)
                 return
             }
 
@@ -285,37 +278,27 @@ class Features(
             requireFeatureExists(parentId, "parent")
             // Walking up from parentId must never reach childId, otherwise
             // linking would close a cycle in the ancestry chain.
-            require(!isAncestor(childId, parentId)) {
+            require(!relationships.isAncestorOrSelf(childId, parentId)) {
                 "linking $childId to $parentId would create a cycle"
             }
 
-            detachParent(childId)
-            childToParent[childId] = parentId
-            parentToChildren.getOrPut(parentId) { mutableSetOf() }.add(childId)
+            relationships.link(childId, parentId)
         }
     }
 
     /** The registered parent of [featureId], or null when it has none. */
     fun getParentFeatureId(featureId: String): String? = synchronized(this) {
-        childToParent[featureId]
+        relationships.parentIdOf(featureId)
     }
 
     /** Direct children of [parentId]; empty when it has none. */
     fun getChildFeatureIds(parentId: String): Set<String> = synchronized(this) {
-        parentToChildren[parentId]?.toSet() ?: emptySet()
+        relationships.childrenOf(parentId)
     }
 
     /** All descendants of [parentId], breadth-first, excluding the parent itself. */
     fun getDescendantFeatureIds(parentId: String): Set<String> = synchronized(this) {
-        val descendants = mutableSetOf<String>()
-        val queue = ArrayDeque(parentToChildren[parentId].orEmpty())
-        while (queue.isNotEmpty()) {
-            val childId = queue.removeFirst()
-            if (descendants.add(childId)) {
-                queue.addAll(parentToChildren[childId].orEmpty())
-            }
-        }
-        descendants
+        relationships.descendantsOf(parentId)
     }
 
     private fun featureBboxIntersects(geometry: Geometry, boundsBbox: List<Double>): Boolean {
@@ -327,24 +310,6 @@ class Features(
     private fun requireFeatureExists(featureId: String, role: String) {
         require(featuresMap.any { entry -> entry.value.containsKey(featureId) }) {
             "unknown $role feature id: $featureId"
-        }
-    }
-
-    /** True when [candidateAncestor] is [featureId] itself or a transitive parent. */
-    private fun isAncestor(candidateAncestor: String, featureId: String): Boolean {
-        var current: String? = featureId
-        while (current != null) {
-            if (current == candidateAncestor) return true
-            current = childToParent[current]
-        }
-        return false
-    }
-
-    private fun detachParent(childId: String) {
-        val previousParent = childToParent.remove(childId) ?: return
-        parentToChildren[previousParent]?.let { children ->
-            children.remove(childId)
-            if (children.isEmpty()) parentToChildren.remove(previousParent)
         }
     }
 
@@ -397,117 +362,9 @@ class Features(
             existingSource.setData(collection)
         } else {
             target.addSource(sourceName, collection)
-            addRenderingLayersForSource(sourceName, target)
+            styler.addRenderingLayersForSource(sourceName, target)
         }
     }
-
-    private fun addRenderingLayersForSource(sourceName: String, target: FeatureStoreRenderer) {
-        val layerId = when (sourceName) {
-            FeatureSources.MARKER -> "${sourceName}_symbol"
-            FeatureSources.CIRCLE_MARKER -> "${sourceName}_circle"
-            FeatureSources.LINE -> "${sourceName}_line"
-            else -> "${sourceName}_stroke"
-        }
-
-        if (target.getLayer(layerId) != null) return
-
-        try {
-            target.addLayer(buildLayerOptions(sourceName, layerId))
-        } catch (@Suppress("TooGenericExceptionCaught") e: RuntimeException) {
-            GeomanLogger.w("Features", "Error adding layer $layerId: ${e.message}")
-        }
-    }
-
-    private fun buildLayerOptions(sourceName: String, layerId: String): LayerOptions {
-        if (sourceName == FeatureSources.MARKER) {
-            return LayerOptions(
-                id = layerId,
-                type = LayerType.SYMBOL,
-                source = sourceName,
-                layout = mapOf(
-                    "icon-image" to "default-marker",
-                    "icon-size" to 0.5f,
-                    "icon-allow-overlap" to true,
-                ),
-            )
-        }
-
-        if (sourceName == FeatureSources.CIRCLE_MARKER) {
-            val styles = geoman?.options?.layerStyles
-            val circleMarkerStyle = styles?.circleMarker
-            val fillColor = resolveLineColor(styles, sourceName)
-                ?: circleMarkerStyle?.fillColor?.let { toHex(it) }
-                ?: resolveDefaults(sourceName).color
-
-            return LayerOptions(
-                id = layerId,
-                type = LayerType.CIRCLE,
-                source = sourceName,
-                paint = mapOf<String, Any>(
-                    "circle-radius" to (circleMarkerStyle?.radius ?: DEFAULT_CIRCLE_MARKER_RADIUS),
-                    "circle-color" to fillColor,
-                    "circle-opacity" to (circleMarkerStyle?.opacity ?: 1.0f),
-                    "circle-stroke-width" to (circleMarkerStyle?.width ?: 2.0f),
-                    "circle-stroke-color" to (circleMarkerStyle?.color?.let { toHex(it) } ?: "#FFFFFF"),
-                ),
-            )
-        }
-
-        val (defaultColor, defaultWidth) = resolveDefaults(sourceName)
-        val layerStyles = geoman?.options?.layerStyles
-        val color = resolveLineColor(layerStyles, sourceName) ?: defaultColor
-        val width = resolveLineWidth(layerStyles, sourceName) ?: defaultWidth
-
-        return LayerOptions(
-            id = layerId,
-            type = LayerType.LINE,
-            source = sourceName,
-            paint = mapOf(
-                "line-color" to color,
-                "line-width" to width,
-            ),
-        )
-    }
-
-    private data class LayerDefaults(val color: String, val width: Float)
-
-    private fun resolveDefaults(sourceName: String) = when (sourceName) {
-        FeatureSources.LINE -> LayerDefaults("#3498db", 3f)
-        FeatureSources.POLYGON -> LayerDefaults("#8e44ad", 2f)
-        FeatureSources.CIRCLE -> LayerDefaults("#e74c3c", 2f)
-        FeatureSources.CIRCLE_MARKER -> LayerDefaults("#3498db", 2f)
-        else -> LayerDefaults("#2ecc71", 2f)
-    }
-
-    @Suppress("CyclomaticComplexMethod")
-    private fun resolveLineColor(
-        styles: com.geoman.maplibre.geoman.core.options.LayerStyles?,
-        sourceName: String,
-    ): String? {
-        val color = when (sourceName) {
-            FeatureSources.LINE -> styles?.line?.color
-            FeatureSources.POLYGON -> styles?.polygon?.color
-            FeatureSources.CIRCLE -> styles?.circle?.color
-            FeatureSources.CIRCLE_MARKER -> styles?.circleMarker?.fillColor
-            else -> styles?.rectangle?.color
-        }
-        return color?.let { toHex(it) }
-    }
-
-    @Suppress("CyclomaticComplexMethod")
-    private fun resolveLineWidth(
-        styles: com.geoman.maplibre.geoman.core.options.LayerStyles?,
-        sourceName: String,
-    ): Float? = when (sourceName) {
-        FeatureSources.LINE -> styles?.line?.width
-        FeatureSources.POLYGON -> styles?.polygon?.width
-        FeatureSources.CIRCLE -> styles?.circle?.width
-        FeatureSources.CIRCLE_MARKER -> styles?.circleMarker?.width
-        else -> styles?.rectangle?.width
-    }
-
-    private fun toHex(color: androidx.compose.ui.graphics.Color): String =
-        String.format("#%06X", color.toArgb() and RGB_MASK)
 
     private fun updateFeaturesFlow() {
         _featuresFlow.value = featuresMap.mapValues { it.value.toMap() }

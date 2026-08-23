@@ -8,6 +8,8 @@ import com.geoman.maplibre.geoman.types.ModeType
 import com.geoman.maplibre.geoman.types.events.GmDrawEvent
 import kotlinx.coroutines.launch
 import org.maplibre.android.geometry.LatLng
+import java.util.UUID
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * Base class for all draw modes
@@ -18,7 +20,7 @@ abstract class BaseDraw(geoman: Geoman) : BaseAction(geoman) {
 
     // Thread-safe list for temporary features that may be accessed from both
     // map click handlers (main thread) and disable() (any thread).
-    protected val temporaryFeatures = java.util.concurrent.CopyOnWriteArrayList<FeatureData>()
+    protected val temporaryFeatures = CopyOnWriteArrayList<FeatureData>()
 
     override fun disable() {
         super.disable()
@@ -37,7 +39,7 @@ abstract class BaseDraw(geoman: Geoman) : BaseAction(geoman) {
      * Generate a collision-free feature ID. Timestamp-based IDs collided when
      * two features were created within the same millisecond.
      */
-    protected fun createFeatureId(prefix: String): String = "$prefix-${java.util.UUID.randomUUID()}"
+    protected fun createFeatureId(prefix: String): String = "$prefix-${UUID.randomUUID()}"
 
     protected suspend fun fireCreateEvent(feature: FeatureData?) {
         val featureRef = feature ?: run {
