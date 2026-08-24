@@ -1,6 +1,7 @@
 package com.geoman.maplibre.geoman
 
 import com.geoman.maplibre.geoman.types.ModeType
+import java.util.UUID
 
 abstract class BaseAction(protected open val geoman: GeomanApi) {
     @Volatile protected var enabled = false
@@ -19,4 +20,10 @@ abstract class BaseAction(protected open val geoman: GeomanApi) {
     }
 
     open fun isEnabled(): Boolean = enabled
+
+    /**
+     * Generate a collision-free feature ID. Timestamp-based IDs collided when
+     * two features were created within the same millisecond.
+     */
+    protected fun createFeatureId(prefix: String): String = "$prefix-${UUID.randomUUID()}"
 }

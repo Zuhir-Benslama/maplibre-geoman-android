@@ -1,6 +1,8 @@
 package com.geoman.maplibre.geoman.modes.edit
 
 import com.geoman.maplibre.geoman.types.geojson.LngLat
+import com.geoman.maplibre.geoman.utils.GeometryUtils
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -89,8 +91,18 @@ internal object EditorGeometry {
 
     /**
      * Midpoint of two [longitude, latitude] positions.
+     *
+     * Unwraps the longitudes across the antimeridian first, so a segment
+     * between 179.5° and -179.5° has its midpoint at ±180° instead of 0°.
      */
-    fun midpoint(a: List<Double>, b: List<Double>): List<Double> = listOf((a[0] + b[0]) / 2.0, (a[1] + b[1]) / 2.0)
+    fun midpoint(a: List<Double>, b: List<Double>): List<Double> {
+        var lonA = a[0]
+        var lonB = b[0]
+        if (abs(lonB - lonA) > 180.0) {
+            if (lonA <= lonB) lonA += 360.0 else lonB += 360.0
+        }
+        return listOf(GeometryUtils.normalizeLongitude((lonA + lonB) / 2.0), (a[1] + b[1]) / 2.0)
+    }
 
     /**
      * Rotate [point] around [center] by [angleRad] in equirectangular

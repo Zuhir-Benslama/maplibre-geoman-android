@@ -160,9 +160,12 @@ class EditorInteractionTest {
         )
 
         // Two drag frames -> two recorded changes; undoing both restores origin
-        val second = geoman.history.undo()!!
-        val first = geoman.history.undo()!!
-        assertEquals(listOf(listOf(0.0, 0.0), listOf(1.0, 1.0)), (first.before as LineString).coordinates)
+        val second = geoman.history.undo() as com.geoman.maplibre.geoman.core.history.GeometryChange
+        val first = geoman.history.undo() as com.geoman.maplibre.geoman.core.history.GeometryChange
+        assertEquals(
+            listOf(listOf(0.0, 0.0), listOf(1.0, 1.0)),
+            (first.before as LineString).coordinates,
+        )
         val secondBefore = (second.before as LineString).coordinates
         assertEquals(-0.3, secondBefore[0][0], 1e-9)
         assertEquals(-0.4, secondBefore[0][1], 1e-9)

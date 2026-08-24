@@ -25,9 +25,12 @@ open class RotateEditor(geoman: GeomanApi) : BaseEdit(geoman) {
     private var isRotating = false
     private var rotatingFeature: FeatureData? = null
     private var centroid: LngLat? = null
-    private var rotationStartAngle: Double = 0.0
-    private var initialRotation: Double = 0.0
-    private var lastAppliedRotation: Double = 0.0
+
+    // Bearing from the centroid to the pointer at the previous frame; deltas
+    // are computed frame-to-frame and normalized so crossing the ±180°
+    // bearing discontinuity produces a small signed step instead of a ~360° spin
+    private var lastPointerAngle: Double = 0.0
+    private var totalRotation: Double = 0.0
 
     override fun disable() {
         if (isRotating) {
@@ -64,9 +67,8 @@ open class RotateEditor(geoman: GeomanApi) : BaseEdit(geoman) {
 
         val c = calculateCentroid(feature)
         centroid = c
-        rotationStartAngle = calculateAngle(c, LngLat(startPoint.longitude, startPoint.latitude))
-        initialRotation = 0.0
-        lastAppliedRotation = 0.0
+        lastPointerAngle = calculateAngle(c, LngLat(startPoint.longitude, startPoint.latitude))
+        totalRotation = 0.0
 
         geoman.scope.launch {
             fireEditEvent({ GmEditEvent.RotateStart(it) }, feature)
@@ -78,15 +80,15 @@ open class RotateEditor(geoman: GeomanApi) : BaseEdit(geoman) {
         val c = centroid ?: return
 
         val currentAngle = calculateAngle(c, LngLat(point.longitude, point.latitude))
-        val totalRotation = initialRotation + (currentAngle - rotationStartAngle)
-
-        // Apply only the frame delta to the current stored geometry; applying
-        // the cumulative angle to already-rotated coordinates would compound
-        val frameDelta = totalRotation - lastAppliedRotation
+        val frameDelta = GeometryUtils.normalizeAngleDegrees(currentAngle - lastPointerAngle)
         if (frameDelta == 0.0) return
 
+        lastPointerAngle = currentAngle
+        totalRotation += frameDelta
+
+        // Apply only the normalized frame delta to the current stored geometry;
+        // applying the cumulative angle to already-rotated coordinates would compound
         rotateFeature(feature, c, frameDelta)
-        lastAppliedRotation = totalRotation
     }
 
     private fun finishRotation() {
@@ -100,9 +102,8 @@ open class RotateEditor(geoman: GeomanApi) : BaseEdit(geoman) {
         isRotating = false
         rotatingFeature = null
         centroid = null
-        rotationStartAngle = 0.0
-        initialRotation = 0.0
-        lastAppliedRotation = 0.0
+        lastPointerAngle = 0.0
+        totalRotation = 0.0
     }
 
     private fun calculateCentroid(feature: FeatureData): LngLat {

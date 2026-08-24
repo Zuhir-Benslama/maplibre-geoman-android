@@ -40,6 +40,7 @@ class SnapHelper(geoman: Geoman) : BaseHelper(geoman) {
 
     override fun disable() {
         hideSnapGuides()
+        guideAdded = false
         snappedFeature = null
         snappedCoordinate = null
         super.disable()
@@ -217,7 +218,9 @@ class SnapHelper(geoman: Geoman) : BaseHelper(geoman) {
     }
 
     private fun ensureSnapGuidesLayer() {
-        if (guideAdded) return
+        // Re-check existence on every call instead of trusting the cached
+        // flag: a style reload destroys sources and layers, so an early
+        // return would permanently break guides for the rest of the session
         if (geoman.mapAdapter.getSource(FeatureSources.SNAP_GUIDES) == null) {
             geoman.mapAdapter.addSource(
                 FeatureSources.SNAP_GUIDES,

@@ -1,8 +1,10 @@
 package com.geoman.maplibre.geoman.modes.edit
 
 import com.geoman.maplibre.geoman.GeomanApi
+import com.geoman.maplibre.geoman.GeomanLogger
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.core.features.FeatureData
+import com.geoman.maplibre.geoman.core.history.SplitChange
 import com.geoman.maplibre.geoman.types.EditModeName
 import com.geoman.maplibre.geoman.types.events.GmEditEvent
 import com.geoman.maplibre.geoman.types.geojson.Feature
@@ -65,18 +67,42 @@ open class CutEditor(geoman: GeomanApi) : BaseEdit(geoman) {
         geoman.scope.launch { fireEditEvent({ GmEditEvent.CutStart(it) }, feature) }
 
         val sourceName = feature.sourceName
-        val now = System.currentTimeMillis()
-        val part1Id = "cut_${now}_1"
-        val part2Id = "cut_${now}_2"
+        val part1Id = createFeatureId(CUT_ID_PREFIX)
+        val part2Id = createFeatureId(CUT_ID_PREFIX)
 
         val firstPart = coords.take(segmentIndex + 1) + cutPoint
         val secondPart = listOf(cutPoint) + coords.drop(segmentIndex + 1)
 
-        geoman.features.removeFeature(sourceName, feature.id)
-        addSplitPart(sourceName, part1Id, firstPart, feature.properties)
-        addSplitPart(sourceName, part2Id, secondPart, feature.properties)
+        // Add both parts BEFORE removing the original so a validator rejection
+        // can never destroy the source line; roll back partial adds on failure
+        val addedParts = try {
+            listOf(
+                addSplitPart(sourceName, part1Id, firstPart, feature.properties),
+                addSplitPart(sourceName, part2Id, secondPart, feature.properties),
+            )
+        } catch (e: IllegalArgumentException) {
+            GeomanLogger.e(TAG, "Cut aborted: split parts rejected by validation", e)
+            return
+        }
 
-        geoman.scope.launch { fireEditEvent({ GmEditEvent.CutEnd(it) }, feature) }
+        val removed = geoman.features.removeFeature(sourceName, feature.id)
+        if (removed == null) {
+            // The original vanished mid-cut; drop the just-added parts instead
+            // of leaving duplicates behind
+            addedParts.forEach { geoman.features.removeFeature(it.sourceName, it.id) }
+            return
+        }
+
+        geoman.history.record(
+            SplitChange(
+                sourceName = sourceName,
+                original = removed.feature,
+                parts = addedParts.map { it.feature },
+            ),
+        )
+
+        // Fire CutEnd with a surviving result rather than the removed feature
+        geoman.scope.launch { fireEditEvent({ GmEditEvent.CutEnd(it) }, addedParts.first()) }
     }
 
     private fun addSplitPart(
@@ -84,14 +110,17 @@ open class CutEditor(geoman: GeomanApi) : BaseEdit(geoman) {
         partId: String,
         coordinates: List<LngLat>,
         baseProperties: Map<String, Any?>,
-    ) {
-        geoman.features.addGeoJsonFeature(
-            Feature(
-                id = partId,
-                geometry = LineString.fromLngLats(coordinates),
-                properties = baseProperties + (GeomanCoreConstants.FEATURE_ID_PROPERTY to partId),
-            ),
-            sourceName,
-        )
+    ): FeatureData = geoman.features.addGeoJsonFeature(
+        Feature(
+            id = partId,
+            geometry = LineString.fromLngLats(coordinates),
+            properties = baseProperties + (GeomanCoreConstants.FEATURE_ID_PROPERTY to partId),
+        ),
+        sourceName,
+    )
+
+    private companion object {
+        const val TAG = "CutEditor"
+        const val CUT_ID_PREFIX = "cut"
     }
 }

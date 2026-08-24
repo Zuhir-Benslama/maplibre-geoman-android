@@ -224,4 +224,54 @@ class GeometryUtilsTest {
     }
 
     // endregion
+
+    // region normalization (antimeridian / angle wrapping)
+
+    @Test
+    fun `normalizeLongitude keeps in-range values untouched`() {
+        assertEquals(0.0, GeometryUtils.normalizeLongitude(0.0), DELTA)
+        assertEquals(-95.0, GeometryUtils.normalizeLongitude(-95.0), DELTA)
+        assertEquals(179.9, GeometryUtils.normalizeLongitude(179.9), DELTA)
+    }
+
+    @Test
+    fun `normalizeLongitude wraps out-of-range values into GeoJSON range`() {
+        assertEquals(-179.95, GeometryUtils.normalizeLongitude(180.05), DELTA)
+        assertEquals(-1.0, GeometryUtils.normalizeLongitude(359.0), DELTA)
+        assertEquals(20.0, GeometryUtils.normalizeLongitude(-340.0), DELTA)
+    }
+
+    @Test
+    fun `destination near the dateline stays within valid longitude range`() {
+        val destination = GeometryUtils.calculateDestination(
+            LngLat(179.99, 0.0),
+            bearing = 90.0,
+            distance = 10_000.0,
+        )
+
+        assertTrue("longitude ${destination.longitude} exceeds range", destination.longitude <= 180.0)
+        assertTrue(destination.longitude >= -180.0)
+    }
+
+    @Test
+    fun `circle around a dateline center produces only valid longitudes`() {
+        val circle = GeometryUtils.generateCircleCoordinates(LngLat(179.99, 0.0), radius = 50_000.0)
+
+        circle.forEach { point ->
+            assertTrue("longitude ${point.longitude} exceeds range", point.longitude <= 180.0)
+            assertTrue(point.longitude >= -180.0)
+        }
+    }
+
+    @Test
+    fun `normalizeAngleDegrees wraps into the -180 to 180 range`() {
+        assertEquals(-10.0, GeometryUtils.normalizeAngleDegrees(350.0), DELTA)
+        assertEquals(10.0, GeometryUtils.normalizeAngleDegrees(-350.0), DELTA)
+        assertEquals(180.0, GeometryUtils.normalizeAngleDegrees(-180.0), DELTA)
+        assertEquals(180.0, GeometryUtils.normalizeAngleDegrees(540.0), DELTA)
+        assertEquals(0.0, GeometryUtils.normalizeAngleDegrees(720.0), DELTA)
+        assertEquals(45.0, GeometryUtils.normalizeAngleDegrees(45.0), DELTA)
+    }
+
+    // endregion
 }

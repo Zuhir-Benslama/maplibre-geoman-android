@@ -8,7 +8,6 @@ import com.geoman.maplibre.geoman.types.ModeType
 import com.geoman.maplibre.geoman.types.events.GmDrawEvent
 import kotlinx.coroutines.launch
 import org.maplibre.android.geometry.LatLng
-import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
@@ -24,22 +23,19 @@ abstract class BaseDraw(geoman: Geoman) : BaseAction(geoman) {
 
     override fun disable() {
         super.disable()
-        val featuresToRemove = temporaryFeatures.toList()
-        temporaryFeatures.clear()
-        featuresToRemove.forEach {
-            geoman.features.removeFeature(it.sourceName, it.id)
+        // Drain one-by-one, popping each feature out of the tracking list
+        // BEFORE removing it from the map. A snapshot-then-clear left a window
+        // where a concurrent onMapClick could add a feature that was then
+        // wiped from tracking but orphaned on the map.
+        while (true) {
+            val feature = temporaryFeatures.removeFirstOrNull() ?: break
+            geoman.features.removeFeature(feature.sourceName, feature.id)
         }
     }
 
     abstract fun onMapClick(point: LatLng)
     abstract fun onMapLongClick(point: LatLng)
     abstract fun finishDrawing()
-
-    /**
-     * Generate a collision-free feature ID. Timestamp-based IDs collided when
-     * two features were created within the same millisecond.
-     */
-    protected fun createFeatureId(prefix: String): String = "$prefix-${UUID.randomUUID()}"
 
     protected suspend fun fireCreateEvent(feature: FeatureData?) {
         val featureRef = feature ?: run {

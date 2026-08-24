@@ -2,55 +2,18 @@ package com.geoman.maplibre.geoman.modes.draw
 
 import com.geoman.maplibre.geoman.Geoman
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
-import com.geoman.maplibre.geoman.core.features.FeatureData
 import com.geoman.maplibre.geoman.types.DrawModeName
-import com.geoman.maplibre.geoman.types.geojson.Feature
-import com.geoman.maplibre.geoman.types.geojson.LngLat
-import com.geoman.maplibre.geoman.types.geojson.Point
-import kotlinx.coroutines.launch
-import org.maplibre.android.geometry.LatLng
 
 /**
  * Marker drawing mode
  */
-class MarkerDrawer(geoman: Geoman) : BaseDraw(geoman) {
+class MarkerDrawer(geoman: Geoman) : BaseMarkerDrawer(geoman) {
 
     override val modeName: String = DrawModeName.MARKER.name
 
-    override fun onMapClick(point: LatLng) {
-        if (!enabled) return
+    override val sourceName: String = GeomanCoreConstants.SOURCE_MARKERS
 
-        val featureId = createFeatureId("marker")
+    override val markerType: String = "default"
 
-        val feature = Feature(
-            id = featureId,
-            geometry = Point.fromLngLat(LngLat(point.longitude, point.latitude)),
-            properties = mapOf(
-                GeomanCoreConstants.FEATURE_ID_PROPERTY to featureId,
-                "markerType" to "default",
-            ),
-        )
-
-        val featureData = geoman.features.addGeoJsonFeature(
-            feature,
-            GeomanCoreConstants.SOURCE_MARKERS,
-        )
-
-        temporaryFeatures.add(featureData)
-
-        geoman.scope.launch {
-            fireCreateEvent(featureData)
-        }
-
-        finishDrawing()
-    }
-
-    override fun onMapLongClick(point: LatLng) {
-        onMapClick(point)
-    }
-
-    override fun finishDrawing() {
-        temporaryFeatures.clear()
-        geoman.disableMode(modeType, modeName)
-    }
+    override val idPrefix: String = "marker"
 }

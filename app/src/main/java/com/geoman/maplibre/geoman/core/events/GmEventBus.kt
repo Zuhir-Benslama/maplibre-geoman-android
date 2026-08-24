@@ -56,9 +56,14 @@ class GmEventBus {
 
     /**
      * Subscribe to a specific event type.
+     *
+     * Uses [ConcurrentHashMap.compute] so a concurrent [off] draining the same
+     * event type can never drop the freshly added listener.
      */
     fun on(eventType: String, listener: (GmEvent) -> Unit) {
-        eventListeners.getOrPut(eventType) { CopyOnWriteArraySet() }.add(listener)
+        eventListeners.compute(eventType) { _, existing ->
+            (existing ?: CopyOnWriteArraySet()).apply { add(listener) }
+        }
     }
 
     /**
@@ -83,16 +88,16 @@ class GmEventBus {
     /**
      * Unsubscribe from an event type.
      *
-     * Because listeners are stored in a [CopyOnWriteArraySet], removal uses
-     * reference equality which works for object-instance listeners and for
-     * listeners registered via [once]. For raw lambda listeners, keep a
-     * reference and pass it here.
+     * Removal runs inside [ConcurrentHashMap.compute], so the check-then-act
+     * step of dropping an emptied set cannot race a concurrent [on] into
+     * removing a just-registered listener. Because listeners are stored in a
+     * [CopyOnWriteArraySet], removal uses reference equality which works for
+     * object-instance listeners and for listeners registered via [once]. For
+     * raw lambda listeners, keep a reference and pass it here.
      */
     fun off(eventType: String, listener: (GmEvent) -> Unit) {
-        val listeners = eventListeners[eventType] ?: return
-        listeners.remove(listener)
-        if (listeners.isEmpty()) {
-            eventListeners.remove(eventType)
+        eventListeners.compute(eventType) { _, existing ->
+            existing?.apply { remove(listener) }?.takeUnless { it.isEmpty() }
         }
     }
 

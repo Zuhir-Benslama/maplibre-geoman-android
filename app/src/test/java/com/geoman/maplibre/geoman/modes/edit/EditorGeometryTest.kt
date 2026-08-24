@@ -238,5 +238,22 @@ class EditorGeometryTest {
         assertEquals(listOf(3.5, -2.5), mid)
     }
 
+    @Test
+    fun `midpoint across the antimeridian stays on the dateline`() {
+        // Naive averaging would place the midpoint at longitude 0
+        val mid = EditorGeometry.midpoint(listOf(179.5, 10.0), listOf(-179.5, 10.0))
+
+        assertEquals(180.0, Math.abs(mid[0]), 1e-9)
+        assertEquals(10.0, mid[1], 1e-9)
+    }
+
+    @Test
+    fun `antimeridian midpoint is symmetric in argument order`() {
+        val ab = EditorGeometry.midpoint(listOf(170.0, 0.0), listOf(-170.0, 4.0))
+        val ba = EditorGeometry.midpoint(listOf(-170.0, 4.0), listOf(170.0, 0.0))
+
+        assertEquals(ab, ba)
+    }
+
     // endregion
 }

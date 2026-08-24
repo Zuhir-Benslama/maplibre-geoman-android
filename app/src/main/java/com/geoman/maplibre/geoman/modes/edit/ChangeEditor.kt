@@ -9,7 +9,6 @@ import com.geoman.maplibre.geoman.types.EditModeName
 import com.geoman.maplibre.geoman.types.events.GmEditEvent
 import com.geoman.maplibre.geoman.types.geojson.LngLat
 import com.geoman.maplibre.geoman.types.geojson.Polygon
-import com.geoman.maplibre.geoman.utils.GeometryUtils
 import kotlinx.coroutines.launch
 import org.maplibre.android.geometry.LatLng
 
@@ -59,67 +58,19 @@ open class ChangeEditor(geoman: GeomanApi) : BaseEdit(geoman) {
         if (isEditing) {
             // While editing, clicks on vertex markers are handled by drag callbacks
             return
-        } else {
-            // Select a feature to edit by querying in-memory features
-            val targetSources = setOf(
-                GeomanCoreConstants.SOURCE_LINES,
-                GeomanCoreConstants.SOURCE_POLYGONS,
-                GeomanCoreConstants.SOURCE_CIRCLES,
-            )
-
-            var closestFeature: FeatureData? = null
-            var closestDistance = Double.MAX_VALUE
-
-            for (sourceName in targetSources) {
-                val features = geoman.features.getFeatures(sourceName)
-                for ((_, feature) in features) {
-                    val dist = distanceFromPointToFeature(feature, point)
-                    if (dist < closestDistance && dist < 30.0) { // 30m hit tolerance
-                        closestDistance = dist
-                        closestFeature = feature
-                    }
-                }
-            }
-
-            if (closestFeature != null) {
-                startEditing(closestFeature)
-            }
         }
-    }
 
-    /**
-     * Calculate the distance from a click point to a feature's geometry.
-     * Uses the nearest point on the geometry's segments so clicking the middle of
-     * a line/polygon edge selects it, not just the vertices.
-     */
-    private fun distanceFromPointToFeature(feature: FeatureData, point: LatLng): Double {
+        // Select a feature via the shared screen-space hit-testing seam used by
+        // the other editors, so selection tolerance follows the map zoom level
+        val targetSources = listOf(
+            GeomanCoreConstants.SOURCE_LINES,
+            GeomanCoreConstants.SOURCE_POLYGONS,
+            GeomanCoreConstants.SOURCE_CIRCLES,
+            GeomanCoreConstants.SOURCE_RECTANGLES,
+        )
+
         val clickPoint = LngLat(point.longitude, point.latitude)
-        val geometry = feature.geometry
-        return when (geometry) {
-            is com.geoman.maplibre.geoman.types.geojson.Point -> {
-                GeometryUtils.distance(clickPoint, geometry.toLngLat())
-            }
-
-            is com.geoman.maplibre.geoman.types.geojson.LineString -> {
-                val coords = geometry.toLngLats()
-                if (coords.size < 2) {
-                    Double.MAX_VALUE
-                } else {
-                    GeometryUtils.distance(clickPoint, GeometryUtils.nearestPointOnPolyline(clickPoint, coords))
-                }
-            }
-
-            is com.geoman.maplibre.geoman.types.geojson.Polygon -> {
-                val ring = geometry.getExteriorRing()
-                if (ring.size < 2) {
-                    Double.MAX_VALUE
-                } else {
-                    GeometryUtils.distance(clickPoint, GeometryUtils.nearestPointOnPolyline(clickPoint, ring))
-                }
-            }
-
-            else -> Double.MAX_VALUE
-        }
+        queryFeaturesAt(clickPoint, targetSources).firstOrNull()?.let { startEditing(it) }
     }
 
     private fun startEditing(feature: FeatureData) {

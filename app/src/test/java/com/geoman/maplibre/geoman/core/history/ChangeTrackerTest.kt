@@ -29,7 +29,7 @@ class ChangeTrackerTest {
         tracker.record(change(original, moved))
 
         assertTrue(tracker.canUndo)
-        assertEquals(original, tracker.undo()?.before)
+        assertEquals(original, (tracker.undo() as GeometryChange).before)
         assertFalse(tracker.canUndo)
     }
 
@@ -43,7 +43,7 @@ class ChangeTrackerTest {
         tracker.undo()
 
         assertTrue(tracker.canRedo)
-        assertEquals(moved, tracker.redo()?.after)
+        assertEquals(moved, (tracker.redo() as GeometryChange).after)
         assertFalse(tracker.canRedo)
     }
 
@@ -57,8 +57,8 @@ class ChangeTrackerTest {
         tracker.record(change(v1, v2))
         tracker.record(change(v2, v3))
 
-        assertEquals(v2, tracker.undo()?.before)
-        assertEquals(v1, tracker.undo()?.before)
+        assertEquals(v2, (tracker.undo() as GeometryChange).before)
+        assertEquals(v1, (tracker.undo() as GeometryChange).before)
     }
 
     @Test
@@ -97,7 +97,7 @@ class ChangeTrackerTest {
         // Only the last 3 changes remain; the oldest is 2 -> 3
         var count = 0
         while (tracker.canUndo) {
-            val change = tracker.undo()!!
+            val change = tracker.undo() as GeometryChange
             if (count == 2) {
                 assertEquals(2.0, (change.before as LineString).coordinates[0][0], 1e-9)
             }
@@ -122,5 +122,52 @@ class ChangeTrackerTest {
     fun `undo on empty history returns null`() {
         assertNull(ChangeTracker().undo())
         assertNull(ChangeTracker().redo())
+    }
+
+    @Test
+    fun `split change round-trips through undo and redo`() {
+        val tracker = ChangeTracker()
+        val original = com.geoman.maplibre.geoman.types.geojson.Feature(
+            id = "line",
+            geometry = line(0.0, 0.0, 4.0, 0.0),
+        )
+        val part1 = com.geoman.maplibre.geoman.types.geojson.Feature(
+            id = "cut-a",
+            geometry = line(0.0, 0.0, 2.0, 0.0),
+        )
+        val part2 = com.geoman.maplibre.geoman.types.geojson.Feature(
+            id = "cut-b",
+            geometry = line(2.0, 0.0, 4.0, 0.0),
+        )
+
+        tracker.record(SplitChange(sourceName = "gm_lines", original = original, parts = listOf(part1, part2)))
+        tracker.record(change(line(0.0, 0.0), line(1.0, 1.0)))
+
+        // Undo the geometry edit first, then the split
+        assertTrue(tracker.canUndo)
+        tracker.undo()
+        assertTrue(tracker.undo() is SplitChange)
+
+        assertTrue(tracker.canRedo)
+        val redone = tracker.redo()
+        assertTrue(redone is SplitChange)
+        assertEquals(original, (redone as SplitChange).original)
+        assertEquals(listOf(part1, part2), redone.parts)
+    }
+
+    @Test
+    fun `recording after undoing a split clears redo`() {
+        val tracker = ChangeTracker()
+        val original = com.geoman.maplibre.geoman.types.geojson.Feature(
+            id = "line",
+            geometry = line(0.0, 0.0, 4.0, 0.0),
+        )
+        val part = com.geoman.maplibre.geoman.types.geojson.Feature(id = "cut-a", geometry = line(0.0, 0.0))
+
+        tracker.record(SplitChange(sourceName = "gm_lines", original = original, parts = listOf(part)))
+        tracker.undo()
+        tracker.record(change(line(0.0, 0.0), line(1.0, 1.0)))
+
+        assertFalse(tracker.canRedo)
     }
 }

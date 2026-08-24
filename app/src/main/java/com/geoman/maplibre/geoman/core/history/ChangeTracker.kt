@@ -1,21 +1,32 @@
 package com.geoman.maplibre.geoman.core.history
 
+import com.geoman.maplibre.geoman.types.geojson.Feature
 import com.geoman.maplibre.geoman.types.geojson.Geometry
 
 /**
  * A single geometry change: what a feature's geometry looked like before and
  * after an edit operation.
  */
-data class GeometryChange(val sourceName: String, val featureId: String, val before: Geometry, val after: Geometry)
+data class GeometryChange(val sourceName: String, val featureId: String, val before: Geometry, val after: Geometry) :
+    HistoryEntry
 
 /**
- * Undo/redo history for geometry edits.
+ * A structural change that replaced one feature with several parts (a cut).
+ * Undoing re-adds [original] and removes the parts; redoing reverses it.
+ */
+data class SplitChange(val sourceName: String, val original: Feature, val parts: List<Feature>) : HistoryEntry
+
+/**
+ * Undo/redo history entry for edits tracked by [ChangeTracker].
+ */
+sealed interface HistoryEntry
+
+/**
+ * Undo/redo history for feature edits.
  *
- * Editors record every applied geometry change through [record]. Undoing
- * returns a change whose `before` holds the geometry to restore; redoing
- * returns one whose `after` holds the geometry to re-apply.
- *
- * Purely mechanical — applying changes back to the store is the caller's job.
+ * Editors record every applied change through [record]. Undoing returns an
+ * entry describing the state to restore; redoing returns one describing the
+ * state to re-apply. Applying changes back to the store is the caller's job.
  */
 class ChangeTracker(private val maxHistory: Int = DEFAULT_MAX_HISTORY) {
 
@@ -23,8 +34,8 @@ class ChangeTracker(private val maxHistory: Int = DEFAULT_MAX_HISTORY) {
         const val DEFAULT_MAX_HISTORY = 100
     }
 
-    private val undoStack = ArrayDeque<GeometryChange>()
-    private val redoStack = ArrayDeque<GeometryChange>()
+    private val undoStack = ArrayDeque<HistoryEntry>()
+    private val redoStack = ArrayDeque<HistoryEntry>()
 
     val canUndo: Boolean get() = undoStack.isNotEmpty()
     val canRedo: Boolean get() = redoStack.isNotEmpty()
@@ -33,10 +44,11 @@ class ChangeTracker(private val maxHistory: Int = DEFAULT_MAX_HISTORY) {
      * Record an applied change. Clears the redo stack, since a new edit makes
      * any redoable state stale.
      */
-    fun record(change: GeometryChange) {
-        if (change.before == change.after) return
+    fun record(entry: HistoryEntry) {
+        if (entry is GeometryChange && entry.before == entry.after) return
+        if (entry is SplitChange && entry.parts.isEmpty()) return
 
-        undoStack.addLast(change)
+        undoStack.addLast(entry)
         if (undoStack.size > maxHistory) {
             undoStack.removeFirst()
         }
@@ -44,21 +56,21 @@ class ChangeTracker(private val maxHistory: Int = DEFAULT_MAX_HISTORY) {
     }
 
     /**
-     * Pop the most recent change; restore `change.before` to undo the edit.
+     * Pop the most recent entry; its "before" state undoes the edit.
      */
-    fun undo(): GeometryChange? {
-        val change = undoStack.removeLastOrNull() ?: return null
-        redoStack.addLast(change)
-        return change
+    fun undo(): HistoryEntry? {
+        val entry = undoStack.removeLastOrNull() ?: return null
+        redoStack.addLast(entry)
+        return entry
     }
 
     /**
-     * Pop the most recently undone change; apply `change.after` to redo it.
+     * Pop the most recently undone entry; its "after" state redoes the edit.
      */
-    fun redo(): GeometryChange? {
-        val change = redoStack.removeLastOrNull() ?: return null
-        undoStack.addLast(change)
-        return change
+    fun redo(): HistoryEntry? {
+        val entry = redoStack.removeLastOrNull() ?: return null
+        undoStack.addLast(entry)
+        return entry
     }
 
     /**

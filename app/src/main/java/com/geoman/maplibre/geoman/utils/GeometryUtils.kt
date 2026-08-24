@@ -23,6 +23,34 @@ import kotlin.math.sqrt
 object GeometryUtils {
 
     private const val EARTH_RADIUS_METERS = 6371000.0
+    private const val HALF_CIRCLE_DEGREES = 180.0
+    private const val FULL_CIRCLE_DEGREES = 360.0
+
+    /**
+     * Normalize an angle in degrees into the range (-180, 180].
+     *
+     * Used to keep incremental rotation deltas small when a bearing crosses
+     * the ±180° discontinuity: e.g. normalizeAngleDegrees(350.0) == -10.0.
+     */
+    fun normalizeAngleDegrees(degrees: Double): Double {
+        val wrapped = degrees % FULL_CIRCLE_DEGREES
+        return when {
+            wrapped > HALF_CIRCLE_DEGREES -> wrapped - FULL_CIRCLE_DEGREES
+            wrapped <= -HALF_CIRCLE_DEGREES -> wrapped + FULL_CIRCLE_DEGREES
+            else -> wrapped
+        }
+    }
+
+    /**
+     * Wrap [longitude] into the GeoJSON range [-180, 180] so coordinates
+     * computed near the antimeridian (e.g. circle vertices at 180.05°)
+     * stay valid.
+     */
+    fun normalizeLongitude(longitude: Double): Double {
+        var normalized = (longitude + HALF_CIRCLE_DEGREES) % FULL_CIRCLE_DEGREES
+        if (normalized < 0) normalized += FULL_CIRCLE_DEGREES
+        return normalized - HALF_CIRCLE_DEGREES
+    }
 
     fun centroid(coordinates: List<LngLat>): LngLat {
         require(coordinates.isNotEmpty()) { "Coordinates list cannot be empty" }
@@ -279,7 +307,7 @@ object GeometryUtils {
         )
 
         return LngLat(
-            longitude = Math.toDegrees(lon2Rad),
+            longitude = normalizeLongitude(Math.toDegrees(lon2Rad)),
             latitude = Math.toDegrees(lat2Rad),
         )
     }

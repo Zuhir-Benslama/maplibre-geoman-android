@@ -19,6 +19,8 @@ import com.geoman.maplibre.geoman.core.events.GmEventBus
 import com.geoman.maplibre.geoman.core.features.FeatureData
 import com.geoman.maplibre.geoman.core.features.Features
 import com.geoman.maplibre.geoman.core.history.ChangeTracker
+import com.geoman.maplibre.geoman.core.history.GeometryChange
+import com.geoman.maplibre.geoman.core.history.SplitChange
 import com.geoman.maplibre.geoman.core.io.GeoJsonCodec
 import com.geoman.maplibre.geoman.core.io.ImportResult
 import com.geoman.maplibre.geoman.core.options.GmOptions
@@ -291,21 +293,27 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
                 actionInstances[key] = it
                 it.enable()
 
-                _control?.activeModes?.removeAll { it.first == type }
-                _control?.activeModes?.add(type to name)
+                // A one-shot action may have disabled itself during enable()
+                // (e.g. ZoomToFitHelper). In that case disableMode() already
+                // cleaned up bookkeeping, so only refresh it when the action
+                // is still registered.
+                if (actionInstances[key] === it) {
+                    _control?.activeModes?.removeAll { active -> active.first == type }
+                    _control?.activeModes?.add(type to name)
 
-                options.enableMode(type, name)
-                _activeModesFlow.value = getEnabledModes()
+                    options.enableMode(type, name)
+                    _activeModesFlow.value = getEnabledModes()
+                }
             }
         }
 
         // Fire event outside the lock to avoid holding it during coroutine dispatch
-        actionInstances[key]?.let {
-            scope.launch {
+        when (actionInstances[key]) {
+            null -> GeomanLogger.d(TAG, "Mode $type.$name disabled itself during enable()")
+
+            else -> scope.launch {
                 events.emit(GmModeEvent.Enable(name, type.name))
             }
-        } ?: run {
-            GeomanLogger.e(TAG, "Failed to create action for $type.$name")
         }
     }
 
@@ -492,22 +500,44 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
     }
 
     /**
-     * Undo the most recent geometry edit. Returns true when a change was
-     * restored.
+     * Undo the most recent edit (geometry change or structural split).
+     * Returns true when a change was restored.
      */
     fun undo(): Boolean {
-        val change = history.undo() ?: return false
-        applyGeometry(change.sourceName, change.featureId, change.before)
+        val entry = history.undo() ?: return false
+        when (entry) {
+            is GeometryChange -> applyGeometry(entry.sourceName, entry.featureId, entry.before)
+
+            is SplitChange -> {
+                // Restore the pre-cut state: drop the parts, re-add the original
+                entry.parts.forEach { part ->
+                    val partId = part.id ?: return@forEach
+                    features.removeFeature(entry.sourceName, partId)
+                }
+                features.addGeoJsonFeature(entry.original, entry.sourceName)
+            }
+        }
         return true
     }
 
     /**
-     * Re-apply the most recently undone geometry edit. Returns true when a
-     * change was restored.
+     * Re-apply the most recently undone edit. Returns true when a change was
+     * restored.
      */
     fun redo(): Boolean {
-        val change = history.redo() ?: return false
-        applyGeometry(change.sourceName, change.featureId, change.after)
+        val entry = history.redo() ?: return false
+        when (entry) {
+            is GeometryChange -> applyGeometry(entry.sourceName, entry.featureId, entry.after)
+
+            is SplitChange -> {
+                // Re-apply the cut: remove the original, re-add the parts
+                val originalId = entry.original.id
+                if (originalId != null) {
+                    features.removeFeature(entry.sourceName, originalId)
+                }
+                entry.parts.forEach { features.addGeoJsonFeature(it, entry.sourceName) }
+            }
+        }
         return true
     }
 
