@@ -5,7 +5,6 @@ import android.graphics.drawable.GradientDrawable
 import android.view.View
 import android.view.ViewGroup
 import com.geoman.maplibre.geoman.BaseAction
-import com.geoman.maplibre.geoman.Geoman
 import com.geoman.maplibre.geoman.GeomanApi
 import com.geoman.maplibre.geoman.adapter.DomMarker
 import com.geoman.maplibre.geoman.adapter.DomMarkerOptions
@@ -87,8 +86,7 @@ abstract class BaseEdit(geoman: GeomanApi) : BaseAction(geoman) {
      * context; tests override the marker seams above and never reach this.
      */
     private fun createHandleView(handleColor: Int, strokeDp: Float): View {
-        val context = (geoman as? Geoman)?.mapView?.context
-            ?: throw IllegalStateException("handle views require the platform Geoman")
+        val context = geoman.mapActions.getContext()
         val size = (HANDLE_SIZE_DP * context.resources.displayMetrics.density).toInt()
         val view = View(context)
         view.layoutParams = ViewGroup.LayoutParams(size, size)

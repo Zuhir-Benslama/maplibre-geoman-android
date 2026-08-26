@@ -1,5 +1,6 @@
 package com.geoman.maplibre.geoman
 
+import android.content.Context
 import com.geoman.maplibre.geoman.adapter.DomMarker
 import com.geoman.maplibre.geoman.adapter.DomMarkerOptions
 import com.geoman.maplibre.geoman.core.events.GmEventBus
@@ -23,6 +24,8 @@ interface EditorMapActions {
     fun queryFeaturesByScreenCoordinates(point: ScreenPoint, sourceNames: List<String>): List<FeatureData>
 
     fun createDomMarker(options: DomMarkerOptions, position: LngLat): DomMarker
+
+    fun getContext(): Context
 }
 
 /**

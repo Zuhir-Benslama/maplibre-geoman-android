@@ -42,6 +42,10 @@ object GeomanLogger {
     var delegate: Delegate = DefaultDelegate
 
     fun d(tag: String, message: String) = delegate.d(tag, message)
+    inline fun d(tag: String, lazyMessage: () -> String) {
+        delegate.d(tag, lazyMessage())
+    }
+
     fun e(tag: String, message: String, throwable: Throwable? = null) = delegate.e(tag, message, throwable)
     fun w(tag: String, message: String, throwable: Throwable? = null) = delegate.w(tag, message, throwable)
 }

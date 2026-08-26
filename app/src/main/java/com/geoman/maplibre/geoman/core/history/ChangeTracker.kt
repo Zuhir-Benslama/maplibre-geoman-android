@@ -34,11 +34,12 @@ class ChangeTracker(private val maxHistory: Int = DEFAULT_MAX_HISTORY) {
         const val DEFAULT_MAX_HISTORY = 100
     }
 
+    private val lock = Any()
     private val undoStack = ArrayDeque<HistoryEntry>()
     private val redoStack = ArrayDeque<HistoryEntry>()
 
-    val canUndo: Boolean get() = undoStack.isNotEmpty()
-    val canRedo: Boolean get() = redoStack.isNotEmpty()
+    val canUndo: Boolean get() = synchronized(lock) { undoStack.isNotEmpty() }
+    val canRedo: Boolean get() = synchronized(lock) { redoStack.isNotEmpty() }
 
     /**
      * Record an applied change. Clears the redo stack, since a new edit makes
@@ -48,35 +49,37 @@ class ChangeTracker(private val maxHistory: Int = DEFAULT_MAX_HISTORY) {
         if (entry is GeometryChange && entry.before == entry.after) return
         if (entry is SplitChange && entry.parts.isEmpty()) return
 
-        undoStack.addLast(entry)
-        if (undoStack.size > maxHistory) {
-            undoStack.removeFirst()
+        synchronized(lock) {
+            undoStack.addLast(entry)
+            if (undoStack.size > maxHistory) {
+                undoStack.removeFirst()
+            }
+            redoStack.clear()
         }
-        redoStack.clear()
     }
 
     /**
      * Pop the most recent entry; its "before" state undoes the edit.
      */
-    fun undo(): HistoryEntry? {
+    fun undo(): HistoryEntry? = synchronized(lock) {
         val entry = undoStack.removeLastOrNull() ?: return null
         redoStack.addLast(entry)
-        return entry
+        entry
     }
 
     /**
      * Pop the most recently undone entry; its "after" state redoes the edit.
      */
-    fun redo(): HistoryEntry? {
+    fun redo(): HistoryEntry? = synchronized(lock) {
         val entry = redoStack.removeLastOrNull() ?: return null
         undoStack.addLast(entry)
-        return entry
+        entry
     }
 
     /**
      * Drop all history.
      */
-    fun clear() {
+    fun clear() = synchronized(lock) {
         undoStack.clear()
         redoStack.clear()
     }

@@ -80,7 +80,7 @@ class SnapHelper(geoman: Geoman) : BaseHelper(geoman) {
         for (feature in allFeatures) {
             val snapped = snapToFeature(point, feature)
             if (snapped != null) {
-                val distance = GeometryUtils.calculateDistance(pointLngLat, snapped)
+                val distance = GeometryUtils.distance(pointLngLat, snapped)
 
                 if (distance < minDistance) {
                     minDistance = distance

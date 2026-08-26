@@ -119,6 +119,7 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
 
     // Coroutine scope with exception handler to prevent silent coroutine failures
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        if (throwable is CancellationException) throw throwable
         GeomanLogger.e(TAG, "Uncaught coroutine exception", throwable as? Exception ?: Exception(throwable))
     }
     override val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main + exceptionHandler)
@@ -134,6 +135,8 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
 
         override fun createDomMarker(options: DomMarkerOptions, position: LngLat): DomMarker =
             mapAdapter.createDomMarker(options, position)
+
+        override fun getContext(): android.content.Context = mapView.context
     }
 
     // Pending base map wait

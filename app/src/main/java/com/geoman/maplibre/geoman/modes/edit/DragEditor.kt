@@ -5,8 +5,8 @@ import com.geoman.maplibre.geoman.GeomanApi
 import com.geoman.maplibre.geoman.adapter.DomMarker
 import com.geoman.maplibre.geoman.adapter.DomMarkerOptions
 import com.geoman.maplibre.geoman.adapter.MarkerAnchor
-import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.core.features.FeatureData
+import com.geoman.maplibre.geoman.core.features.FeatureSources
 import com.geoman.maplibre.geoman.types.EditModeName
 import com.geoman.maplibre.geoman.types.events.GmEditEvent
 import com.geoman.maplibre.geoman.types.geojson.LineString
@@ -59,7 +59,7 @@ open class DragEditor(geoman: GeomanApi) : BaseEdit(geoman) {
     fun startDrag(point: LatLng) {
         if (!enabled || selectedFeature == null || isDragging) return
 
-        val feature = selectedFeature ?: return
+        val feature = selectedFeature!!
         isDragging = true
         dragStartPoint = point
 
@@ -156,13 +156,6 @@ open class DragEditor(geoman: GeomanApi) : BaseEdit(geoman) {
         }
 
     private companion object {
-        val DRAG_SOURCES = listOf(
-            GeomanCoreConstants.SOURCE_MARKERS,
-            GeomanCoreConstants.SOURCE_CIRCLE_MARKERS,
-            GeomanCoreConstants.SOURCE_LINES,
-            GeomanCoreConstants.SOURCE_POLYGONS,
-            GeomanCoreConstants.SOURCE_CIRCLES,
-            GeomanCoreConstants.SOURCE_RECTANGLES,
-        )
+        val DRAG_SOURCES = FeatureSources.ALL_EDITABLE
     }
 }

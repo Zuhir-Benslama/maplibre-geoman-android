@@ -3,6 +3,7 @@ package com.geoman.maplibre.geoman
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 
 @Deprecated("Use GeomanCoreConstants instead", ReplaceWith("GeomanCoreConstants"))
+@Suppress("DEPRECATION")
 object GeomanConstants {
     const val PREFIX = GeomanCoreConstants.GM_PREFIX
     const val EVENT_LOADED = GeomanCoreConstants.Events.LOADED

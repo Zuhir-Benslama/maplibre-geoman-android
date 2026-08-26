@@ -22,7 +22,7 @@ import kotlinx.serialization.json.JsonPrimitive
  */
 internal object GeoJsonEncoder {
 
-    val prettyJson = kotlinx.serialization.json.Json { prettyPrint = true }
+    val prettyJson: kotlinx.serialization.json.Json get() = GeoJsonCodec.json
 
     fun featureCollection(features: List<FeatureData>): JsonObject = JsonObject(
         mapOf(

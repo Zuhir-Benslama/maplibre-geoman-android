@@ -12,7 +12,6 @@ import com.geoman.maplibre.geoman.core.features.FeatureData
 import com.geoman.maplibre.geoman.types.CursorType
 import com.geoman.maplibre.geoman.types.MapInteraction
 import com.geoman.maplibre.geoman.types.geojson.FeatureCollection
-import com.geoman.maplibre.geoman.types.geojson.GeoJsonFeatureData
 import com.geoman.maplibre.geoman.types.geojson.LatLngBounds
 import com.geoman.maplibre.geoman.types.geojson.LngLat
 import com.geoman.maplibre.geoman.types.geojson.ScreenPoint
@@ -63,21 +62,23 @@ class MapLibreAdapter(map: MapLibreMap, geoman: Geoman, private val mapView: Map
 
     override fun addControl(control: GmControl) {
         GeomanLogger.d("Geoman", "addControl called, registering click listeners")
-        mapClickListener = MapLibreMap.OnMapClickListener { point: LatLng ->
-            GeomanLogger.d("Geoman", "Map click received: $point, activeModes: ${control.activeModes}")
+        val clickListener = MapLibreMap.OnMapClickListener { point: LatLng ->
+            GeomanLogger.d("Geoman") { "Map click received: $point, activeModes: ${control.activeModes}" }
             val result = control.onMapClick(point)
-            GeomanLogger.d("Geoman", "Map click handled, result: $result")
+            GeomanLogger.d("Geoman") { "Map click handled, result: $result" }
             false
         }
-        map.addOnMapClickListener(mapClickListener!!)
+        mapClickListener = clickListener
+        map.addOnMapClickListener(clickListener)
 
-        mapLongClickListener = MapLibreMap.OnMapLongClickListener { point: LatLng ->
-            GeomanLogger.d("Geoman", "Map long click received: $point, activeModes: ${control.activeModes}")
+        val longClickListener = MapLibreMap.OnMapLongClickListener { point: LatLng ->
+            GeomanLogger.d("Geoman") { "Map long click received: $point, activeModes: ${control.activeModes}" }
             val result = control.onMapLongClick(point)
-            GeomanLogger.d("Geoman", "Map long click handled, result: $result")
+            GeomanLogger.d("Geoman") { "Map long click handled, result: $result" }
             false
         }
-        map.addOnMapLongClickListener(mapLongClickListener!!)
+        mapLongClickListener = longClickListener
+        map.addOnMapLongClickListener(longClickListener)
 
         val touchListener = View.OnTouchListener { view, event ->
             if (event.action == MotionEvent.ACTION_UP) {
@@ -245,29 +246,6 @@ class MapLibreAdapter(map: MapLibreMap, geoman: Geoman, private val mapView: Map
                             id = geoJsonFeature.id ?: "",
                             sourceName = sourceId,
                             feature = geoJsonFeature,
-                        ),
-                    )
-                }
-            }
-        }
-
-        return features
-    }
-
-    override fun queryGeoJsonFeatures(
-        queryCoordinates: ScreenPoint,
-        sourceNames: List<String>,
-    ): List<GeoJsonFeatureData> {
-        val features = mutableListOf<GeoJsonFeatureData>()
-
-        sources.forEach { (sourceId, source) ->
-            if (sourceNames.contains(sourceId)) {
-                source.getFeaturesAtPoint(queryCoordinates)?.forEach { feature ->
-                    features.add(
-                        FeatureData(
-                            id = feature.id ?: "",
-                            sourceName = sourceId,
-                            feature = feature,
                         ),
                     )
                 }

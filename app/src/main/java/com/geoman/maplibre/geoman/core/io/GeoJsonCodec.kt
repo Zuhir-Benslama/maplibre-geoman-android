@@ -35,7 +35,7 @@ data class ImportResult(val features: List<FeatureData>, val errors: List<Import
  */
 object GeoJsonCodec {
 
-    private val json = Json { prettyPrint = true }
+    internal val json = Json { prettyPrint = true }
 
     /**
      * Encode a list of features as a pretty-printed FeatureCollection string.

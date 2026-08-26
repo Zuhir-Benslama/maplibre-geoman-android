@@ -185,7 +185,9 @@ object GeometryUtils {
             }
         }
 
-        else -> emptyList()
+        is com.geoman.maplibre.geoman.types.geojson.GeometryCollection -> {
+            geometry.geometries.flatMap { extractAllCoordinates(it) }
+        }
     }
 
     fun area(coordinates: List<LngLat>): Double {
@@ -275,6 +277,7 @@ object GeometryUtils {
     /**
      * Calculate distance between two LngLat points (existing API)
      */
+    @Deprecated("Use distance() instead", ReplaceWith("distance(point1, point2)"))
     fun calculateDistance(point1: LngLat, point2: LngLat): Double = distance(point1, point2)
 
     fun generateCircleCoordinates(center: LngLat, radius: Double, steps: Int = 64): List<LngLat> {
@@ -315,6 +318,7 @@ object GeometryUtils {
     /**
      * Calculate centroid for edit mode (existing API alias)
      */
+    @Deprecated("Use centroid() instead", ReplaceWith("centroid(coordinates)"))
     fun calculateCentroid(coordinates: List<LngLat>): LngLat = centroid(coordinates)
 
     fun nearestPointOnPolyline(point: LngLat, coordinates: List<LngLat>): LngLat {

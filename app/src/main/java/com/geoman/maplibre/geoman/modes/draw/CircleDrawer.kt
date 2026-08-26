@@ -31,7 +31,7 @@ class CircleDrawer(geoman: Geoman) : BaseDraw(geoman) {
             center = clickLngLat
         } else {
             // Second click - set radius and finish
-            val radius = GeometryUtils.calculateDistance(c, clickLngLat)
+            val radius = GeometryUtils.distance(c, clickLngLat)
             createCircleFeature(c, radius)
             finishDrawing()
         }

@@ -301,10 +301,10 @@ class MapLibreDomMarker(
         if (!isAdded) return
 
         mapLibreMap.style?.removeImage("marker-icon-$id")
-        markersByMap[mapLibreMap]?.let { map ->
-            synchronized(map) {
-                map.remove(id)
-                if (map.isEmpty()) {
+        markersByMap[mapLibreMap]?.let { markers ->
+            synchronized(markers) {
+                markers.remove(id)
+                if (markers.isEmpty()) {
                     markersByMap.remove(mapLibreMap)
                 }
             }

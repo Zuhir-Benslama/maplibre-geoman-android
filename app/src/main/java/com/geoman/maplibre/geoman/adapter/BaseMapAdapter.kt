@@ -9,7 +9,6 @@ import com.geoman.maplibre.geoman.core.features.FeatureData
 import com.geoman.maplibre.geoman.types.CursorType
 import com.geoman.maplibre.geoman.types.MapInteraction
 import com.geoman.maplibre.geoman.types.geojson.FeatureCollection
-import com.geoman.maplibre.geoman.types.geojson.GeoJsonFeatureData
 import com.geoman.maplibre.geoman.types.geojson.LatLngBounds
 import com.geoman.maplibre.geoman.types.geojson.LngLat
 import com.geoman.maplibre.geoman.types.geojson.ScreenPoint
@@ -106,14 +105,6 @@ abstract class BaseMapAdapter<TMap>(protected val map: TMap, val geoman: Geoman)
         queryCoordinates: ScreenPoint,
         sourceNames: List<String>,
     ): List<FeatureData>
-
-    /**
-     * Query GeoJSON features by screen coordinates
-     */
-    abstract fun queryGeoJsonFeatures(
-        queryCoordinates: ScreenPoint,
-        sourceNames: List<String>,
-    ): List<GeoJsonFeatureData>
 
     /**
      * Add a GeoJSON source

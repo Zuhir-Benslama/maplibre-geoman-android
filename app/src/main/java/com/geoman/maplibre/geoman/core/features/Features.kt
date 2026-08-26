@@ -33,14 +33,20 @@ data class FeatureData(
     /**
      * A copy that shares no mutable collections with the original: both
      * property-map containers are recreated, so later mutation of either
-     * instance's maps cannot leak into the other. Leaf values are shared and
-     * assumed immutable (JSON-style primitives, lists, and maps), matching
-     * what the store and GeoJSON codec produce.
+     * instance's maps cannot leak into the other. Leaf values are deeply
+     * copied where possible (lists and maps) to prevent mutation through
+     * shared references.
      */
     fun deepCopy(): FeatureData = copy(
-        feature = feature.copy(properties = HashMap(feature.properties)),
-        properties = HashMap(properties),
+        feature = feature.copy(properties = feature.properties.mapValues { deepCopyValue(it.value) }),
+        properties = properties.mapValues { deepCopyValue(it.value) },
     )
+
+    private fun deepCopyValue(value: Any?): Any? = when (value) {
+        is Map<*, *> -> value.mapValues { deepCopyValue(it.value) }
+        is List<*> -> value.map { deepCopyValue(it) }
+        else -> value
+    }
 }
 
 /**
@@ -56,6 +62,12 @@ object FeatureSources {
     const val EDIT = GeomanCoreConstants.SOURCE_EDIT
     const val HELPER = GeomanCoreConstants.SOURCE_HELPER
     const val SNAP_GUIDES = "gm_snap_guides"
+
+    /** All user-editable feature source names, used by editors for hit-testing. */
+    val ALL_EDITABLE: List<String> = listOf(MARKER, CIRCLE_MARKER, LINE, POLYGON, CIRCLE, RECTANGLE)
+
+    /** Non-marker editable sources (used by editors that exclude markers from selection). */
+    val EDITABLE_WITHOUT_MARKERS: List<String> = listOf(LINE, POLYGON, CIRCLE, RECTANGLE)
 }
 
 /**

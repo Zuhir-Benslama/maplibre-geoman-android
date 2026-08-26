@@ -73,6 +73,9 @@ class EditorInteractionTest {
 
         override fun createDomMarker(options: DomMarkerOptions, position: LngLat): DomMarker =
             FakeDomMarker(position).also { markers.add(it) }
+
+        override fun getContext(): android.content.Context =
+            throw UnsupportedOperationException("No Android context in unit tests")
     }
 
     private class FakeGeoman : GeomanApi {

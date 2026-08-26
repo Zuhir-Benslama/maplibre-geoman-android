@@ -16,14 +16,16 @@ import org.maplibre.android.maps.MapLibreMap
  * MapLibre popup implementation
  */
 class MapLibrePopup(
-    map: MapLibreMap,
+    map: Any,
     private val context: Context,
     private var options: PopupOptions,
     private var lngLat: LngLat? = null,
     private val mapView: ViewGroup,
 ) : Popup(map) {
 
-    private val mapLibreMap: MapLibreMap = map
+    private val mapLibreMap: MapLibreMap = map as? MapLibreMap
+        ?: throw IllegalArgumentException("Expected MapLibreMap but got ${map::class.simpleName}")
+
     private var popupWindow: PopupWindow? = null
     private var contentView: View? = null
     private var isAdded = false

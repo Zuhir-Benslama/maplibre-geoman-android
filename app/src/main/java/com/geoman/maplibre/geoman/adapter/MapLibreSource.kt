@@ -2,11 +2,11 @@ package com.geoman.maplibre.geoman.adapter
 
 import com.geoman.maplibre.geoman.Geoman
 import com.geoman.maplibre.geoman.GeomanLogger
+import com.geoman.maplibre.geoman.core.io.GeoJsonEncoder
 import com.geoman.maplibre.geoman.types.geojson.FeatureCollection
 import com.geoman.maplibre.geoman.types.geojson.LngLat
 import com.geoman.maplibre.geoman.types.geojson.ScreenPoint
-import org.json.JSONArray
-import org.json.JSONObject
+import kotlinx.serialization.json.JsonObject
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.style.sources.GeoJsonSource
 import com.geoman.maplibre.geoman.types.geojson.Feature as GeoJsonFeature
@@ -67,119 +67,22 @@ class MapLibreSource(
     }
 
     /**
-     * Convert FeatureCollection to JSON string using org.json
+     * Convert FeatureCollection to JSON string using GeoJsonEncoder.
      */
     private fun featureCollectionToJson(fc: FeatureCollection): String {
-        val obj = JSONObject().apply {
-            put("type", "FeatureCollection")
-            put("features", JSONArray(fc.features.map { featureToJson(it) }))
-        }
-        return obj.toString()
-    }
-
-    /**
-     * Convert Feature to JSON string using org.json
-     */
-    private fun featureToJson(feature: GeoJsonFeature): JSONObject = JSONObject().apply {
-        put("type", "Feature")
-        feature.id?.let { put("id", it) }
-        put("geometry", geometryToJson(feature.geometry))
-        val props = JSONObject()
-        feature.properties.forEach { (k, v) ->
-            putPropertyValue(props, k, v)
-        }
-        put("properties", props)
-    }
-
-    private fun putPropertyValue(props: JSONObject, key: String, value: Any?) {
-        if (value == null) {
-            props.put(key, JSONObject.NULL)
-            return
-        }
-        when (value) {
-            is Number -> props.put(key, value)
-
-            is Boolean -> props.put(key, value)
-
-            is String -> props.put(key, value)
-
-            is LngLat -> props.put(key, JSONArray(value.toArray()))
-
-            is List<*> -> props.put(
-                key,
-                JSONArray(
-                    value.map { listItem ->
-                        when (listItem) {
-                            is LngLat -> JSONArray(listItem.toArray())
-                            else -> listItem
-                        }
-                    },
-                ),
+        val encoder = GeoJsonEncoder
+        val featureDataList = fc.features.map { feature ->
+            com.geoman.maplibre.geoman.core.features.FeatureData(
+                id = feature.id ?: "",
+                sourceName = sourceId,
+                feature = feature,
             )
-
-            else -> props.put(key, value.toString())
         }
+        return kotlinx.serialization.json.Json.encodeToString(
+            JsonObject.serializer(),
+            encoder.featureCollection(featureDataList),
+        )
     }
-
-    @Suppress("CyclomaticComplexMethod")
-    private fun geometryToJson(geometry: com.geoman.maplibre.geoman.types.geojson.Geometry): JSONObject =
-        when (geometry) {
-            is com.geoman.maplibre.geoman.types.geojson.Point -> JSONObject().apply {
-                put("type", "Point")
-                put("coordinates", JSONArray(geometry.coordinates))
-            }
-
-            is com.geoman.maplibre.geoman.types.geojson.LineString -> JSONObject().apply {
-                put("type", "LineString")
-                put("coordinates", JSONArray(geometry.coordinates.map { JSONArray(it) }))
-            }
-
-            is com.geoman.maplibre.geoman.types.geojson.Polygon -> JSONObject().apply {
-                put("type", "Polygon")
-                put(
-                    "coordinates",
-                    JSONArray(
-                        geometry.coordinates.map { ring ->
-                            JSONArray(ring.map { JSONArray(it) })
-                        },
-                    ),
-                )
-            }
-
-            is com.geoman.maplibre.geoman.types.geojson.MultiPolygon -> JSONObject().apply {
-                put("type", "MultiPolygon")
-                put(
-                    "coordinates",
-                    JSONArray(
-                        geometry.coordinates.map { polygon ->
-                            JSONArray(polygon.map { ring -> JSONArray(ring.map { JSONArray(it) }) })
-                        },
-                    ),
-                )
-            }
-
-            is com.geoman.maplibre.geoman.types.geojson.MultiPoint -> JSONObject().apply {
-                put("type", "MultiPoint")
-                put("coordinates", JSONArray(geometry.coordinates.map { JSONArray(it) }))
-            }
-
-            is com.geoman.maplibre.geoman.types.geojson.MultiLineString -> JSONObject().apply {
-                put("type", "MultiLineString")
-                put(
-                    "coordinates",
-                    JSONArray(
-                        geometry.coordinates.map { line ->
-                            JSONArray(line.map { JSONArray(it) })
-                        },
-                    ),
-                )
-            }
-
-            is com.geoman.maplibre.geoman.types.geojson.GeometryCollection -> JSONObject().apply {
-                put("type", "GeometryCollection")
-                put("geometries", JSONArray(geometry.geometries.map { geometryToJson(it) }))
-            }
-        }
 
     /**
      * Get features at a screen point by hit-testing the in-memory features of this

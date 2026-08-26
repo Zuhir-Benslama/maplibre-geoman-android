@@ -1,8 +1,8 @@
 package com.geoman.maplibre.geoman.modes.edit
 
 import com.geoman.maplibre.geoman.GeomanApi
-import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.core.features.FeatureData
+import com.geoman.maplibre.geoman.core.features.FeatureSources
 import com.geoman.maplibre.geoman.types.EditModeName
 import com.geoman.maplibre.geoman.types.events.GmEditEvent
 import com.geoman.maplibre.geoman.types.geojson.LineString
@@ -47,12 +47,7 @@ open class RotateEditor(geoman: GeomanApi) : BaseEdit(geoman) {
         } else {
             val features = queryFeaturesAt(
                 LngLat(point.longitude, point.latitude),
-                listOf(
-                    GeomanCoreConstants.SOURCE_LINES,
-                    GeomanCoreConstants.SOURCE_POLYGONS,
-                    GeomanCoreConstants.SOURCE_CIRCLES,
-                    GeomanCoreConstants.SOURCE_RECTANGLES,
-                ),
+                FeatureSources.EDITABLE_WITHOUT_MARKERS,
             )
 
             if (features.isNotEmpty()) {
@@ -117,13 +112,13 @@ open class RotateEditor(geoman: GeomanApi) : BaseEdit(geoman) {
                 if (coords.isEmpty()) {
                     LngLat(0.0, 0.0)
                 } else {
-                    GeometryUtils.calculateCentroid(coords)
+                    GeometryUtils.centroid(coords)
                 }
             }
 
             is Polygon -> {
                 val ring = geometry.getExteriorRing()
-                GeometryUtils.calculateCentroid(ring)
+                GeometryUtils.centroid(ring)
             }
 
             else -> LngLat(0.0, 0.0)

@@ -20,6 +20,12 @@ internal class FeatureLayerStyler(private val geoman: Geoman?) {
     private companion object {
         const val RGB_MASK = 0xFFFFFF
         const val DEFAULT_CIRCLE_MARKER_RADIUS = 10.0f
+        const val DEFAULT_LINE_COLOR = "#3498db"
+        const val DEFAULT_POLYGON_COLOR = "#8e44ad"
+        const val DEFAULT_CIRCLE_COLOR = "#e74c3c"
+        const val DEFAULT_FALLBACK_COLOR = "#2ecc71"
+        const val DEFAULT_STROKE_WIDTH = 2f
+        const val DEFAULT_LINE_WIDTH = 3f
     }
 
     fun addRenderingLayersForSource(sourceName: String, target: FeatureStoreRenderer) {
@@ -93,11 +99,11 @@ internal class FeatureLayerStyler(private val geoman: Geoman?) {
     private data class LayerDefaults(val color: String, val width: Float)
 
     private fun resolveDefaults(sourceName: String) = when (sourceName) {
-        FeatureSources.LINE -> LayerDefaults("#3498db", 3f)
-        FeatureSources.POLYGON -> LayerDefaults("#8e44ad", 2f)
-        FeatureSources.CIRCLE -> LayerDefaults("#e74c3c", 2f)
-        FeatureSources.CIRCLE_MARKER -> LayerDefaults("#3498db", 2f)
-        else -> LayerDefaults("#2ecc71", 2f)
+        FeatureSources.LINE -> LayerDefaults(DEFAULT_LINE_COLOR, DEFAULT_LINE_WIDTH)
+        FeatureSources.POLYGON -> LayerDefaults(DEFAULT_POLYGON_COLOR, DEFAULT_STROKE_WIDTH)
+        FeatureSources.CIRCLE -> LayerDefaults(DEFAULT_CIRCLE_COLOR, DEFAULT_STROKE_WIDTH)
+        FeatureSources.CIRCLE_MARKER -> LayerDefaults(DEFAULT_LINE_COLOR, DEFAULT_STROKE_WIDTH)
+        else -> LayerDefaults(DEFAULT_FALLBACK_COLOR, DEFAULT_STROKE_WIDTH)
     }
 
     private fun resolveLineColor(styles: LayerStyles?, sourceName: String): String? {

@@ -3,8 +3,8 @@ package com.geoman.maplibre.geoman.modes.edit
 import com.geoman.maplibre.geoman.GeomanApi
 import com.geoman.maplibre.geoman.GeomanLogger
 import com.geoman.maplibre.geoman.adapter.DomMarkerOptions
-import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.core.features.FeatureData
+import com.geoman.maplibre.geoman.core.features.FeatureSources
 import com.geoman.maplibre.geoman.types.EditModeName
 import com.geoman.maplibre.geoman.types.events.GmEditEvent
 import com.geoman.maplibre.geoman.types.geojson.LngLat
@@ -62,12 +62,7 @@ open class ChangeEditor(geoman: GeomanApi) : BaseEdit(geoman) {
 
         // Select a feature via the shared screen-space hit-testing seam used by
         // the other editors, so selection tolerance follows the map zoom level
-        val targetSources = listOf(
-            GeomanCoreConstants.SOURCE_LINES,
-            GeomanCoreConstants.SOURCE_POLYGONS,
-            GeomanCoreConstants.SOURCE_CIRCLES,
-            GeomanCoreConstants.SOURCE_RECTANGLES,
-        )
+        val targetSources = FeatureSources.EDITABLE_WITHOUT_MARKERS
 
         val clickPoint = LngLat(point.longitude, point.latitude)
         queryFeaturesAt(clickPoint, targetSources).firstOrNull()?.let { startEditing(it) }

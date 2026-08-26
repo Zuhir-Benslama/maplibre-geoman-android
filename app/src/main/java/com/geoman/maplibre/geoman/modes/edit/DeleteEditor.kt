@@ -1,8 +1,8 @@
 package com.geoman.maplibre.geoman.modes.edit
 
 import com.geoman.maplibre.geoman.GeomanApi
-import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.core.features.FeatureData
+import com.geoman.maplibre.geoman.core.features.FeatureSources
 import com.geoman.maplibre.geoman.types.EditModeName
 import com.geoman.maplibre.geoman.types.events.GmEditEvent
 import com.geoman.maplibre.geoman.types.geojson.LngLat
@@ -21,14 +21,7 @@ open class DeleteEditor(geoman: GeomanApi) : BaseEdit(geoman) {
 
         val features = queryFeaturesAt(
             LngLat(point.longitude, point.latitude),
-            listOf(
-                GeomanCoreConstants.SOURCE_MARKERS,
-                GeomanCoreConstants.SOURCE_CIRCLE_MARKERS,
-                GeomanCoreConstants.SOURCE_LINES,
-                GeomanCoreConstants.SOURCE_POLYGONS,
-                GeomanCoreConstants.SOURCE_CIRCLES,
-                GeomanCoreConstants.SOURCE_RECTANGLES,
-            ),
+            FeatureSources.ALL_EDITABLE,
         )
 
         if (features.isNotEmpty()) {

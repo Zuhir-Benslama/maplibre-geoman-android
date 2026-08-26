@@ -65,11 +65,7 @@ class PolygonDrawer(geoman: Geoman) : BaseDraw(geoman) {
     private fun updatePolygonFeature() {
         if (coordinates.size < 3) return
 
-        val ring = if (coordinates.first() != coordinates.last()) {
-            coordinates + coordinates.first()
-        } else {
-            coordinates
-        }
+        val ring = coordinates + coordinates.first()
 
         val geometry = Polygon.fromLngLats(listOf(ring))
         val existing = currentFeature
