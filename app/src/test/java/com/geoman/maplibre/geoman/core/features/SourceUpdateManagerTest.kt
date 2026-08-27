@@ -1,6 +1,7 @@
 package com.geoman.maplibre.geoman.core.features
 
 import com.geoman.maplibre.geoman.types.geojson.FeatureCollection
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -9,6 +10,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class SourceUpdateManagerTest {
 
     private val applied = mutableListOf<Pair<String, FeatureCollection>>()

@@ -62,6 +62,7 @@ class MapLibreSource(
             map.style?.removeSource(sourceId)
         } catch (_: Exception) {
             // Source may not exist
+            GeomanLogger.d("MapLibreSource", "Source $sourceId already removed or absent")
         }
         maplibreSource = null
     }

@@ -11,7 +11,6 @@ detekt {
     buildUponDefaultConfig = true
     allRules = false
     autoCorrect = false
-    toolVersion = "2.0.0-alpha.5"
 }
 
 android {
@@ -60,7 +59,7 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
 }
 
 dependencies {
-    // MapLibre Android SDK 13.4.1 (see gradle/libs.versions.toml)
+    // MapLibre Android SDK (see gradle/libs.versions.toml)
     implementation(libs.maplibre.android.sdk)
 
     // Kotlin

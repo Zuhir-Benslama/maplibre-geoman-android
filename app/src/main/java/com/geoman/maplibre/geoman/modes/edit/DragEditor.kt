@@ -59,7 +59,7 @@ open class DragEditor(geoman: GeomanApi) : BaseEdit(geoman) {
     fun startDrag(point: LatLng) {
         if (!enabled || selectedFeature == null || isDragging) return
 
-        val feature = selectedFeature!!
+        val feature = selectedFeature ?: return
         isDragging = true
         dragStartPoint = point
 
