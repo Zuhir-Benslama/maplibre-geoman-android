@@ -25,17 +25,20 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false  // Library modules shouldn't minify
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
+            isMinifyEnabled = false  // Library modules shouldn't minify; consumer R8 applies consumer-rules.pro
         }
         debug {
             isMinifyEnabled = false
         }
     }
-    
+
+    lint {
+        abortOnError = true
+        // Generate once via `./gradlew :app:lint` and commit; keeps the build
+        // green while still reporting new issues introduced by future changes.
+        baseline = file("lint-baseline.xml")
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

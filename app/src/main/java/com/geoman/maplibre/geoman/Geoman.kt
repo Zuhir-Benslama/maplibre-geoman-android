@@ -185,8 +185,17 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
         pendingBaseMapWait = scope.launch {
             withTimeoutOrNull(STYLE_LOAD_TIMEOUT_MS) {
                 suspendCancellableCoroutine { continuation ->
-                    val listener = MapView.OnDidFinishLoadingStyleListener {
+                    // lateinit because the listener unregisters itself; the variable
+                    // is always assigned before the listener can possibly fire.
+                    lateinit var listener: MapView.OnDidFinishLoadingStyleListener
+                    listener = MapView.OnDidFinishLoadingStyleListener {
                         if (continuation.isActive) {
+                            // Remove on the happy path too: invokeOnCancellation only
+                            // runs on cancellation, so leaving the listener registered
+                            // after a successful style load would keep a strong
+                            // reference to this Geoman instance (via the coroutine
+                            // frame) for the lifetime of the MapView.
+                            mapView.removeOnDidFinishLoadingStyleListener(listener)
                             continuation.resumeWith(Result.success(Unit))
                         }
                     }

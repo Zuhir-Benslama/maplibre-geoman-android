@@ -1,6 +1,6 @@
 [versions]
 # Android Gradle Plugin - Compatible with Gradle 9.6.1 + JDK 21
-agp = "9.3.1"
+agp = "9.3.2"
 
 # Kotlin - Compatible with JDK 21
 kotlin = "2.4.10"
@@ -18,9 +18,12 @@ androidx-test-ext = "1.3.0"
 compose-bom = "2026.08.00"
 
 # MapLibre
-maplibre-sdk = "13.5.0"
+maplibre-sdk = "13.5.1"
 
 # Detekt
+# 2.0.0-alpha.6 is the only version matching this toolchain (Kotlin 2.4.10,
+# AGP 9.3.1). No stable 2.x exists; the last stable line (1.23.x) does not
+# support Kotlin 2.4/AGP 9. Revisit once detekt 2.0.0 ships stable.
 detekt = "2.0.0-alpha.6"
 
 # Material
@@ -31,7 +34,7 @@ junit = "4.13.2"
 androidx-test-espresso = "3.7.0"
 
 # Formatting
-spotless = "8.10.0"
+spotless = "8.10.1"
 
 [libraries]
 # Kotlin
