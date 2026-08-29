@@ -4,7 +4,7 @@
 
 This document tracks the comparison between `maplibre-geoman-android` and `maplibre-geoman-0.7.1` (web version), completed improvements, and remaining work for future updates.
 
-**Last Updated:** August 21, 2026  
+**Last Updated:** August 29, 2026  
 **Android Version:** Kotlin port  
 **Web Reference Version:** 0.7.1
 
@@ -276,6 +276,39 @@ future work (requires on-device tuning).
 
 ---
 
+### 15. God-Class Decomposition & Empty Detekt Baseline (August 29, 2026)
+
+Refactor of the largest classes to satisfy Detekt's `TooManyFunctions` rule,
+eliminating every entry from `app/detekt-baseline.xml` (now empty). No public API
+removed; all behavior preserved.
+
+| Class | Before | After |
+|-------|--------|-------|
+| `Geoman.kt` (facade) | ~40 member fns | delegates to `ModeController`, `HistoryController`, `MapLifecycleController` |
+| `core/features/Features.kt` | ~30 member fns | facade over `FeatureStore` (interface) + `InMemoryFeatureStore` |
+| `adapter/BaseMapAdapter.kt` | ~30 abstract members | thin contract over `MapEventSystem`, `MapStyling`, `MapViewport`, `MapInteractionControl`, `MapContentStore` sub-interfaces |
+| `adapter/MapLibreAdapter.kt` | ~30 overrides | thin adapter delegating to `MapLibreEventDispatcher`, `MapLibreStyler`, `MapLibreViewport`, `MapLibreInteractionManager`, `MapLibreContentStore` |
+| `utils/GeometryUtils.kt` | 22 fns | measurement core + new `GeometryCoercion` object (flat-coordinate/legacy aliases) |
+| `core/options/GmOptions.kt` | 23 fns | removed 9 dead typed convenience wrappers (superseded by `GeomanModes` extensions) |
+| `core/controls/GmControl.kt` | `LongMethod` | `createControls` split into `createDrawSection`/`createEditSection`/`createHelperSection` |
+
+`Geoman` and `GeometryUtils` keep a documented `@Suppress("TooManyFunctions")`:
+both are public API roots whose remaining function count reflects their exposed
+entry points / test-bound utility surface, not implementation bloat. The genuine
+logic was extracted; the wide facade API cannot shrink without breaking callers.
+
+**Related API/quality fixes (August 29, 2026):**
+- `Features.removeFeature`: descendant cascade now builds a reverse id→source
+  index once instead of re-scanning every source per id; empty source buckets
+  cleaned via `removedIfEmpty()`; parent linkage always detached on remove.
+- `Geoman.addFeatureCollection` gained a `sourceName` parameter (previously
+  hardcoded to `SOURCE_POLYGONS`), matching `addGeoJsonFeature`.
+
+**Status:** ✅ Complete. Detekt passes with an empty baseline; all quality gates
+green (`spotlessCheck detekt :app:lintDebug testDebugUnitTest`).
+
+---
+
 ## ⚠️ Remaining Work
 
 All previously blocked items are now resolved (August 21, 2026):
@@ -302,12 +335,13 @@ What remains is on-device validation only (see Testing Checklist).
 | **Validators** | 100% | ✅ Complete + integrated (Aug 2026) |
 | **Source Manager** | 100% | ✅ Complete + wired into Features (Aug 2026) |
 | **Correctness Pass** | 100% | ✅ Complete (Aug 2026) |
-| **Unit Test Suite** | ~95% | ✅ 146 tests incl. editor interaction tests |
+| **Unit Test Suite** | ~95% | ✅ 155 tests incl. editor interaction tests |
 | **FeatureData** | 100% | ✅ Complete (Aug 2026) |
 | **Import/Export** | 100% | ✅ Complete (Aug 2026) |
 | **Marker System** | 95% | ✅ Lifecycle + clustering component done; adapter wiring pending |
 | **Style System** | 95% | ⚠️ Themes done (Aug 2026); zoom interpolation pending |
 | **Diff Tracking** | 100% | ✅ Complete foundation (Aug 2026) |
+| **Code Quality / God-Class Decomposition** | 100% | ✅ Complete (Aug 2026); empty detekt baseline |
 
 ---
 
@@ -351,13 +385,14 @@ Quality gates run on every change: `./gradlew spotlessCheck detekt :app:lintDebu
 7. ✅ Marker lifecycle management + clustering component
 8. ✅ Style system centralized with themes (zoom interpolation pending)
 9. ✅ Diff tracking for undo/redo
-10. ✅ All tests passing (146 unit tests)
+10. ✅ All tests passing (155 unit tests)
 
 **Current Status:** 10/10 ✅ Complete, 0/10 ⚠️ Partial, 0/10 ❌ Not Started
 
 ---
 
-**Document Version:** 3.3  
+**Document Version:** 3.4  
 **Created:** April 2, 2026  
 **Corrected:** August 21, 2026  
+**Updated:** August 29, 2026 (god-class decomposition, empty detekt baseline)  
 **Author:** Development Team

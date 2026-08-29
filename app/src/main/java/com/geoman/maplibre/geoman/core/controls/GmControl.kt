@@ -72,75 +72,82 @@ class GmControl(private val geoman: Geoman) {
                 )
         }
 
-        // Draw controls section
-        val drawSection = createSection(layout.context, "Draw")
-        drawSection.addView(
-            createButton(layout.context, "Marker", android.R.drawable.ic_menu_myplaces) {
-                toggleMode(ModeType.DRAW, DrawModeName.MARKER.name)
-            },
-        )
-        drawSection.addView(
-            createButton(layout.context, "Line", android.R.drawable.ic_menu_edit) {
-                toggleMode(ModeType.DRAW, DrawModeName.LINE.name)
-            },
-        )
-        drawSection.addView(
-            createButton(layout.context, "Polygon", android.R.drawable.ic_menu_mapmode) {
-                toggleMode(ModeType.DRAW, DrawModeName.POLYGON.name)
-            },
-        )
-        drawSection.addView(
-            createButton(layout.context, "Circle", android.R.drawable.ic_menu_compass) {
-                toggleMode(ModeType.DRAW, DrawModeName.CIRCLE.name)
-            },
-        )
-        drawSection.addView(
-            createButton(layout.context, "Rectangle", android.R.drawable.ic_menu_gallery) {
-                toggleMode(ModeType.DRAW, DrawModeName.RECTANGLE.name)
-            },
-        )
-        layout.addView(drawSection)
-
-        // Edit controls section
-        val editSection = createSection(layout.context, "Edit")
-        editSection.addView(
-            createButton(layout.context, "Drag", android.R.drawable.ic_menu_directions) {
-                toggleMode(ModeType.EDIT, EditModeName.DRAG.name)
-            },
-        )
-        editSection.addView(
-            createButton(layout.context, "Change", android.R.drawable.ic_menu_manage) {
-                toggleMode(ModeType.EDIT, EditModeName.CHANGE.name)
-            },
-        )
-        editSection.addView(
-            createButton(layout.context, "Rotate", android.R.drawable.ic_menu_rotate) {
-                toggleMode(ModeType.EDIT, EditModeName.ROTATE.name)
-            },
-        )
-        editSection.addView(
-            createButton(layout.context, "Cut", android.R.drawable.ic_menu_crop) {
-                toggleMode(ModeType.EDIT, EditModeName.CUT.name)
-            },
-        )
-        editSection.addView(
-            createButton(layout.context, "Delete", android.R.drawable.ic_menu_delete) {
-                toggleMode(ModeType.EDIT, EditModeName.DELETE.name)
-            },
-        )
-        layout.addView(editSection)
-
-        // Helper controls section
-        val helperSection = createSection(layout.context, "Helpers")
-        helperSection.addView(
-            createButton(layout.context, "Snap", android.R.drawable.ic_menu_zoom) {
-                toggleMode(ModeType.HELPER, HelperModeName.SNAP.name)
-            },
-        )
-        layout.addView(helperSection)
+        layout.addView(createDrawSection(layout.context))
+        layout.addView(createEditSection(layout.context))
+        layout.addView(createHelperSection(layout.context))
 
         controlView = layout
         return layout
+    }
+
+    private fun createDrawSection(context: android.content.Context): View {
+        val section = createSection(context, "Draw")
+        section.addView(
+            createButton(context, "Marker", android.R.drawable.ic_menu_myplaces) {
+                toggleMode(ModeType.DRAW, DrawModeName.MARKER.name)
+            },
+        )
+        section.addView(
+            createButton(context, "Line", android.R.drawable.ic_menu_edit) {
+                toggleMode(ModeType.DRAW, DrawModeName.LINE.name)
+            },
+        )
+        section.addView(
+            createButton(context, "Polygon", android.R.drawable.ic_menu_mapmode) {
+                toggleMode(ModeType.DRAW, DrawModeName.POLYGON.name)
+            },
+        )
+        section.addView(
+            createButton(context, "Circle", android.R.drawable.ic_menu_compass) {
+                toggleMode(ModeType.DRAW, DrawModeName.CIRCLE.name)
+            },
+        )
+        section.addView(
+            createButton(context, "Rectangle", android.R.drawable.ic_menu_gallery) {
+                toggleMode(ModeType.DRAW, DrawModeName.RECTANGLE.name)
+            },
+        )
+        return section
+    }
+
+    private fun createEditSection(context: android.content.Context): View {
+        val section = createSection(context, "Edit")
+        section.addView(
+            createButton(context, "Drag", android.R.drawable.ic_menu_directions) {
+                toggleMode(ModeType.EDIT, EditModeName.DRAG.name)
+            },
+        )
+        section.addView(
+            createButton(context, "Change", android.R.drawable.ic_menu_manage) {
+                toggleMode(ModeType.EDIT, EditModeName.CHANGE.name)
+            },
+        )
+        section.addView(
+            createButton(context, "Rotate", android.R.drawable.ic_menu_rotate) {
+                toggleMode(ModeType.EDIT, EditModeName.ROTATE.name)
+            },
+        )
+        section.addView(
+            createButton(context, "Cut", android.R.drawable.ic_menu_crop) {
+                toggleMode(ModeType.EDIT, EditModeName.CUT.name)
+            },
+        )
+        section.addView(
+            createButton(context, "Delete", android.R.drawable.ic_menu_delete) {
+                toggleMode(ModeType.EDIT, EditModeName.DELETE.name)
+            },
+        )
+        return section
+    }
+
+    private fun createHelperSection(context: android.content.Context): View {
+        val section = createSection(context, "Helpers")
+        section.addView(
+            createButton(context, "Snap", android.R.drawable.ic_menu_zoom) {
+                toggleMode(ModeType.HELPER, HelperModeName.SNAP.name)
+            },
+        )
+        return section
     }
 
     private fun createSection(context: android.content.Context, title: String): LinearLayout {

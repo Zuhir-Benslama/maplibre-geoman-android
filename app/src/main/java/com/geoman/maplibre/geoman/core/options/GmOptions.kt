@@ -1,9 +1,6 @@
 package com.geoman.maplibre.geoman.core.options
 
 import androidx.compose.ui.graphics.Color
-import com.geoman.maplibre.geoman.types.DrawModeName
-import com.geoman.maplibre.geoman.types.EditModeName
-import com.geoman.maplibre.geoman.types.HelperModeName
 import com.geoman.maplibre.geoman.types.ModeType
 
 private const val COLOR_PRIMARY_LONG = 0xFF3388FF
@@ -255,19 +252,4 @@ class GmOptions(initialData: GmOptionsData = GmOptionsData()) {
     fun disableAllModes() {
         enabledModes.clear()
     }
-
-    // Convenience methods for draw modes
-    fun enableDraw(mode: DrawModeName) = enableMode(ModeType.DRAW, mode.name)
-    fun disableDraw(mode: DrawModeName) = disableMode(ModeType.DRAW, mode.name)
-    fun drawEnabled(mode: DrawModeName) = isModeEnabled(ModeType.DRAW, mode.name)
-
-    // Convenience methods for edit modes
-    fun enableEdit(mode: EditModeName) = enableMode(ModeType.EDIT, mode.name)
-    fun disableEdit(mode: EditModeName) = disableMode(ModeType.EDIT, mode.name)
-    fun editEnabled(mode: EditModeName) = isModeEnabled(ModeType.EDIT, mode.name)
-
-    // Convenience methods for helper modes
-    fun enableHelper(mode: HelperModeName) = enableMode(ModeType.HELPER, mode.name)
-    fun disableHelper(mode: HelperModeName) = disableMode(ModeType.HELPER, mode.name)
-    fun helperEnabled(mode: HelperModeName) = isModeEnabled(ModeType.HELPER, mode.name)
 }

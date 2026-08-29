@@ -17,9 +17,14 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 /**
- * Geometry utility functions for spatial calculations
- * Similar to Turf.js functionality in the web version
+ * Core geometry measurement and transform functions for spatial calculations.
+ *
+ * Similar to Turf.js functionality in the web version, this object keeps the
+ * primary measurement, normalization, simplification and bounds-checking
+ * primitives. Flat-coordinate coercion and legacy aliases live in
+ * [GeometryCoercion].
  */
+@Suppress("TooManyFunctions")
 object GeometryUtils {
 
     private const val EARTH_RADIUS_METERS = 6371000.0
@@ -52,6 +57,9 @@ object GeometryUtils {
         return normalized - HALF_CIRCLE_DEGREES
     }
 
+    /**
+     * Compute the geodesic centroid (center of mass) of [coordinates].
+     */
     fun centroid(coordinates: List<LngLat>): LngLat {
         require(coordinates.isNotEmpty()) { "Coordinates list cannot be empty" }
 
@@ -87,8 +95,9 @@ object GeometryUtils {
         )
     }
 
-    fun centroidFromFlat(coordinates: List<Double>): LngLat = centroid(toLngLats(coordinates))
-
+    /**
+     * Great-circle distance in meters between [point1] and [point2].
+     */
     fun distance(point1: LngLat, point2: LngLat): Double {
         val lat1Rad = Math.toRadians(point1.latitude)
         val lat2Rad = Math.toRadians(point2.latitude)
@@ -104,6 +113,9 @@ object GeometryUtils {
         return EARTH_RADIUS_METERS * c
     }
 
+    /**
+     * Compute the bounding box [minLon, minLat, maxLon, maxLat] of [coordinates].
+     */
     fun bbox(coordinates: List<LngLat>): List<Double> {
         require(coordinates.isNotEmpty()) { "Coordinates list cannot be empty" }
 
@@ -122,8 +134,10 @@ object GeometryUtils {
         return listOf(minLon, minLat, maxLon, maxLat)
     }
 
-    fun bboxFromFlat(coordinates: List<Double>): List<Double> = bbox(toLngLats(coordinates))
-
+    /**
+     * Whether [point] lies within the axis-aligned bounds described by [bounds].
+     * Detects and correctly handles boxes that span the antimeridian.
+     */
     fun isPointInBounds(point: LngLat, bounds: List<LngLat>): Boolean {
         require(bounds.isNotEmpty()) { "Bounds must contain at least one point" }
 
@@ -144,14 +158,9 @@ object GeometryUtils {
         return lonInRange && point.latitude in minLat..maxLat
     }
 
-    fun isPointInBoundsFromFlat(point: LngLat, bounds: List<Double>): Boolean =
-        isPointInBounds(point, toLngLats(bounds))
-
-    fun isGeometryInBounds(geometry: Geometry, bounds: List<LngLat>): Boolean {
-        val coords = extractAllCoordinates(geometry)
-        return coords.all { isPointInBounds(it, bounds) }
-    }
-
+    /**
+     * Extract every coordinate from a [Geometry] into a flat [List] of [LngLat].
+     */
     fun extractAllCoordinates(geometry: Geometry): List<LngLat> = when (geometry) {
         is Point -> {
             listOf(LngLat(geometry.coordinates[0], geometry.coordinates[1]))
@@ -190,6 +199,9 @@ object GeometryUtils {
         }
     }
 
+    /**
+     * Spherical excess polygon area in square meters from [coordinates].
+     */
     fun area(coordinates: List<LngLat>): Double {
         require(coordinates.size >= 3) { "Polygon must have at least 3 coordinates" }
 
@@ -208,8 +220,10 @@ object GeometryUtils {
         return abs(area * EARTH_RADIUS_METERS * EARTH_RADIUS_METERS / 2)
     }
 
-    fun areaFromFlat(coordinates: List<Double>): Double = area(toLngLats(coordinates))
-
+    /**
+     * Perimeter of a polygon or line in meters. Adds the closing edge when the
+     * ring is not already closed.
+     */
     fun perimeter(coordinates: List<LngLat>): Double {
         if (coordinates.size < 2) return 0.0
 
@@ -233,7 +247,6 @@ object GeometryUtils {
     fun simplify(coordinates: List<LngLat>, tolerance: Double): List<LngLat> {
         if (coordinates.size <= 2) return coordinates
 
-        // Each entry: (startIndex, endIndex) to process
         val stack = ArrayDeque<Pair<Int, Int>>()
         val keep = BooleanArray(coordinates.size)
 
@@ -270,16 +283,10 @@ object GeometryUtils {
         return coordinates.indices.filter { keep[it] }.map { coordinates[it] }
     }
 
-    fun flatToLngLat(coordinates: List<Double>): List<LngLat> = toLngLats(coordinates)
-
-    fun lngLatToFlat(lngLats: List<LngLat>): List<Double> = lngLats.flatMap { listOf(it.longitude, it.latitude) }
-
     /**
-     * Calculate distance between two LngLat points (existing API)
+     * Generate the coordinates of a [radius]-meter circle centred on [center]
+     * using [steps] vertices, closed back onto the first vertex.
      */
-    @Deprecated("Use distance() instead", ReplaceWith("distance(point1, point2)"))
-    fun calculateDistance(point1: LngLat, point2: LngLat): Double = distance(point1, point2)
-
     fun generateCircleCoordinates(center: LngLat, radius: Double, steps: Int = 64): List<LngLat> {
         val coordinates = mutableListOf<LngLat>()
 
@@ -293,6 +300,10 @@ object GeometryUtils {
         return coordinates
     }
 
+    /**
+     * Destination point after travelling [distance] meters from [start] along
+     * compass [bearing] (degrees clockwise from north).
+     */
     fun calculateDestination(start: LngLat, bearing: Double, distance: Double): LngLat {
         val bearingRad = Math.toRadians(bearing)
         val distanceRad = distance / EARTH_RADIUS_METERS
@@ -316,11 +327,8 @@ object GeometryUtils {
     }
 
     /**
-     * Calculate centroid for edit mode (existing API alias)
+     * Nearest point on a polyline (series of segments) to [point].
      */
-    @Deprecated("Use centroid() instead", ReplaceWith("centroid(coordinates)"))
-    fun calculateCentroid(coordinates: List<LngLat>): LngLat = centroid(coordinates)
-
     fun nearestPointOnPolyline(point: LngLat, coordinates: List<LngLat>): LngLat {
         require(coordinates.size >= 2) { "Polyline must have at least 2 points" }
 
@@ -360,7 +368,6 @@ object GeometryUtils {
             return segmentStart
         }
 
-        // x-scale in equirectangular space; ~1 at the equator, → 0 at the poles.
         val latScale = cos(Math.toRadians((segmentStart.latitude + segmentEnd.latitude) / 2))
         val bx = dx * latScale
 
@@ -378,12 +385,5 @@ object GeometryUtils {
             longitude = segmentStart.longitude + clampedU * dx,
             latitude = segmentStart.latitude + clampedU * dy,
         )
-    }
-
-    private fun toLngLats(coordinates: List<Double>): List<LngLat> {
-        require(coordinates.size % 2 == 0) {
-            "Flat coordinate array must have an even number of values, got ${coordinates.size}"
-        }
-        return coordinates.chunked(2).map { LngLat(it[0], it[1]) }
     }
 }

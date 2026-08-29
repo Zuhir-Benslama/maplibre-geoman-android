@@ -1,15 +1,10 @@
 package com.geoman.maplibre.geoman.adapter
 
-import android.graphics.Bitmap
 import android.view.View
 import android.view.ViewGroup
 import com.geoman.maplibre.geoman.Geoman
 import com.geoman.maplibre.geoman.core.controls.GmControl
-import com.geoman.maplibre.geoman.core.features.FeatureData
-import com.geoman.maplibre.geoman.types.CursorType
-import com.geoman.maplibre.geoman.types.MapInteraction
 import com.geoman.maplibre.geoman.types.geojson.FeatureCollection
-import com.geoman.maplibre.geoman.types.geojson.LatLngBounds
 import com.geoman.maplibre.geoman.types.geojson.LngLat
 import com.geoman.maplibre.geoman.types.geojson.ScreenPoint
 import com.geoman.maplibre.geoman.utils.GeometryUtils
@@ -27,10 +22,23 @@ interface FeatureStoreRenderer {
 }
 
 /**
- * Base map adapter interface for MapLibre
- * Abstracts map operations to allow different map implementations
+ * Base map adapter interface for MapLibre.
+ * Abstracts map operations to allow different map implementations.
+ *
+ * The abstract surface is split across the cohesive [MapEventSystem],
+ * [MapStyling], [MapViewport], [MapInteractionControl] and [MapContentStore]
+ * contracts; concrete adapters implement them (optionally via delegates) and
+ * only the lifecycle/control entry points plus geometry helpers stay declared
+ * here.
  */
-abstract class BaseMapAdapter<TMap>(protected val map: TMap, val geoman: Geoman) : FeatureStoreRenderer {
+abstract class BaseMapAdapter<TMap>(protected val map: TMap, val geoman: Geoman) :
+    FeatureStoreRenderer,
+    MapEventSystem,
+    MapStyling,
+    MapViewport,
+    MapInteractionControl,
+    MapContentStore {
+
     abstract val mapType: String
 
     /**
@@ -59,129 +67,6 @@ abstract class BaseMapAdapter<TMap>(protected val map: TMap, val geoman: Geoman)
     abstract fun removeControl(control: GmControl)
 
     /**
-     * Load an image for use in markers/icons
-     */
-    abstract suspend fun loadImage(id: String, image: Bitmap)
-
-    /**
-     * Remove a loaded image
-     */
-    abstract fun removeImage(id: String)
-
-    /**
-     * Get the current map bounds
-     */
-    abstract fun getBounds(): LatLngBounds
-
-    /**
-     * Fit the map to bounds
-     */
-    abstract fun fitBounds(bounds: LatLngBounds, options: FitBoundsOptions? = null)
-
-    /**
-     * Set the map cursor
-     */
-    abstract fun setCursor(cursor: CursorType)
-
-    /**
-     * Disable map interactions
-     */
-    abstract fun disableMapInteractions(interactionTypes: List<MapInteraction>)
-
-    /**
-     * Enable map interactions
-     */
-    abstract fun enableMapInteractions(interactionTypes: List<MapInteraction>)
-
-    /**
-     * Enable/disable drag pan
-     */
-    abstract fun setDragPan(enabled: Boolean)
-
-    /**
-     * Query features by screen coordinates
-     */
-    abstract fun queryFeaturesByScreenCoordinates(
-        queryCoordinates: ScreenPoint,
-        sourceNames: List<String>,
-    ): List<FeatureData>
-
-    /**
-     * Add a GeoJSON source
-     */
-    abstract override fun addSource(sourceId: String, geoJson: FeatureCollection): MapSource
-
-    /**
-     * Get a source by ID
-     */
-    abstract override fun getSource(sourceId: String): MapSource?
-
-    /**
-     * Add a layer
-     */
-    abstract override fun addLayer(options: LayerOptions): MapLayer
-
-    /**
-     * Get a layer by ID
-     */
-    abstract override fun getLayer(layerId: String): MapLayer?
-
-    /**
-     * Remove a layer
-     */
-    abstract fun removeLayer(layerId: String)
-
-    /**
-     * Iterate through all layers
-     */
-    abstract fun eachLayer(callback: (MapLayer) -> Unit)
-
-    /**
-     * Create a DOM marker
-     */
-    abstract fun createDomMarker(options: DomMarkerOptions, lngLat: LngLat): DomMarker
-
-    /**
-     * Create a popup
-     */
-    abstract fun createPopup(options: PopupOptions, lngLat: LngLat? = null): Popup
-
-    /**
-     * Project lngLat to screen coordinates
-     */
-    abstract fun project(position: LngLat): ScreenPoint
-
-    /**
-     * Unproject screen coordinates to lngLat
-     */
-    abstract fun unproject(point: ScreenPoint): LngLat
-
-    /**
-     * Convert coordinate bounds to screen bounds
-     */
-    abstract fun coordBoundsToScreenBounds(bounds: LatLngBounds): Pair<ScreenPoint, ScreenPoint>
-
-    /**
-     * Fire a map event
-     */
-    abstract fun fire(type: String, data: Any? = null)
-
-    /**
-     * Add an event listener
-     */
-    abstract fun on(type: String, listener: (Any?) -> Unit)
-
-    /**
-     * Add a one-time event listener
-     */
-    abstract fun once(type: String, listener: (Any?) -> Unit)
-
-    /**
-     * Remove an event listener
-     */
-    abstract fun off(type: String, listener: (Any?) -> Unit)
-
-    /**
      * Calculate distance between two points in meters
      */
     open fun getDistance(lngLat1: LngLat, lngLat2: LngLat): Double = GeometryUtils.distance(lngLat1, lngLat2)
@@ -189,7 +74,27 @@ abstract class BaseMapAdapter<TMap>(protected val map: TMap, val geoman: Geoman)
     /**
      * Get the nearest point on a line to a given point
      */
-    abstract fun getEuclideanNearestLngLat(lineCoordinates: List<LngLat>, point: LngLat): LngLat
+    open fun getEuclideanNearestLngLat(lineCoordinates: List<LngLat>, point: LngLat): LngLat {
+        require(lineCoordinates.isNotEmpty()) { "lineCoordinates must not be empty" }
+        var closestPoint = lineCoordinates.first()
+        var minDistance = Double.MAX_VALUE
+
+        for (i in 0 until lineCoordinates.size - 1) {
+            val nearest = GeometryUtils.nearestPointOnSegment(
+                point,
+                lineCoordinates[i],
+                lineCoordinates[i + 1],
+            )
+            val dist = getDistance(nearest, point)
+
+            if (dist < minDistance) {
+                minDistance = dist
+                closestPoint = nearest
+            }
+        }
+
+        return closestPoint
+    }
 }
 
 /**
@@ -264,59 +169,3 @@ data class PopupOptions(
     val maxWidth: Float = 240f,
     val className: String = "",
 )
-
-/**
- * Map source interface
- */
-interface MapSource {
-    val sourceId: String
-    fun setData(geoJson: FeatureCollection)
-    fun getData(): FeatureCollection?
-    fun remove()
-}
-
-/**
- * Map layer interface
- */
-interface MapLayer {
-    val layerId: String
-    fun setPaintProperty(name: String, value: Any)
-    fun setLayoutProperty(name: String, value: Any)
-    fun remove()
-}
-
-/**
- * Dom marker interface
- */
-abstract class DomMarker(protected val map: Any) : com.geoman.maplibre.geoman.core.markers.ManagedMarker {
-    abstract override fun getLngLat(): LngLat
-    abstract override fun setLngLat(lngLat: LngLat)
-    abstract fun getElement(): View
-    abstract fun addToMap(): DomMarker
-    abstract override fun remove()
-    abstract fun setDraggable(draggable: Boolean)
-    abstract fun isDragging(): Boolean
-
-    var onDragStart: (() -> Unit)? = null
-    var onDrag: ((LngLat) -> Unit)? = null
-    var onDragEnd: (() -> Unit)? = null
-
-    /**
-     * Invoked when a non-draggable marker's view is tapped.
-     */
-    override var onClick: (() -> Unit)? = null
-}
-
-/**
- * Popup interface
- */
-abstract class Popup(protected val map: Any) {
-    abstract fun getLngLat(): LngLat?
-    abstract fun setLngLat(lngLat: LngLat): Popup
-    abstract fun getContent(): String
-    abstract fun setContent(content: String): Popup
-    abstract fun addToMap(): Popup
-    abstract fun remove()
-    abstract fun isOpen(): Boolean
-    abstract fun close(): Popup
-}

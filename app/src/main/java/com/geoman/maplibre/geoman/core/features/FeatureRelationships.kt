@@ -7,8 +7,8 @@ package com.geoman.maplibre.geoman.core.features
  * descendant walks. Linking may not create cycles; callers must validate
  * feature existence and acyclicity before calling [link].
  *
- * Thread safety: instances are guarded by the owning [Features] monitor —
- * every access must happen inside a `synchronized(features)` block.
+ * Thread safety: instances are guarded by the owning [InMemoryFeatureStore]
+ * monitor — every access must happen inside a `synchronized(store)` block.
  */
 internal class FeatureRelationships {
 
