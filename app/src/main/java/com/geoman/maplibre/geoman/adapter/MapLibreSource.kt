@@ -6,6 +6,7 @@ import com.geoman.maplibre.geoman.core.io.GeoJsonEncoder
 import com.geoman.maplibre.geoman.types.geojson.FeatureCollection
 import com.geoman.maplibre.geoman.types.geojson.LngLat
 import com.geoman.maplibre.geoman.types.geojson.ScreenPoint
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.style.sources.GeoJsonSource
@@ -38,16 +39,18 @@ class MapLibreSource(
         } else {
             // Create new source and add to map
             try {
-                maplibreSource = GeoJsonSource(sourceId, geoJsonString)
-                map.style?.addSource(maplibreSource!!)
+                val source = GeoJsonSource(sourceId, geoJsonString)
+                maplibreSource = source
+                map.style?.addSource(source)
                 GeomanLogger.d("MapLibreSource", "Created source: $sourceId with ${geoJson.features.size} features")
             } catch (e: IllegalStateException) {
                 // Source may already exist, try to update
                 GeomanLogger.w("MapLibreSource", "Error creating source: ${e.message}, trying update")
                 try {
                     map.style?.removeSource(sourceId)
-                    maplibreSource = GeoJsonSource(sourceId, geoJsonString)
-                    map.style?.addSource(maplibreSource!!)
+                    val source = GeoJsonSource(sourceId, geoJsonString)
+                    maplibreSource = source
+                    map.style?.addSource(source)
                 } catch (e2: IllegalStateException) {
                     GeomanLogger.e("MapLibreSource", "Failed to create/update source: ${e2.message}")
                 }
@@ -60,9 +63,10 @@ class MapLibreSource(
     override fun remove() {
         try {
             map.style?.removeSource(sourceId)
-        } catch (_: Exception) {
+        } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+            if (e is CancellationException) throw e
             // Source may not exist
-            GeomanLogger.d("MapLibreSource", "Source $sourceId already removed or absent")
+            GeomanLogger.d("MapLibreSource", "Source $sourceId already removed or absent: ${e.message}")
         }
         maplibreSource = null
     }

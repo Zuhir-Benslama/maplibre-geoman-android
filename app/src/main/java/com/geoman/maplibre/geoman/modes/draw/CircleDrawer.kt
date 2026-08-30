@@ -8,49 +8,18 @@ import com.geoman.maplibre.geoman.types.geojson.LngLat
 import com.geoman.maplibre.geoman.types.geojson.Polygon
 import com.geoman.maplibre.geoman.utils.GeometryUtils
 import kotlinx.coroutines.launch
-import org.maplibre.android.geometry.LatLng
 
 /**
  * Circle drawing mode
  * First click sets center, second click sets radius
  */
-class CircleDrawer(geoman: Geoman) : BaseDraw(geoman) {
+class CircleDrawer(geoman: Geoman) : BaseTwoClickDrawer(geoman) {
 
     override val modeName: String = DrawModeName.CIRCLE.name
 
-    private var center: LngLat? = null
-
-    override fun onMapClick(point: LatLng) {
-        if (!enabled) return
-
-        val clickLngLat = LngLat(point.longitude, point.latitude)
-        val c = center
-
-        if (c == null) {
-            // First click - set center
-            center = clickLngLat
-        } else {
-            // Second click - set radius and finish
-            val radius = GeometryUtils.distance(c, clickLngLat)
-            createCircleFeature(c, radius)
-            finishDrawing()
-        }
-    }
-
-    override fun onMapLongClick(point: LatLng) {
-        if (!enabled || center == null) return
-
-        // Cancel drawing
-        center = null
-        geoman.disableMode(modeType, modeName)
-    }
-
-    override fun finishDrawing() {
-        center = null
-        geoman.disableMode(modeType, modeName)
-    }
-
-    private fun createCircleFeature(center: LngLat, radius: Double) {
+    override fun createFeature(firstClick: LngLat, secondClick: LngLat) {
+        val center = firstClick
+        val radius = GeometryUtils.distance(center, secondClick)
         val circleCoordinates = GeometryUtils.generateCircleCoordinates(center, radius)
 
         val geometry = Polygon.fromLngLats(listOf(circleCoordinates))

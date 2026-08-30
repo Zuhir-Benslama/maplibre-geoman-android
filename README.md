@@ -250,10 +250,10 @@ geoman.addGeoJsonFeature(polygonFeature)
 val allFeatures = geoman.getAllFeatures()
 
 // Get specific feature
-val feature = geoman.getFeature(GeomanConstants.SOURCE_POLYGONS, "my-polygon")
+val feature = geoman.getFeature(GeomanCoreConstants.SOURCE_POLYGONS, "my-polygon")
 
 // Remove a feature
-geoman.removeFeature(GeomanConstants.SOURCE_POLYGONS, "my-polygon")
+geoman.removeFeature(GeomanCoreConstants.SOURCE_POLYGONS, "my-polygon")
 
 // Clear all features
 geoman.clearAllFeatures()

@@ -25,15 +25,13 @@ interface FeatureStoreRenderer {
  * Base map adapter interface for MapLibre.
  * Abstracts map operations to allow different map implementations.
  *
- * The abstract surface is split across the cohesive [MapEventSystem],
- * [MapStyling], [MapViewport], [MapInteractionControl] and [MapContentStore]
- * contracts; concrete adapters implement them (optionally via delegates) and
- * only the lifecycle/control entry points plus geometry helpers stay declared
- * here.
+ * The abstract surface is split across the cohesive [MapStyling],
+ * [MapViewport], [MapInteractionControl] and [MapContentStore] contracts;
+ * concrete adapters implement them (optionally via delegates) and only the
+ * lifecycle/control entry points plus geometry helpers stay declared here.
  */
 abstract class BaseMapAdapter<TMap>(protected val map: TMap, val geoman: Geoman) :
     FeatureStoreRenderer,
-    MapEventSystem,
     MapStyling,
     MapViewport,
     MapInteractionControl,

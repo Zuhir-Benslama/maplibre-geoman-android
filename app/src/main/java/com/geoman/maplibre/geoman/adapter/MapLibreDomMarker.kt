@@ -210,10 +210,11 @@ class MapLibreDomMarker(
         }
         updateViewPosition()
 
-        cameraMoveListener = MapLibreMap.OnCameraMoveListener {
-            updateViewPosition()
+        val cameraListener = MapLibreMap.OnCameraMoveListener {
+            if (isAdded) updateViewPosition()
         }
-        mapLibreMap.addOnCameraMoveListener(cameraMoveListener!!)
+        cameraMoveListener = cameraListener
+        mapLibreMap.addOnCameraMoveListener(cameraListener)
 
         isAdded = true
         rebuildSource(mapLibreMap, sourceName)

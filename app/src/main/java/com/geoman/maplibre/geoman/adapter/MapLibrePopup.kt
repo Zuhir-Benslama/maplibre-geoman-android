@@ -89,10 +89,11 @@ class MapLibrePopup(
         }
 
         // Keep the popup anchored to its location while the camera moves
-        cameraMoveListener = MapLibreMap.OnCameraMoveListener {
-            updatePosition()
+        val cameraListener = MapLibreMap.OnCameraMoveListener {
+            if (isAdded) updatePosition()
         }
-        mapLibreMap.addOnCameraMoveListener(cameraMoveListener!!)
+        cameraMoveListener = cameraListener
+        mapLibreMap.addOnCameraMoveListener(cameraListener)
 
         isAdded = true
 

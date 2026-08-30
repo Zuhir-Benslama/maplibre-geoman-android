@@ -2,6 +2,7 @@ package com.geoman.maplibre.geoman.adapter
 
 import com.geoman.maplibre.geoman.Geoman
 import com.geoman.maplibre.geoman.GeomanLogger
+import kotlinx.coroutines.CancellationException
 import org.json.JSONArray
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.style.expressions.Expression
@@ -28,9 +29,17 @@ class MapLibreLayer(private val geoman: Geoman, private val options: LayerOption
     private fun add() {
         if (isAdded) return
 
-        val style = map.style ?: return
+        val style = map.style
+        if (style == null) {
+            GeomanLogger.w("MapLibreLayer", "Cannot add layer $layerId: map style not loaded")
+            return
+        }
 
-        val layer = createLayer() ?: return
+        val layer = createLayer()
+        if (layer == null) {
+            GeomanLogger.w("MapLibreLayer", "Cannot add layer $layerId: unsupported type ${options.type}")
+            return
+        }
 
         applySourceLayer(layer)
         applyProperties(layer, options.paint)
@@ -106,18 +115,31 @@ class MapLibreLayer(private val geoman: Geoman, private val options: LayerOption
 
     private fun valueToPropertyValue(name: String, value: Any): PropertyValue<*>? = when (value) {
         is String -> PropertyValue(name, value)
+
         is Boolean -> PropertyValue(name, value)
+
         is Int -> PropertyValue(name, value.toFloat())
+
         is Float -> PropertyValue(name, value)
+
         is Double -> PropertyValue(name, value)
+
         is Array<*> -> PropertyValue(name, value.map { it?.toString() ?: "" }.toTypedArray())
+
         is List<*> -> PropertyValue(name, value.map { it?.toString() ?: "" }.toTypedArray())
-        else -> PropertyValue(name, value.toString())
+
+        else -> {
+            // Likely a type MapLibre cannot consume directly; fall back to a
+            // string but surface the mismatch so it isn't silently coerced.
+            GeomanLogger.w("MapLibreLayer", "Unsupported property value type for $name: ${value::class.simpleName}")
+            PropertyValue(name, value.toString())
+        }
     }
 
     private fun parseExpression(filter: List<Any>): Expression? = try {
         Expression.Converter.convert(JSONArray(filter).toString())
     } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+        if (e is CancellationException) throw e
         GeomanLogger.w("MapLibreLayer", "Failed to parse filter expression for layer $layerId", e)
         null
     }

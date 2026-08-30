@@ -2,6 +2,7 @@ package com.geoman.maplibre.geoman.adapter
 
 import android.graphics.Bitmap
 import com.geoman.maplibre.geoman.GeomanLogger
+import kotlinx.coroutines.CancellationException
 import org.maplibre.android.maps.MapLibreMap
 
 /**
@@ -16,7 +17,8 @@ class MapLibreStyler(private val map: MapLibreMap) : MapStyling {
     override fun removeImage(id: String) {
         try {
             map.style?.removeImage(id)
-        } catch (@Suppress("SwallowedException", "TooGenericExceptionCaught") e: Exception) {
+        } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+            if (e is CancellationException) throw e
             GeomanLogger.d("MapLibreAdapter", "Failed to remove image $id: ${e.message}")
         }
     }

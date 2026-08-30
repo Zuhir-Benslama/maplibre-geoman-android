@@ -13,18 +13,16 @@ import org.maplibre.android.maps.MapView
 /**
  * MapLibre Android SDK implementation of the base map adapter.
  *
- * The [MapEventSystem], [MapStyling], [MapViewport], [MapInteractionControl]
- * and [MapContentStore] contracts are delegated to focused MapLibre
- * implementations; the adapter itself only owns lifecycle/control wiring.
+ * The [MapStyling], [MapViewport], [MapInteractionControl] and [MapContentStore]
+ * contracts are delegated to focused MapLibre implementations; the adapter
+ * itself only owns lifecycle/control wiring.
  */
 class MapLibreAdapter private constructor(
     map: MapLibreMap,
     geoman: Geoman,
     private val mapView: MapView,
     private val contentStore: MapLibreContentStore,
-    private val eventDispatcher: MapLibreEventDispatcher,
 ) : BaseMapAdapter<MapLibreMap>(map, geoman),
-    MapEventSystem by eventDispatcher,
     MapStyling by MapLibreStyler(map),
     MapViewport by MapLibreViewport(map),
     MapInteractionControl by MapLibreInteractionManager(map),
@@ -35,7 +33,6 @@ class MapLibreAdapter private constructor(
         geoman,
         mapView,
         contentStore = MapLibreContentStore(map, geoman, mapView),
-        eventDispatcher = MapLibreEventDispatcher(),
     )
 
     override val mapType: String = "maplibre"
@@ -95,7 +92,6 @@ class MapLibreAdapter private constructor(
 
     fun cleanup() {
         contentStore.cleanup()
-        eventDispatcher.clearListeners()
     }
 
     /**

@@ -1,13 +1,11 @@
 package com.geoman.maplibre.geoman.core.features
 
 import com.geoman.maplibre.geoman.Geoman
-import com.geoman.maplibre.geoman.adapter.BaseMapAdapter
 import com.geoman.maplibre.geoman.adapter.FeatureStoreRenderer
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.types.geojson.Feature
 import com.geoman.maplibre.geoman.types.geojson.FeatureCollection
 import com.geoman.maplibre.geoman.types.geojson.Geometry
-import com.geoman.maplibre.geoman.types.geojson.ScreenPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -83,6 +81,11 @@ object FeatureSources {
  * `setData` per debounce window instead of one per frame. Call
  * [flushPendingUpdates] when the final state must land immediately, and
  * [shutdown] on teardown.
+ *
+ * [updateScope] must be main-confined whenever a renderer is attached:
+ * MapLibre style/source/layer mutations are main-thread-only. Geoman passes
+ * its own `Dispatchers.Main` scope so debounced updates coalesce on the UI
+ * thread; tests pass a test dispatcher and use a fake renderer.
  */
 class Features(
     private val geoman: Geoman? = null,
@@ -92,9 +95,6 @@ class Features(
 ) : FeatureStore by store {
 
     private val styler = FeatureLayerStyler(geoman)
-
-    @Volatile
-    private var mapAdapter: BaseMapAdapter<*>? = null
 
     @Volatile
     private var renderer: FeatureStoreRenderer? = null
@@ -110,12 +110,9 @@ class Features(
     )
 
     /**
-     * Initialize with a renderer only; screen-coordinate queries stay
-     * unavailable unless the renderer is also a [BaseMapAdapter]. Used by
-     * tests.
+     * Initialize with the renderer used for map syncs. Used by tests.
      */
     fun init(renderer: FeatureStoreRenderer?) {
-        renderer?.let { mapAdapter = it as? BaseMapAdapter<*> }
         this.renderer = renderer
     }
 
@@ -183,12 +180,6 @@ class Features(
         store.allSourceNames().forEach { syncSourceToMap(it) }
     }
 
-    fun getFeaturesAtPoint(point: ScreenPoint, sourceNames: List<String>? = null): List<FeatureData> {
-        val adapter = mapAdapter ?: return emptyList()
-        val sources = sourceNames ?: store.allSourceNames()
-        return adapter.queryFeaturesByScreenCoordinates(point, sources)
-    }
-
     /**
      * Link [childId] as a child of [parentId] (web parity: helper features
      * belonging to a shape). Pass `null` to clear the link. Both features must
@@ -205,6 +196,15 @@ class Features(
      */
     fun flushPendingUpdates() {
         updateManager.flushAll()
+    }
+
+    /**
+     * Drop every scheduled-but-not-yet-applied source update without applying
+     * it. Used during teardown so a dying map is not forced through the final
+     * coalesced sync.
+     */
+    fun discardPendingUpdates() {
+        updateManager.cancelPending()
     }
 
     /**

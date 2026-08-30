@@ -7,48 +7,18 @@ import com.geoman.maplibre.geoman.types.geojson.Feature
 import com.geoman.maplibre.geoman.types.geojson.LngLat
 import com.geoman.maplibre.geoman.types.geojson.Polygon
 import kotlinx.coroutines.launch
-import org.maplibre.android.geometry.LatLng
 
 /**
  * Rectangle drawing mode
  * First click sets one corner, second click sets opposite corner
  */
-class RectangleDrawer(geoman: Geoman) : BaseDraw(geoman) {
+class RectangleDrawer(geoman: Geoman) : BaseTwoClickDrawer(geoman) {
 
     override val modeName: String = DrawModeName.RECTANGLE.name
 
-    private var firstCorner: LngLat? = null
-
-    override fun onMapClick(point: LatLng) {
-        if (!enabled) return
-
-        val clickLngLat = LngLat(point.longitude, point.latitude)
-        val corner = firstCorner
-
-        if (corner == null) {
-            // First click - set first corner
-            firstCorner = clickLngLat
-        } else {
-            // Second click - create rectangle and finish
-            createRectangleFeature(corner, clickLngLat)
-            finishDrawing()
-        }
-    }
-
-    override fun onMapLongClick(point: LatLng) {
-        if (!enabled || firstCorner == null) return
-
-        // Cancel drawing
-        firstCorner = null
-        geoman.disableMode(modeType, modeName)
-    }
-
-    override fun finishDrawing() {
-        firstCorner = null
-        geoman.disableMode(modeType, modeName)
-    }
-
-    private fun createRectangleFeature(corner1: LngLat, corner2: LngLat) {
+    override fun createFeature(firstClick: LngLat, secondClick: LngLat) {
+        val corner1 = firstClick
+        val corner2 = secondClick
         // Calculate rectangle corners
         val corners = listOf(
             LngLat(corner1.longitude, corner1.latitude),

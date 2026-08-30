@@ -67,7 +67,17 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
 
     // Core components
     override val options: GmOptions = GmOptions(options)
-    override val features: Features = Features(this)
+
+    // Coroutine scope with exception handler to prevent silent coroutine failures.
+    // Declared before [features] so the feature store's debounced map syncs run
+    // on the main thread (MapLibre style mutations are main-thread-only).
+    private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        if (throwable is CancellationException) throw throwable
+        GeomanLogger.e(TAG, "Uncaught coroutine exception", throwable as? Exception ?: Exception(throwable))
+    }
+    override val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main + exceptionHandler)
+
+    override val features: Features = Features(this, updateScope = scope)
     override val events: GmEventBus = GmEventBus()
     override val history: ChangeTracker = ChangeTracker()
 
@@ -86,13 +96,6 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
     // State
     private val _destroyed = MutableStateFlow(false)
     val destroyed: Boolean get() = _destroyed.value
-
-    // Coroutine scope with exception handler to prevent silent coroutine failures
-    private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
-        if (throwable is CancellationException) throw throwable
-        GeomanLogger.e(TAG, "Uncaught coroutine exception", throwable as? Exception ?: Exception(throwable))
-    }
-    override val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main + exceptionHandler)
 
     // Delegated collaboration
     private val modeController = ModeController(
@@ -334,6 +337,9 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
 
         mapLifecycle.cancelPendingBaseMapWait()
         disableAllModes()
+        // Drop scheduled debounced syncs instead of forcing the last coalesced
+        // update onto a map that is about to be torn down.
+        features.discardPendingUpdates()
         features.shutdown()
 
         if (options.settings.useControlsUi) {

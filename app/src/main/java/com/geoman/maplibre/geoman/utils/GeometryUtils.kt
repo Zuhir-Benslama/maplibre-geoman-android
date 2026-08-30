@@ -288,6 +288,9 @@ object GeometryUtils {
      * using [steps] vertices, closed back onto the first vertex.
      */
     fun generateCircleCoordinates(center: LngLat, radius: Double, steps: Int = 64): List<LngLat> {
+        require(steps >= 3) { "steps must be at least 3 to form a circle, was $steps" }
+        require(radius.isFinite() && radius >= 0.0) { "radius must be finite and non-negative, was $radius" }
+
         val coordinates = mutableListOf<LngLat>()
 
         for (i in 0 until steps) {
