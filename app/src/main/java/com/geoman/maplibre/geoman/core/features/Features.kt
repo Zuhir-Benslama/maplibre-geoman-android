@@ -6,11 +6,11 @@ import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.types.geojson.Feature
 import com.geoman.maplibre.geoman.types.geojson.FeatureCollection
 import com.geoman.maplibre.geoman.types.geojson.Geometry
+import com.geoman.maplibre.geoman.utils.generateFeatureId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import java.util.UUID
 
 /**
  * Feature data class holding feature information
@@ -132,7 +132,7 @@ class Features(
      * polygon rings, malformed IDs). The feature is not stored in that case.
      */
     fun addGeoJsonFeature(feature: Feature, sourceName: String = FeatureSources.POLYGON): FeatureData {
-        val featureId = feature.id ?: "feature_${UUID.randomUUID()}"
+        val featureId = feature.id ?: generateFeatureId("feature")
         val resolved = feature.copy(id = featureId)
 
         val result = PropertyValidators.validateFeature(resolved)

@@ -8,7 +8,7 @@ import com.geoman.maplibre.geoman.adapter.FeatureStoreRenderer
 import com.geoman.maplibre.geoman.adapter.LayerOptions
 import com.geoman.maplibre.geoman.adapter.LayerType
 import com.geoman.maplibre.geoman.core.options.LayerStyles
-import kotlinx.coroutines.CancellationException
+import com.geoman.maplibre.geoman.utils.runCatchingRethrowCancellation
 
 /**
  * Creates the rendering layers that visualize stored features for each source,
@@ -39,11 +39,10 @@ internal class FeatureLayerStyler(private val geoman: Geoman?) {
 
         if (target.getLayer(layerId) != null) return
 
-        try {
+        runCatchingRethrowCancellation(
+            onError = { GeomanLogger.w("Features", "Error adding layer $layerId", it) },
+        ) {
             target.addLayer(buildLayerOptions(sourceName, layerId))
-        } catch (@Suppress("TooGenericExceptionCaught") e: RuntimeException) {
-            if (e is CancellationException) throw e
-            GeomanLogger.w("Features", "Error adding layer $layerId", e)
         }
     }
 

@@ -4,6 +4,7 @@ import com.geoman.maplibre.geoman.core.GeomanCoreConstants.FEATURE_SHAPE_PROPERT
 import com.geoman.maplibre.geoman.core.features.FeatureData
 import com.geoman.maplibre.geoman.core.features.FeatureShape
 import com.geoman.maplibre.geoman.core.features.PropertyValidators
+import com.geoman.maplibre.geoman.utils.generateFeatureId
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
@@ -92,7 +93,7 @@ object GeoJsonCodec {
                 val userProperties = feature.properties.filterKeys { !it.startsWith(SYSTEM_PROPERTY_PREFIX) }
                 features.add(
                     FeatureData(
-                        id = feature.id ?: "imported_${index}_${System.nanoTime()}",
+                        id = feature.id ?: generateFeatureId("imported_$index"),
                         sourceName = sourceName,
                         feature = feature.copy(properties = userProperties),
                         properties = userProperties,

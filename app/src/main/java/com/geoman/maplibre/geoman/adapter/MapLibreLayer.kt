@@ -2,7 +2,7 @@ package com.geoman.maplibre.geoman.adapter
 
 import com.geoman.maplibre.geoman.Geoman
 import com.geoman.maplibre.geoman.GeomanLogger
-import kotlinx.coroutines.CancellationException
+import com.geoman.maplibre.geoman.utils.runCatchingRethrowCancellation
 import org.json.JSONArray
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.style.expressions.Expression
@@ -136,12 +136,10 @@ class MapLibreLayer(private val geoman: Geoman, private val options: LayerOption
         }
     }
 
-    private fun parseExpression(filter: List<Any>): Expression? = try {
+    private fun parseExpression(filter: List<Any>): Expression? = runCatchingRethrowCancellation(
+        onError = { GeomanLogger.w("MapLibreLayer", "Failed to parse filter expression for layer $layerId", it) },
+    ) {
         Expression.Converter.convert(JSONArray(filter).toString())
-    } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-        if (e is CancellationException) throw e
-        GeomanLogger.w("MapLibreLayer", "Failed to parse filter expression for layer $layerId", e)
-        null
     }
 
     override fun setPaintProperty(name: String, value: Any) {

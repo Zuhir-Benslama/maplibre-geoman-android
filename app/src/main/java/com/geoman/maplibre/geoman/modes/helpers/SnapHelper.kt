@@ -24,6 +24,11 @@ class SnapHelper(geoman: Geoman) : BaseHelper(geoman) {
 
     override val modeName: String = HelperModeName.SNAP.name
 
+    private companion object {
+        /** Snap-guide line color (material pink). */
+        const val SNAP_GUIDE_COLOR = "#E91E63"
+    }
+
     private var snapDistance: Float = 20f // pixels
     private var snappedFeature: FeatureData? = null
     private var snappedCoordinate: LngLat? = null
@@ -234,7 +239,7 @@ class SnapHelper(geoman: Geoman) : BaseHelper(geoman) {
                     type = LayerType.LINE,
                     source = FeatureSources.SNAP_GUIDES,
                     paint = mapOf(
-                        "line-color" to "#E91E63",
+                        "line-color" to SNAP_GUIDE_COLOR,
                         "line-width" to 2.0,
                         "line-dasharray" to listOf(2.0, 2.0),
                     ),

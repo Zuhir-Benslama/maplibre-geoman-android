@@ -2,7 +2,7 @@ package com.geoman.maplibre.geoman.core.events
 
 import com.geoman.maplibre.geoman.GeomanLogger
 import com.geoman.maplibre.geoman.types.events.GmEvent
-import kotlinx.coroutines.CancellationException
+import com.geoman.maplibre.geoman.utils.runCatchingRethrowCancellation
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -47,11 +47,10 @@ class GmEventBus {
 
     private fun notifyListeners(event: GmEvent) {
         eventListeners[event.type]?.forEach { listener ->
-            try {
+            runCatchingRethrowCancellation(
+                onError = { GeomanLogger.e(TAG, "Error in event listener for ${event.type}", it) },
+            ) {
                 listener(event)
-            } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-                if (e is CancellationException) throw e
-                GeomanLogger.e(TAG, "Error in event listener for ${event.type}", e)
             }
         }
     }

@@ -6,7 +6,7 @@ import com.geoman.maplibre.geoman.core.io.GeoJsonEncoder
 import com.geoman.maplibre.geoman.types.geojson.FeatureCollection
 import com.geoman.maplibre.geoman.types.geojson.LngLat
 import com.geoman.maplibre.geoman.types.geojson.ScreenPoint
-import kotlinx.coroutines.CancellationException
+import com.geoman.maplibre.geoman.utils.runCatchingRethrowCancellation
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.style.sources.GeoJsonSource
@@ -61,12 +61,10 @@ class MapLibreSource(
     override fun getData(): FeatureCollection? = geoJson
 
     override fun remove() {
-        try {
+        runCatchingRethrowCancellation(
+            onError = { GeomanLogger.d("MapLibreSource", "Source $sourceId already removed or absent: ${it.message}") },
+        ) {
             map.style?.removeSource(sourceId)
-        } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-            if (e is CancellationException) throw e
-            // Source may not exist
-            GeomanLogger.d("MapLibreSource", "Source $sourceId already removed or absent: ${e.message}")
         }
         maplibreSource = null
     }

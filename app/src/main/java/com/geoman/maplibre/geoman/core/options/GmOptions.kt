@@ -189,6 +189,9 @@ class GmOptions(initialData: GmOptionsData = GmOptionsData()) {
     private var _data = initialData
     val data: GmOptionsData get() = _data
 
+    /** Serializes read-modify-write cycles of [_data] so concurrent updates are never lost. */
+    private val dataLock = Any()
+
     val settings: SettingsOptions get() = _data.settings
     val draw: DrawOptions get() = _data.drawOptions
     val edit: EditOptions get() = _data.editOptions
@@ -198,10 +201,15 @@ class GmOptions(initialData: GmOptionsData = GmOptionsData()) {
     private val enabledModes = java.util.concurrent.ConcurrentHashMap.newKeySet<Pair<ModeType, String>>()
 
     /**
-     * Update options
+     * Update options.
+     *
+     * The read-modify-write of [_data] runs under [dataLock] so a concurrent
+     * [update] always sees the latest state and no update is silently dropped.
      */
     fun update(update: GmOptionsData.() -> GmOptionsData) {
-        _data = _data.update()
+        synchronized(dataLock) {
+            _data = _data.update()
+        }
     }
 
     /**
