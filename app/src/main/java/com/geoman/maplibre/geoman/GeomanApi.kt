@@ -44,5 +44,12 @@ interface GeomanApi {
     val scope: CoroutineScope
     val mapActions: EditorMapActions
 
+    /** Enable a mode. Disables other modes of the same type first. */
+    fun enableMode(type: ModeType, name: String)
+
+    /** Disable a mode. */
     fun disableMode(type: ModeType, name: String)
+
+    /** Check whether a mode is currently enabled. */
+    fun isModeEnabled(type: ModeType, name: String): Boolean
 }

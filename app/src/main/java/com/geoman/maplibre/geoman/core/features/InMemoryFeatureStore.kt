@@ -83,17 +83,29 @@ class InMemoryFeatureStore : FeatureStore {
      * Replace the stored feature with the result of applying [update]; returns
      * true when a feature existed and was replaced, false for unknown ids (the
      * update lambda is not invoked in that case).
+     *
+     * The [update] lambda runs *outside* the store monitor so callers that
+     * re-enter the store (or perform slow work) cannot deadlock the critical
+     * section.
      */
     fun update(sourceName: String, featureId: String, update: (FeatureData) -> FeatureData): Boolean {
-        val shouldSync = synchronized(this) {
-            featuresMap[sourceName]?.get(featureId)?.let { existingFeature ->
-                val updatedFeature = update(existingFeature)
+        val existingFeature = synchronized(this) {
+            featuresMap[sourceName]?.get(featureId)
+        } ?: return false
+
+        val updatedFeature = update(existingFeature)
+
+        return synchronized(this) {
+            // Re-check the feature still exists; it may have been removed while
+            // the update lambda ran outside the lock.
+            if (featuresMap[sourceName]?.containsKey(featureId) == true) {
                 featuresMap[sourceName]?.put(featureId, updatedFeature)
                 updateFeaturesFlow()
                 true
-            } ?: false
+            } else {
+                false
+            }
         }
-        return shouldSync
     }
 
     /**

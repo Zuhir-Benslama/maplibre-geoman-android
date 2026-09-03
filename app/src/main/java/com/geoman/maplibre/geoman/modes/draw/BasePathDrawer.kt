@@ -39,10 +39,12 @@ abstract class BasePathDrawer(geoman: Geoman) : BaseDraw(geoman) {
     /** Build the final geometry from the accumulated vertices. */
     protected abstract fun buildGeometry(coordinates: List<LngLat>): Geometry
 
+    // Guarded by `this` — accessed from map click handlers (main thread)
+    // and disable() (any thread via ModeController).
     private val coordinates = mutableListOf<LngLat>()
     private var currentFeature: FeatureData? = null
 
-    override fun onMapClick(point: LatLng) {
+    override fun onMapClick(point: LatLng): Unit = synchronized(this) {
         if (!enabled) return
 
         coordinates.add(LngLat(point.longitude, point.latitude))
@@ -51,13 +53,13 @@ abstract class BasePathDrawer(geoman: Geoman) : BaseDraw(geoman) {
         updateFeature()
     }
 
-    override fun onMapLongClick(point: LatLng) {
+    override fun onMapLongClick(point: LatLng): Unit = synchronized(this) {
         if (!enabled || coordinates.size < minFinishPoints) return
 
         finishDrawing()
     }
 
-    override fun finishDrawing() {
+    override fun finishDrawing(): Unit = synchronized(this) {
         if (coordinates.size >= minFinishPoints && currentFeature != null) {
             // Capture the feature before launching coroutine to avoid race condition
             val featureToFire = currentFeature
@@ -72,12 +74,14 @@ abstract class BasePathDrawer(geoman: Geoman) : BaseDraw(geoman) {
     }
 
     override fun disable() {
-        // Remove the uncommitted partial path if the mode is cancelled mid-draw
-        currentFeature?.let {
-            geoman.features.removeFeature(sourceName, it.id)
+        // Snapshot-then-clear under the lock to avoid races with click handlers
+        synchronized(this) {
+            currentFeature?.let {
+                geoman.features.removeFeature(sourceName, it.id)
+            }
+            currentFeature = null
+            coordinates.clear()
         }
-        currentFeature = null
-        coordinates.clear()
         super.disable()
     }
 

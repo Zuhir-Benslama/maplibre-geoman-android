@@ -43,14 +43,15 @@ class ModeController(
 ) {
     private companion object {
         const val TAG = "Geoman"
-        const val MODE_KEY_DELIMITER = "__"
     }
 
     // Mode factory
     private val modeFactory = ModeFactory(geoman)
 
-    // Action instances (modes) — guarded by `this` lock for atomic mode switching
-    private val actionInstances = ConcurrentHashMap<String, BaseAction>()
+    // Action instances (modes) — guarded by `this` lock for atomic mode switching.
+    // Keyed by a typed (ModeType, name) pair so mode names need not be
+    // restricted to delimiter-free strings.
+    private val actionInstances = ConcurrentHashMap<Pair<ModeType, String>, BaseAction>()
 
     // Single source of truth for the set of currently enabled modes
     private val _activeModesFlow = MutableStateFlow<List<Pair<ModeType, String>>>(emptyList())
@@ -59,20 +60,7 @@ class ModeController(
     /**
      * Build a stable map key for an action instance.
      */
-    private fun modeKey(type: ModeType, name: String): String = "${type.name}$MODE_KEY_DELIMITER$name"
-
-    /**
-     * Parse a mode key back into its type and name components.
-     */
-    private fun parseModeKey(key: String): Pair<ModeType, String>? {
-        val parts = key.split(MODE_KEY_DELIMITER)
-        if (parts.size != 2) return null
-        return try {
-            ModeType.valueOf(parts[0]) to parts[1]
-        } catch (_: IllegalArgumentException) {
-            null
-        }
-    }
+    private fun modeKey(type: ModeType, name: String): Pair<ModeType, String> = type to name
 
     /**
      * Enable a mode. Disables other modes of the same type first.
@@ -85,7 +73,7 @@ class ModeController(
         synchronized(this) {
             // Disable other modes of the same type
             val keysToDisable = actionInstances.keys.filter {
-                it.startsWith("${type.name}$MODE_KEY_DELIMITER") && it != key
+                it.first == type && it != key
             }
             keysToDisable.forEach { k ->
                 actionInstances[k]?.disable()
@@ -168,7 +156,7 @@ class ModeController(
     /**
      * Get all enabled modes
      */
-    fun getEnabledModes(): List<Pair<ModeType, String>> = actionInstances.keys.mapNotNull { parseModeKey(it) }
+    fun getEnabledModes(): List<Pair<ModeType, String>> = actionInstances.keys.map { it }
 
     /**
      * Disable all modes

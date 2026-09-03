@@ -31,16 +31,24 @@ class SourceUpdateManager(
     private val pendingJobs = ConcurrentHashMap<String, Job>()
     private val latestCollections = ConcurrentHashMap<String, FeatureCollection>()
 
+    // Serializes schedule/flush bookkeeping so the latest-collection write, the
+    // previous job cancellation and the new job registration are atomic relative
+    // to a concurrent flush. Only the injected applyUpdate runs outside the lock.
+    private val lock = Any()
+
     /**
      * Schedule an update for [sourceName], replacing any previously scheduled
      * but not yet applied update for that source.
      */
     fun schedule(sourceName: String, collection: FeatureCollection) {
-        latestCollections[sourceName] = collection
-        pendingJobs.remove(sourceName)?.cancel()
-        pendingJobs[sourceName] = scope.launch {
+        val job = scope.launch {
             delay(debounceMs)
             flush(sourceName)
+        }
+        synchronized(lock) {
+            latestCollections[sourceName] = collection
+            pendingJobs.remove(sourceName)?.cancel()
+            pendingJobs[sourceName] = job
         }
     }
 
@@ -49,8 +57,11 @@ class SourceUpdateManager(
      * its pending debounce job. No-op when nothing is scheduled.
      */
     fun flush(sourceName: String) {
-        pendingJobs.remove(sourceName)?.cancel()
-        latestCollections.remove(sourceName)?.let { applyUpdate(sourceName, it) }
+        val collection = synchronized(lock) {
+            pendingJobs.remove(sourceName)?.cancel()
+            latestCollections.remove(sourceName)
+        }
+        collection?.let { applyUpdate(sourceName, it) }
     }
 
     /**
@@ -64,8 +75,10 @@ class SourceUpdateManager(
      * Cancel all pending debounced updates without applying them.
      */
     fun cancelPending() {
-        pendingJobs.values.forEach { it.cancel() }
-        pendingJobs.clear()
-        latestCollections.clear()
+        synchronized(lock) {
+            pendingJobs.values.forEach { it.cancel() }
+            pendingJobs.clear()
+            latestCollections.clear()
+        }
     }
 }

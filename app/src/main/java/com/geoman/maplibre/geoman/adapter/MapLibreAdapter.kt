@@ -42,7 +42,10 @@ class MapLibreAdapter private constructor(
     private var mapLongClickListener: MapLibreMap.OnMapLongClickListener? = null
 
     override fun isLoaded(): Boolean = try {
-        // Check if map style is loaded
+        // The style becomes non-null once the base map style has loaded. Guard
+        // against accessing it before the map is ready or after it is destroyed,
+        // both of which surface as IllegalStateException from the MapLibre SDK —
+        // the exact cases this check exists to detect.
         map.style != null
     } catch (_: IllegalStateException) {
         false
@@ -53,20 +56,17 @@ class MapLibreAdapter private constructor(
     override fun getCanvas(): Any? = mapView.renderView
 
     override fun addControl(control: GmControl) {
-        GeomanLogger.d("Geoman", "addControl called, registering click listeners")
         val clickListener = MapLibreMap.OnMapClickListener { point: LatLng ->
-            GeomanLogger.d("Geoman") { "Map click received: $point, activeModes: ${control.activeModes}" }
             val result = control.onMapClick(point)
-            GeomanLogger.d("Geoman") { "Map click handled, result: $result" }
+            GeomanLogger.d("Geoman") { "Map click: $point handled=$result" }
             false
         }
         mapClickListener = clickListener
         map.addOnMapClickListener(clickListener)
 
         val longClickListener = MapLibreMap.OnMapLongClickListener { point: LatLng ->
-            GeomanLogger.d("Geoman") { "Map long click received: $point, activeModes: ${control.activeModes}" }
             val result = control.onMapLongClick(point)
-            GeomanLogger.d("Geoman") { "Map long click handled, result: $result" }
+            GeomanLogger.d("Geoman") { "Map long click: $point handled=$result" }
             false
         }
         mapLongClickListener = longClickListener

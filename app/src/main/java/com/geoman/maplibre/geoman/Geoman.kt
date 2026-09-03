@@ -148,7 +148,7 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
     /**
      * Enable a mode. Disables other modes of the same type first.
      */
-    fun enableMode(type: ModeType, name: String) {
+    override fun enableMode(type: ModeType, name: String) {
         modeController.enableMode(type, name)
     }
 
@@ -167,7 +167,7 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
     /**
      * Check if a mode is enabled
      */
-    fun isModeEnabled(type: ModeType, name: String): Boolean = modeController.isModeEnabled(type, name)
+    override fun isModeEnabled(type: ModeType, name: String): Boolean = modeController.isModeEnabled(type, name)
 
     /**
      * Get all enabled modes
@@ -311,21 +311,24 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
 
     /**
      * Wait for Geoman to be loaded
+     *
+     * @return this once the map is loaded, or null if destroyed or the load
+     *   exceeds [GEOMAN_LOADED_TIMEOUT_MS] (withTimeoutOrNull returns null).
      */
-    suspend fun waitForGeomanLoaded(): Geoman? {
-        if (loaded) return this
-        if (destroyed) return null
-
-        return try {
+    @Suppress("RethrowCaughtException") // Cancelling a suspended wait must propagate, not return null.
+    suspend fun waitForGeomanLoaded(): Geoman? = try {
+        if (loaded) {
+            this
+        } else if (destroyed) {
+            null
+        } else {
             withTimeoutOrNull(GEOMAN_LOADED_TIMEOUT_MS) {
                 loadedFlow.first { it }
                 this@Geoman
             }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (_: IllegalStateException) { // SwallowedException: returns null on timeout/error
-            null
         }
+    } catch (e: CancellationException) {
+        throw e
     }
 
     /**

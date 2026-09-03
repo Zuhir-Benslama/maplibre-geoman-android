@@ -14,6 +14,10 @@ import com.geoman.maplibre.geoman.types.geojson.Geometry
  * [GeometryChange], original/parts swapping for [SplitChange]).
  */
 class HistoryController(private val features: Features, private val history: ChangeTracker) {
+    private companion object {
+        const val TAG = "Geoman"
+    }
+
     /**
      * Undo the most recent edit (geometry change or structural split).
      * Returns true when a change was restored.
@@ -26,8 +30,12 @@ class HistoryController(private val features: Features, private val history: Cha
             is SplitChange -> {
                 // Restore the pre-cut state: drop the parts, re-add the original
                 entry.parts.forEach { part ->
-                    val partId = part.id ?: return@forEach
-                    features.removeFeature(entry.sourceName, partId)
+                    val partId = part.id
+                    if (partId != null) {
+                        features.removeFeature(entry.sourceName, partId)
+                    } else {
+                        GeomanLogger.w(TAG, "undo: skipping part without id while restoring split $entry")
+                    }
                 }
                 features.addGeoJsonFeature(entry.original, entry.sourceName)
             }
@@ -49,6 +57,8 @@ class HistoryController(private val features: Features, private val history: Cha
                 val originalId = entry.original.id
                 if (originalId != null) {
                     features.removeFeature(entry.sourceName, originalId)
+                } else {
+                    GeomanLogger.w(TAG, "redo: original has no id, cannot remove it before re-applying cut")
                 }
                 entry.parts.forEach { features.addGeoJsonFeature(it, entry.sourceName) }
             }

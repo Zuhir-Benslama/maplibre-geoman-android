@@ -24,6 +24,11 @@ class PolygonDrawer(geoman: Geoman) : BasePathDrawer(geoman) {
 
     override val minRenderPoints: Int = 3
 
-    override fun buildGeometry(coordinates: List<LngLat>): Geometry =
-        Polygon.fromLngLats(listOf(coordinates + coordinates.first()))
+    override fun buildGeometry(coordinates: List<LngLat>): Geometry {
+        val closed = buildList(coordinates.size + 1) {
+            addAll(coordinates)
+            coordinates.firstOrNull()?.let(::add)
+        }
+        return Polygon.fromLngLats(listOf(closed))
+    }
 }

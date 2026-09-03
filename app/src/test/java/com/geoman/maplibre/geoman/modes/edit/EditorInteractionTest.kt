@@ -87,10 +87,17 @@ class EditorInteractionTest {
         override val mapActions = FakeMapActions()
 
         val disabledModes = mutableListOf<Pair<ModeType, String>>()
+        val enabledModes = mutableListOf<Pair<ModeType, String>>()
+
+        override fun enableMode(type: ModeType, name: String) {
+            enabledModes.add(type to name)
+        }
 
         override fun disableMode(type: ModeType, name: String) {
             disabledModes.add(type to name)
         }
+
+        override fun isModeEnabled(type: ModeType, name: String): Boolean = enabledModes.contains(type to name)
     }
 
     private lateinit var geoman: FakeGeoman

@@ -70,9 +70,10 @@ abstract class BaseMapAdapter<TMap>(protected val map: TMap, val geoman: Geoman)
     open fun getDistance(lngLat1: LngLat, lngLat2: LngLat): Double = GeometryUtils.distance(lngLat1, lngLat2)
 
     /**
-     * Get the nearest point on a line to a given point
+     * Get the nearest point on a line to a given point, measured in metres
+     * along the geodesic (great-circle) distance.
      */
-    open fun getEuclideanNearestLngLat(lineCoordinates: List<LngLat>, point: LngLat): LngLat {
+    open fun getNearestPointOnLine(lineCoordinates: List<LngLat>, point: LngLat): LngLat {
         require(lineCoordinates.isNotEmpty()) { "lineCoordinates must not be empty" }
         var closestPoint = lineCoordinates.first()
         var minDistance = Double.MAX_VALUE
@@ -93,6 +94,14 @@ abstract class BaseMapAdapter<TMap>(protected val map: TMap, val geoman: Geoman)
 
         return closestPoint
     }
+
+    /**
+     * @deprecated Renamed to [getNearestPointOnLine] — the distance metric used
+     *   is geodesic, not Euclidean, so the previous name was misleading.
+     */
+    @Deprecated("Use getNearestPointOnLine; this method uses geodesic distance, not Euclidean")
+    open fun getEuclideanNearestLngLat(lineCoordinates: List<LngLat>, point: LngLat): LngLat =
+        getNearestPointOnLine(lineCoordinates, point)
 }
 
 /**
