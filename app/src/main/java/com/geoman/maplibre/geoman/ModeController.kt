@@ -11,6 +11,7 @@ import com.geoman.maplibre.geoman.modes.edit.ChangeEditor
 import com.geoman.maplibre.geoman.modes.edit.DragEditor
 import com.geoman.maplibre.geoman.modes.helpers.BaseHelper
 import com.geoman.maplibre.geoman.types.EditModeName
+import com.geoman.maplibre.geoman.types.ModeKey
 import com.geoman.maplibre.geoman.types.ModeType
 import com.geoman.maplibre.geoman.types.events.GmModeEvent
 import kotlinx.coroutines.CoroutineScope
@@ -51,16 +52,16 @@ class ModeController(
     // Action instances (modes) — guarded by `this` lock for atomic mode switching.
     // Keyed by a typed (ModeType, name) pair so mode names need not be
     // restricted to delimiter-free strings.
-    private val actionInstances = ConcurrentHashMap<Pair<ModeType, String>, BaseAction>()
+    private val actionInstances = ConcurrentHashMap<ModeKey, BaseAction>()
 
     // Single source of truth for the set of currently enabled modes
-    private val _activeModesFlow = MutableStateFlow<List<Pair<ModeType, String>>>(emptyList())
-    val activeModesFlow: StateFlow<List<Pair<ModeType, String>>> = _activeModesFlow.asStateFlow()
+    private val _activeModesFlow = MutableStateFlow<List<ModeKey>>(emptyList())
+    val activeModesFlow: StateFlow<List<ModeKey>> = _activeModesFlow.asStateFlow()
 
     /**
      * Build a stable map key for an action instance.
      */
-    private fun modeKey(type: ModeType, name: String): Pair<ModeType, String> = type to name
+    private fun modeKey(type: ModeType, name: String): ModeKey = ModeKey(type, name)
 
     /**
      * Enable a mode. Disables other modes of the same type first.
@@ -73,7 +74,7 @@ class ModeController(
         synchronized(this) {
             // Disable other modes of the same type
             val keysToDisable = actionInstances.keys.filter {
-                it.first == type && it != key
+                it.type == type && it != key
             }
             keysToDisable.forEach { k ->
                 actionInstances[k]?.disable()
@@ -91,8 +92,8 @@ class ModeController(
                 // cleaned up bookkeeping, so only refresh it when the action
                 // is still registered.
                 if (actionInstances[key] === it) {
-                    control()?.activeModes?.removeAll { active -> active.first == type }
-                    control()?.activeModes?.add(type to name)
+                    control()?.activeModes?.removeAll { active -> active.type == type }
+                    control()?.activeModes?.add(ModeKey(type, name))
 
                     options.enableMode(type, name)
                     _activeModesFlow.value = getEnabledModes()
@@ -119,7 +120,7 @@ class ModeController(
         val action = synchronized(this) {
             actionInstances.remove(key)?.also {
                 it.disable()
-                control()?.activeModes?.remove(type to name)
+                control()?.activeModes?.remove(ModeKey(type, name))
                 options.disableMode(type, name)
                 _activeModesFlow.value = getEnabledModes()
             }
@@ -156,7 +157,7 @@ class ModeController(
     /**
      * Get all enabled modes
      */
-    fun getEnabledModes(): List<Pair<ModeType, String>> = actionInstances.keys.map { it }
+    fun getEnabledModes(): List<ModeKey> = actionInstances.keys.map { it }
 
     /**
      * Disable all modes

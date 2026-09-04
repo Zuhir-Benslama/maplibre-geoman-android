@@ -5,6 +5,7 @@ import com.geoman.maplibre.geoman.adapter.BaseMapAdapter
 import com.geoman.maplibre.geoman.adapter.DomMarker
 import com.geoman.maplibre.geoman.adapter.DomMarkerOptions
 import com.geoman.maplibre.geoman.adapter.MapLibreAdapter
+import com.geoman.maplibre.geoman.adapter.MapLibreDomMarker
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.core.controls.GmControl
 import com.geoman.maplibre.geoman.core.events.GmEventBus
@@ -15,6 +16,7 @@ import com.geoman.maplibre.geoman.core.io.GeoJsonCodec
 import com.geoman.maplibre.geoman.core.io.ImportResult
 import com.geoman.maplibre.geoman.core.options.GmOptions
 import com.geoman.maplibre.geoman.core.options.GmOptionsData
+import com.geoman.maplibre.geoman.types.ModeKey
 import com.geoman.maplibre.geoman.types.ModeType
 import com.geoman.maplibre.geoman.types.events.GmMapEvent
 import com.geoman.maplibre.geoman.types.geojson.Feature
@@ -134,7 +136,7 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
     }
 
     // Single source of truth for the set of currently enabled modes
-    val activeModesFlow: StateFlow<List<Pair<ModeType, String>>> = modeController.activeModesFlow
+    val activeModesFlow: StateFlow<List<ModeKey>> = modeController.activeModesFlow
 
     val loaded: Boolean get() = mapLifecycle.loaded
     val loadedFlow: StateFlow<Boolean> = mapLifecycle.loadedFlow
@@ -172,7 +174,7 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
     /**
      * Get all enabled modes
      */
-    fun getEnabledModes(): List<Pair<ModeType, String>> = modeController.getEnabledModes()
+    fun getEnabledModes(): List<ModeKey> = modeController.getEnabledModes()
 
     /**
      * Disable all modes
@@ -350,6 +352,7 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
         }
 
         (_mapAdapter as? MapLibreAdapter)?.cleanup()
+        MapLibreDomMarker.cleanupForMap(map)
 
         events.tryEmit(GmMapEvent.Destroyed)
         events.removeAllListeners()

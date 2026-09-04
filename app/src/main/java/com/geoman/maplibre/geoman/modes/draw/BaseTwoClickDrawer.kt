@@ -1,5 +1,6 @@
 package com.geoman.maplibre.geoman.modes.draw
 
+import androidx.annotation.MainThread
 import com.geoman.maplibre.geoman.Geoman
 import com.geoman.maplibre.geoman.types.geojson.LngLat
 import org.maplibre.android.geometry.LatLng
@@ -14,6 +15,7 @@ abstract class BaseTwoClickDrawer(geoman: Geoman) : BaseDraw(geoman) {
 
     private var firstClick: LngLat? = null
 
+    @MainThread
     override fun onMapClick(point: LatLng) {
         if (!enabled) return
 

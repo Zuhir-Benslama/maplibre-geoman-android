@@ -4,6 +4,7 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.view.View
 import android.view.ViewGroup
+import androidx.annotation.MainThread
 import com.geoman.maplibre.geoman.BaseAction
 import com.geoman.maplibre.geoman.GeomanApi
 import com.geoman.maplibre.geoman.adapter.DomMarker
@@ -26,11 +27,13 @@ abstract class BaseEdit(geoman: GeomanApi) : BaseAction(geoman) {
 
     protected var selectedFeature: FeatureData? = null
 
+    @MainThread
     override fun disable() {
         super.disable()
         selectedFeature = null
     }
 
+    @MainThread
     abstract fun onMapClick(point: LatLng)
 
     /**

@@ -1,6 +1,7 @@
 package com.geoman.maplibre.geoman.modes.edit
 
 import android.view.MotionEvent
+import androidx.annotation.MainThread
 import com.geoman.maplibre.geoman.GeomanApi
 import com.geoman.maplibre.geoman.adapter.DomMarker
 import com.geoman.maplibre.geoman.adapter.DomMarkerOptions
@@ -29,6 +30,7 @@ open class DragEditor(geoman: GeomanApi) : BaseEdit(geoman) {
     private var dragStartPoint: LatLng? = null
     private var dragHandle: DomMarker? = null
 
+    @MainThread
     override fun disable() {
         if (isDragging) {
             finishDrag()
@@ -38,6 +40,7 @@ open class DragEditor(geoman: GeomanApi) : BaseEdit(geoman) {
         super.disable()
     }
 
+    @MainThread
     override fun onMapClick(point: LatLng) {
         if (!enabled) return
 

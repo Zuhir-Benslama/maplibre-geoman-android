@@ -1,5 +1,6 @@
 package com.geoman.maplibre.geoman.modes.edit
 
+import androidx.annotation.MainThread
 import com.geoman.maplibre.geoman.GeomanApi
 import com.geoman.maplibre.geoman.GeomanLogger
 import com.geoman.maplibre.geoman.adapter.DomMarkerOptions
@@ -37,6 +38,7 @@ open class ChangeEditor(geoman: GeomanApi) : BaseEdit(geoman) {
         val domMarker: com.geoman.maplibre.geoman.adapter.DomMarker,
     )
 
+    @MainThread
     override fun disable() {
         if (isEditing) {
             finishEditing()
@@ -52,6 +54,7 @@ open class ChangeEditor(geoman: GeomanApi) : BaseEdit(geoman) {
         startEditing(feature)
     }
 
+    @MainThread
     override fun onMapClick(point: LatLng) {
         if (!enabled) return
 

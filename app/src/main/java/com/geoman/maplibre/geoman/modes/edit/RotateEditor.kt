@@ -1,5 +1,6 @@
 package com.geoman.maplibre.geoman.modes.edit
 
+import androidx.annotation.MainThread
 import com.geoman.maplibre.geoman.GeomanApi
 import com.geoman.maplibre.geoman.core.features.FeatureData
 import com.geoman.maplibre.geoman.core.features.FeatureSources
@@ -32,6 +33,7 @@ open class RotateEditor(geoman: GeomanApi) : BaseEdit(geoman) {
     private var lastPointerAngle: Double = 0.0
     private var totalRotation: Double = 0.0
 
+    @MainThread
     override fun disable() {
         if (isRotating) {
             finishRotation()
@@ -39,6 +41,7 @@ open class RotateEditor(geoman: GeomanApi) : BaseEdit(geoman) {
         super.disable()
     }
 
+    @MainThread
     override fun onMapClick(point: LatLng) {
         if (!enabled) return
 

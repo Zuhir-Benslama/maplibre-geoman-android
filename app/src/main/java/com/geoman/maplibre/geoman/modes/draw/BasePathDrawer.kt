@@ -1,5 +1,6 @@
 package com.geoman.maplibre.geoman.modes.draw
 
+import androidx.annotation.MainThread
 import com.geoman.maplibre.geoman.Geoman
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.core.features.FeatureData
@@ -44,6 +45,7 @@ abstract class BasePathDrawer(geoman: Geoman) : BaseDraw(geoman) {
     private val coordinates = mutableListOf<LngLat>()
     private var currentFeature: FeatureData? = null
 
+    @MainThread
     override fun onMapClick(point: LatLng): Unit = synchronized(this) {
         if (!enabled) return
 
@@ -73,6 +75,7 @@ abstract class BasePathDrawer(geoman: Geoman) : BaseDraw(geoman) {
         geoman.disableMode(modeType, modeName)
     }
 
+    @MainThread
     override fun disable() {
         // Snapshot-then-clear under the lock to avoid races with click handlers
         synchronized(this) {

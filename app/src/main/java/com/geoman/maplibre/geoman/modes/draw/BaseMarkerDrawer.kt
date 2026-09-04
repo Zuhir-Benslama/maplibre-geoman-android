@@ -1,5 +1,6 @@
 package com.geoman.maplibre.geoman.modes.draw
 
+import androidx.annotation.MainThread
 import com.geoman.maplibre.geoman.Geoman
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.core.features.FeatureData
@@ -27,6 +28,7 @@ abstract class BaseMarkerDrawer(geoman: Geoman) : BaseDraw(geoman) {
     /** Prefix for generated feature IDs. */
     protected abstract val idPrefix: String
 
+    @MainThread
     override fun onMapClick(point: LatLng) {
         if (!enabled) return
 

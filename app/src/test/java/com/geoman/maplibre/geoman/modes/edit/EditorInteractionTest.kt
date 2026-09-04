@@ -10,6 +10,7 @@ import com.geoman.maplibre.geoman.core.features.Features
 import com.geoman.maplibre.geoman.core.history.ChangeTracker
 import com.geoman.maplibre.geoman.core.options.GmOptions
 import com.geoman.maplibre.geoman.core.options.GmOptionsData
+import com.geoman.maplibre.geoman.types.ModeKey
 import com.geoman.maplibre.geoman.types.ModeType
 import com.geoman.maplibre.geoman.types.events.GmEditEvent
 import com.geoman.maplibre.geoman.types.geojson.Feature
@@ -86,18 +87,18 @@ class EditorInteractionTest {
         override val scope = CoroutineScope(UnconfinedTestDispatcher())
         override val mapActions = FakeMapActions()
 
-        val disabledModes = mutableListOf<Pair<ModeType, String>>()
-        val enabledModes = mutableListOf<Pair<ModeType, String>>()
+        val disabledModes = mutableListOf<ModeKey>()
+        val enabledModes = mutableListOf<ModeKey>()
 
         override fun enableMode(type: ModeType, name: String) {
-            enabledModes.add(type to name)
+            enabledModes.add(ModeKey(type, name))
         }
 
         override fun disableMode(type: ModeType, name: String) {
-            disabledModes.add(type to name)
+            disabledModes.add(ModeKey(type, name))
         }
 
-        override fun isModeEnabled(type: ModeType, name: String): Boolean = enabledModes.contains(type to name)
+        override fun isModeEnabled(type: ModeType, name: String): Boolean = enabledModes.contains(ModeKey(type, name))
     }
 
     private lateinit var geoman: FakeGeoman

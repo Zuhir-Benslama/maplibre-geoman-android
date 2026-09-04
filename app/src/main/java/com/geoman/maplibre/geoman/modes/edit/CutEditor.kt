@@ -1,5 +1,6 @@
 package com.geoman.maplibre.geoman.modes.edit
 
+import androidx.annotation.MainThread
 import com.geoman.maplibre.geoman.GeomanApi
 import com.geoman.maplibre.geoman.GeomanLogger
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
@@ -23,6 +24,7 @@ open class CutEditor(geoman: GeomanApi) : BaseEdit(geoman) {
 
     override val modeName: String = EditModeName.CUT.name
 
+    @MainThread
     override fun onMapClick(point: LatLng) {
         if (!enabled) return
 

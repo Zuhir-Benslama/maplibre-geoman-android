@@ -40,6 +40,7 @@ import com.geoman.maplibre.geoman.GeomanLogger
 import com.geoman.maplibre.geoman.types.DrawModeName
 import com.geoman.maplibre.geoman.types.EditModeName
 import com.geoman.maplibre.geoman.types.HelperModeName
+import com.geoman.maplibre.geoman.types.ModeKey
 import com.geoman.maplibre.geoman.types.ModeType
 import org.maplibre.android.geometry.LatLng
 
@@ -50,7 +51,7 @@ import org.maplibre.android.geometry.LatLng
 class GmControl(private val geoman: Geoman) {
     private var controlView: View? = null
 
-    val activeModes: MutableSet<Pair<ModeType, String>> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+    val activeModes: MutableSet<ModeKey> = java.util.concurrent.ConcurrentHashMap.newKeySet()
 
     /**
      * Create the control panel UI using traditional Android Views
@@ -228,9 +229,9 @@ class GmControl(private val geoman: Geoman) {
      * is being moved so the map does not pan underneath it.
      */
     fun onTouchEvent(event: MotionEvent): Boolean {
-        val dragMode = activeModes.firstOrNull { it.first == ModeType.EDIT && it.second == EditModeName.DRAG.name }
+        val dragMode = activeModes.firstOrNull { it.type == ModeType.EDIT && it.name == EditModeName.DRAG.name }
         if (dragMode != null) {
-            return geoman.handleEditTouch(dragMode.second, event)
+            return geoman.handleEditTouch(dragMode.name, event)
         }
         return false
     }
@@ -260,7 +261,7 @@ class GmControl(private val geoman: Geoman) {
 fun GeomanControls(geoman: Geoman, modifier: Modifier = Modifier) {
     val activeModes by geoman.activeModesFlow.collectAsState()
     val isActive: (ModeType, String) -> Boolean = { type, name ->
-        activeModes.any { it.first == type && it.second == name }
+        activeModes.any { it.type == type && it.name == name }
     }
 
     Box(

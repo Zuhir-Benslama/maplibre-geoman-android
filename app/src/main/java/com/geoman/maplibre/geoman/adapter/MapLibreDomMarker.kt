@@ -49,6 +49,8 @@ class MapLibreDomMarker(
     private var cameraMoveListener: MapLibreMap.OnCameraMoveListener? = null
 
     companion object {
+        private const val DEFAULT_MARKER_MIN_SIZE_PX = 48
+
         private val markersByMap =
             java.util.concurrent.ConcurrentHashMap<MapLibreMap, MutableMap<String, MapLibreDomMarker>>()
 
@@ -152,8 +154,8 @@ class MapLibreDomMarker(
             FrameLayout.LayoutParams.WRAP_CONTENT,
         )
         markerView.setBackgroundResource(android.R.drawable.ic_dialog_map)
-        markerView.minimumWidth = 48
-        markerView.minimumHeight = 48
+        markerView.minimumWidth = DEFAULT_MARKER_MIN_SIZE_PX
+        markerView.minimumHeight = DEFAULT_MARKER_MIN_SIZE_PX
         return markerView
     }
 
@@ -255,8 +257,8 @@ class MapLibreDomMarker(
         markerView.layout(0, 0, markerView.measuredWidth, markerView.measuredHeight)
 
         val bitmap = createBitmap(
-            markerView.measuredWidth.coerceAtLeast(48),
-            markerView.measuredHeight.coerceAtLeast(48),
+            markerView.measuredWidth.coerceAtLeast(DEFAULT_MARKER_MIN_SIZE_PX),
+            markerView.measuredHeight.coerceAtLeast(DEFAULT_MARKER_MIN_SIZE_PX),
         )
         val canvas = Canvas(bitmap)
         markerView.draw(canvas)

@@ -34,7 +34,8 @@ class MapLibreSource(
             try {
                 maplibreSource?.setGeoJson(geoJsonString)
             } catch (e: IllegalStateException) {
-                GeomanLogger.w("MapLibreSource", "Error updating source: ${e.message}")
+                GeomanLogger.w("MapLibreSource", "Error updating source $sourceId, attempting recreate", e)
+                recreateSource(geoJsonString)
             }
         } else {
             // Create new source and add to map
@@ -45,16 +46,25 @@ class MapLibreSource(
                 GeomanLogger.d("MapLibreSource", "Created source: $sourceId with ${geoJson.features.size} features")
             } catch (e: IllegalStateException) {
                 // Source may already exist, try to update
-                GeomanLogger.w("MapLibreSource", "Error creating source: ${e.message}, trying update")
-                try {
-                    map.style?.removeSource(sourceId)
-                    val source = GeoJsonSource(sourceId, geoJsonString)
-                    maplibreSource = source
-                    map.style?.addSource(source)
-                } catch (e2: IllegalStateException) {
-                    GeomanLogger.e("MapLibreSource", "Failed to create/update source: ${e2.message}")
-                }
+                GeomanLogger.w("MapLibreSource", "Error creating source $sourceId, attempting recreate", e)
+                recreateSource(geoJsonString)
             }
+        }
+    }
+
+    /**
+     * Remove and re-add the MapLibre source. Used as a fallback when the
+     * initial create or update fails (e.g. style not yet loaded, source
+     * already exists with a stale reference).
+     */
+    private fun recreateSource(geoJsonString: String) {
+        try {
+            map.style?.removeSource(sourceId)
+            val source = GeoJsonSource(sourceId, geoJsonString)
+            maplibreSource = source
+            map.style?.addSource(source)
+        } catch (e: IllegalStateException) {
+            GeomanLogger.e("MapLibreSource", "Failed to recreate source $sourceId", e)
         }
     }
 

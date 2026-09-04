@@ -1,5 +1,6 @@
 package com.geoman.maplibre.geoman.modes.helpers
 
+import androidx.annotation.MainThread
 import com.geoman.maplibre.geoman.Geoman
 import com.geoman.maplibre.geoman.GeomanLogger
 import com.geoman.maplibre.geoman.adapter.LayerOptions
@@ -39,6 +40,7 @@ class SnapHelper(geoman: Geoman) : BaseHelper(geoman) {
         snapDistance = geoman.options.helper.snapDistance
     }
 
+    @MainThread
     override fun onMapClick(point: LatLng) {
         showSnapGuides(point)
     }

@@ -1,6 +1,12 @@
 package com.geoman.maplibre.geoman.types
 
 /**
+ * Typed key identifying a specific mode instance by its [type] and [name].
+ * Replaces raw `Pair<ModeType, String>` throughout the codebase for clarity.
+ */
+data class ModeKey(val type: ModeType, val name: String)
+
+/**
  * Mode types for Geoman actions
  */
 enum class ModeType {
