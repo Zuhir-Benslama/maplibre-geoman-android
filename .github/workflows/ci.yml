@@ -7,6 +7,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 env:
   GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.parallel=true
 
@@ -32,17 +35,5 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      - name: Check formatting (Spotless/ktlint)
-        run: ./gradlew spotlessCheck
-
-      - name: Static analysis (Detekt)
-        run: ./gradlew detekt
-
-      - name: Android Lint
-        run: ./gradlew :app:lint
-
-      - name: Run unit tests
-        run: ./gradlew testDebugUnitTest
-
-      - name: Build debug AAR
-        run: ./gradlew :app:assembleDebug
+      - name: Run all quality gates
+        run: ./gradlew spotlessCheck detekt :app:lint testDebugUnitTest :app:assembleDebug --continue

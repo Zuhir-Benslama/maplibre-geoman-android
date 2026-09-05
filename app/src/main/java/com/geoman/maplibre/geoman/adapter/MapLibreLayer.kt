@@ -22,23 +22,29 @@ class MapLibreLayer(private val geoman: Geoman, private val options: LayerOption
 
     private var isAdded = false
 
-    init {
-        add()
-    }
-
-    private fun add() {
-        if (isAdded) return
+    /**
+     * Register the layer with the map style.
+     *
+     * Idempotent and retryable: safe to call again after a style swap or when
+     * the first attempt ran before the style was ready. When [addLayer] fails
+     * because a stale layer with the same id is still present, the stale layer
+     * is removed and the add is retried once (mirroring [MapLibreSource]).
+     *
+     * @return true once the layer is registered with the style.
+     */
+    fun add(): Boolean {
+        if (isAdded) return true
 
         val style = map.style
         if (style == null) {
             GeomanLogger.w("MapLibreLayer", "Cannot add layer $layerId: map style not loaded")
-            return
+            return false
         }
 
         val layer = createLayer()
         if (layer == null) {
             GeomanLogger.w("MapLibreLayer", "Cannot add layer $layerId: unsupported type ${options.type}")
-            return
+            return false
         }
 
         applySourceLayer(layer)
@@ -51,8 +57,15 @@ class MapLibreLayer(private val geoman: Geoman, private val options: LayerOption
             style.addLayer(layer)
             isAdded = true
         } catch (e: IllegalStateException) {
-            GeomanLogger.w("MapLibreLayer", "Failed to add layer $layerId", e)
+            try {
+                style.removeLayer(layerId)
+                style.addLayer(layer)
+                isAdded = true
+            } catch (e2: IllegalStateException) {
+                GeomanLogger.e("MapLibreLayer", "Failed to add layer $layerId", e2)
+            }
         }
+        return isAdded
     }
 
     private fun createLayer(): org.maplibre.android.style.layers.Layer? = when (options.type) {
@@ -118,7 +131,7 @@ class MapLibreLayer(private val geoman: Geoman, private val options: LayerOption
 
         is Boolean -> PropertyValue(name, value)
 
-        is Int -> PropertyValue(name, value.toFloat())
+        is Int -> PropertyValue(name, value.toDouble())
 
         is Float -> PropertyValue(name, value)
 

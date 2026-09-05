@@ -60,6 +60,7 @@ class MapLibreContentStore(private val map: MapLibreMap, private val geoman: Geo
 
     override fun addLayer(options: LayerOptions): MapLayer {
         val layer = MapLibreLayer(geoman, options, map)
+        layer.add()
         layers[options.id] = layer
         return layer
     }

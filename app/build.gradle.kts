@@ -7,7 +7,6 @@ plugins {
 
 detekt {
     config.setFrom(file("../detekt.yml"))
-    baseline = file("detekt-baseline.xml")
     buildUponDefaultConfig = true
     allRules = false
     autoCorrect = false
@@ -34,9 +33,6 @@ android {
 
     lint {
         abortOnError = true
-        // Generate once via `./gradlew :app:lint` and commit; keeps the build
-        // green while still reporting new issues introduced by future changes.
-        baseline = file("lint-baseline.xml")
     }
 
     compileOptions {
