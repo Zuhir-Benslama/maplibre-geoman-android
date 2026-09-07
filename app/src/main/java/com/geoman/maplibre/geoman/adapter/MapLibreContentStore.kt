@@ -53,6 +53,10 @@ class MapLibreContentStore(private val map: MapLibreMap, private val geoman: Geo
     override fun addSource(sourceId: String, geoJson: FeatureCollection): MapSource {
         val source = MapLibreSource(geoman, sourceId, geoJson, map)
         sources[sourceId] = source
+        // Push the initial data so the source registers with the map style and
+        // the first features render immediately; setData is what actually
+        // creates the underlying GeoJsonSource.
+        source.setData(geoJson)
         return source
     }
 

@@ -16,8 +16,8 @@ abstract class BaseTwoClickDrawer(geoman: Geoman) : BaseDraw(geoman) {
     private var firstClick: LngLat? = null
 
     @MainThread
-    override fun onMapClick(point: LatLng) {
-        if (!enabled) return
+    override fun onMapClick(point: LatLng): Unit = synchronized(this) {
+        if (!enabled) return@synchronized
 
         val clickLngLat = LngLat(point.longitude, point.latitude)
         val first = firstClick
@@ -32,15 +32,15 @@ abstract class BaseTwoClickDrawer(geoman: Geoman) : BaseDraw(geoman) {
         }
     }
 
-    override fun onMapLongClick(point: LatLng) {
-        if (!enabled || firstClick == null) return
+    override fun onMapLongClick(point: LatLng): Unit = synchronized(this) {
+        if (!enabled || firstClick == null) return@synchronized
 
         // Cancel drawing
         firstClick = null
         geoman.disableMode(modeType, modeName)
     }
 
-    override fun finishDrawing() {
+    override fun finishDrawing(): Unit = synchronized(this) {
         firstClick = null
         geoman.disableMode(modeType, modeName)
     }

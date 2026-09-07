@@ -1,5 +1,6 @@
 package com.geoman.maplibre.geoman.core.io
 
+import com.geoman.maplibre.geoman.core.GeomanCoreConstants.FEATURE_ID_PROPERTY
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants.FEATURE_SHAPE_PROPERTY
 import com.geoman.maplibre.geoman.core.features.FeatureData
 import com.geoman.maplibre.geoman.core.features.FeatureShape
@@ -85,17 +86,24 @@ object GeoJsonCodec {
                 return@forEach
             }
 
-            val validation = PropertyValidators.validateFeature(feature)
+            // System properties (__gm_*) carry tracking metadata. Restore the
+            // tracking id from __gm_id when no top-level id is present so the
+            // feature is addressable after a round-trip, and keep system
+            // entries out of user-visible properties.
+            val systemEntries = feature.properties.filterKeys { it.startsWith(SYSTEM_PROPERTY_PREFIX) }
+            val userProperties = feature.properties.filterKeys { !it.startsWith(SYSTEM_PROPERTY_PREFIX) }
+            val restored = feature.copy(
+                id = feature.id ?: systemEntries[FEATURE_ID_PROPERTY] as? String,
+                properties = userProperties,
+            )
+
+            val validation = PropertyValidators.validateFeature(restored)
             if (validation.isValid) {
-                // System properties (__gm_*) carry tracking metadata; restore
-                // the shape and keep them out of user-visible properties.
-                val systemEntries = feature.properties.filterKeys { it.startsWith(SYSTEM_PROPERTY_PREFIX) }
-                val userProperties = feature.properties.filterKeys { !it.startsWith(SYSTEM_PROPERTY_PREFIX) }
                 features.add(
                     FeatureData(
-                        id = feature.id ?: generateFeatureId("imported_$index"),
+                        id = restored.id ?: generateFeatureId("imported_$index"),
                         sourceName = sourceName,
-                        feature = feature.copy(properties = userProperties),
+                        feature = restored,
                         properties = userProperties,
                         shape = FeatureShape.fromTag(systemEntries[FEATURE_SHAPE_PROPERTY] as? String),
                     ),

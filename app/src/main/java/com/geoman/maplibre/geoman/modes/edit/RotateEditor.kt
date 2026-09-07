@@ -53,8 +53,11 @@ open class RotateEditor(geoman: GeomanApi) : BaseEdit(geoman) {
                 FeatureSources.EDITABLE_WITHOUT_MARKERS,
             )
 
-            if (features.isNotEmpty()) {
-                startRotation(features.first(), point)
+            // Points have no orientation, so rotation would be a silent no-op;
+            // ignore them rather than firing a RotateStart that does nothing.
+            val feature = features.firstOrNull { it.geometry !is Point }
+            if (feature != null) {
+                startRotation(feature, point)
             }
         }
     }

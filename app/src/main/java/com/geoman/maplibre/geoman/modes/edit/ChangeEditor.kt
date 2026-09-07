@@ -190,7 +190,7 @@ open class ChangeEditor(geoman: GeomanApi) : BaseEdit(geoman) {
         val feature = editingFeature ?: return
         val coord = listOf(newPoint.longitude, newPoint.latitude)
 
-        editingFeature = updateFeatureGeometry(feature) { geometry ->
+        val updated = updateFeatureGeometry(feature) { geometry ->
             when (geometry) {
                 is com.geoman.maplibre.geoman.types.geojson.LineString -> {
                     val coords = geometry.coordinates.toMutableList()
@@ -206,7 +206,14 @@ open class ChangeEditor(geoman: GeomanApi) : BaseEdit(geoman) {
 
                 else -> geometry
             }
+        } ?: run {
+            // The edited feature vanished from the store (e.g. undone); stop the
+            // editing session rather than dragging a phantom feature.
+            finishEditing()
+            return
         }
+
+        editingFeature = updated
     }
 
     /**
@@ -214,7 +221,7 @@ open class ChangeEditor(geoman: GeomanApi) : BaseEdit(geoman) {
      *
      * @param segmentIndex index of the segment to split (0-based, between vertex i and i+1)
      */
-    fun addVertex(segmentIndex: Int, newPoint: LatLng) {
+    private fun addVertex(segmentIndex: Int, newPoint: LatLng) {
         val feature = editingFeature ?: return
         val coord = listOf(newPoint.longitude, newPoint.latitude)
 
@@ -254,7 +261,7 @@ open class ChangeEditor(geoman: GeomanApi) : BaseEdit(geoman) {
      *
      * @param index index of the vertex to remove
      */
-    fun removeVertex(index: Int) {
+    private fun removeVertex(index: Int) {
         val feature = editingFeature ?: return
 
         val updated = updateFeatureGeometry(feature) { geometry ->

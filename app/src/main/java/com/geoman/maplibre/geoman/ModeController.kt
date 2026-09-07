@@ -71,7 +71,7 @@ class ModeController(
 
         val key = modeKey(type, name)
 
-        synchronized(this) {
+        val enabled = synchronized(this) {
             // Disable other modes of the same type
             val keysToDisable = actionInstances.keys.filter {
                 it.type == type && it != key
@@ -97,17 +97,21 @@ class ModeController(
 
                     options.enableMode(type, name)
                     _activeModesFlow.value = getEnabledModes()
+                    true
+                } else {
+                    false
                 }
-            }
+            } ?: false
         }
 
-        // Fire event outside the lock to avoid holding it during coroutine dispatch
-        when (actionInstances[key]) {
-            null -> GeomanLogger.d(TAG, "Mode $type.$name disabled itself during enable()")
-
-            else -> scope.launch {
+        // Fire the event outside the lock to avoid holding it during coroutine
+        // dispatch; whether it fires is decided from the committed state above.
+        if (enabled) {
+            scope.launch {
                 events.emit(GmModeEvent.Enable(name, type.name))
             }
+        } else {
+            GeomanLogger.d(TAG, "Mode $type.$name disabled itself during enable()")
         }
     }
 
@@ -157,7 +161,7 @@ class ModeController(
     /**
      * Get all enabled modes
      */
-    fun getEnabledModes(): List<ModeKey> = actionInstances.keys.map { it }
+    fun getEnabledModes(): List<ModeKey> = synchronized(this) { actionInstances.keys.toList() }
 
     /**
      * Disable all modes

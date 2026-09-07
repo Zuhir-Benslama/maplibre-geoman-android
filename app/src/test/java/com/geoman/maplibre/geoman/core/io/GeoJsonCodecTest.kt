@@ -251,4 +251,73 @@ class GeoJsonCodecTest {
         assertEquals(1, result.features.size)
         assertNull(result.features[0].shape)
     }
+
+    @Test
+    fun `import restores gm id from system property when top-level id is absent`() {
+        val json = """
+            {
+              "type": "FeatureCollection",
+              "features": [
+                {
+                  "type": "Feature",
+                  "geometry": {"type": "Point", "coordinates": [1.0, 2.0]},
+                  "properties": {"__gm_id": "tracked-id-42", "__gm_shape": "marker"}
+                }
+              ]
+            }
+        """.trimIndent()
+
+        val result = GeoJsonCodec.decode(json, "gm_markers")
+
+        assertEquals(1, result.features.size)
+        assertEquals("tracked-id-42", result.features[0].id)
+        assertEquals("tracked-id-42", result.features[0].feature.id)
+        assertFalse(result.features[0].feature.properties.containsKey("__gm_id"))
+    }
+
+    @Test
+    fun `large integer property values keep precision on import`() {
+        val json = """
+            {
+              "type": "FeatureCollection",
+              "features": [
+                {
+                  "type": "Feature",
+                  "id": "big",
+                  "geometry": {"type": "Point", "coordinates": [1.0, 2.0]},
+                  "properties": {"timestamp": 9007199254740993}
+                }
+              ]
+            }
+        """.trimIndent()
+
+        val result = GeoJsonCodec.decode(json, "gm_markers")
+
+        assertEquals(1, result.features.size)
+        assertEquals(9007199254740993L, result.features[0].feature.properties["timestamp"])
+    }
+
+    @Test
+    fun `integral property values decode as Long and round-trip unchanged`() {
+        val json = """
+            {
+              "type": "FeatureCollection",
+              "features": [
+                {
+                  "type": "Feature",
+                  "id": "int",
+                  "geometry": {"type": "Point", "coordinates": [1.0, 2.0]},
+                  "properties": {"count": 42}
+                }
+              ]
+            }
+        """.trimIndent()
+
+        val result = GeoJsonCodec.decode(json, "gm_markers")
+
+        val properties = result.features[0].feature.properties
+        assertEquals(42L, properties["count"])
+        val reEncoded = GeoJsonCodec.decode(GeoJsonCodec.encodeFeatureCollection(result.features), "gm_markers")
+        assertEquals(42L, reEncoded.features[0].feature.properties["count"])
+    }
 }

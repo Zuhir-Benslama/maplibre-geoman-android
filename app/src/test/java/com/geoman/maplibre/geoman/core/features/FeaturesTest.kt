@@ -218,6 +218,41 @@ class FeaturesTest {
     }
 
     @Test
+    fun `getFeaturesInBounds reflects geometry after an update`() {
+        val features = Features()
+        val feature = features.addGeoJsonFeature(pointFeature(5.0, 5.0), "gm_markers")
+
+        val movedInside = features.updateFeature("gm_markers", feature.id) { current ->
+            current.copy(feature = current.feature.copy(geometry = pointFeature(5.1, 5.1).geometry))
+        }
+
+        assertTrue(movedInside)
+        assertEquals(
+            listOf(feature.id),
+            features.getFeaturesInBounds(
+                bounds = listOf(LngLat(5.05, 5.05), LngLat(5.2, 5.2)),
+                sourceNames = listOf("gm_markers"),
+            ).map { it.id },
+        )
+    }
+
+    @Test
+    fun `getFeaturesInBounds drops removed features from the cache`() {
+        val features = Features()
+        val inside = features.addGeoJsonFeature(pointFeature(5.0, 5.0), "gm_markers")
+        features.addGeoJsonFeature(pointFeature(50.0, 50.0), "gm_markers")
+
+        features.removeFeature("gm_markers", inside.id)
+
+        val result = features.getFeaturesInBounds(
+            bounds = listOf(LngLat(4.0, 4.0), LngLat(6.0, 6.0)),
+            sourceNames = listOf("gm_markers"),
+        )
+
+        assertTrue(result.none { it.id == inside.id })
+    }
+
+    @Test
     fun `setFeatureParent links and unlinks features`() {
         val features = Features()
         val parent = features.addGeoJsonFeature(pointFeature(1.0, 1.0), "gm_polygons")

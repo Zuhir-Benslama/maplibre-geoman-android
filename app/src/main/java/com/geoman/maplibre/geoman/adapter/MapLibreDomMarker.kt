@@ -51,15 +51,24 @@ class MapLibreDomMarker(
     companion object {
         private const val DEFAULT_MARKER_MIN_SIZE_PX = 48
 
+        // Strong-keyed on purpose: a live marker holds its MapLibreMap (style,
+        // camera listener), so the classic value->key pin would defeat a
+        // WeakHashMap and the SDK exposes no map-destroy listener to drive
+        // collection. Teardown is therefore explicit and total: Geoman.destroy()
+        // calls MapLibreContentStore.cleanup(), which removes every marker (each
+        // deregistering its entry and emptying the per-map map), plus
+        // cleanupForMap() below as a flat sweep of any residual entry.
         private val markersByMap =
-            java.util.concurrent.ConcurrentHashMap<MapLibreMap, MutableMap<String, MapLibreDomMarker>>()
+            HashMap<MapLibreMap, MutableMap<String, MapLibreDomMarker>>()
 
-        private fun markersFor(map: MapLibreMap): MutableMap<String, MapLibreDomMarker> = markersByMap.getOrPut(map) {
-            java.util.Collections.synchronizedMap(linkedMapOf())
+        private fun markersFor(map: MapLibreMap): MutableMap<String, MapLibreDomMarker> = synchronized(markersByMap) {
+            markersByMap.getOrPut(map) {
+                java.util.Collections.synchronizedMap(linkedMapOf())
+            }
         }
 
         private fun rebuildSource(mapLibreMap: MapLibreMap, sourceName: String) {
-            val map = markersByMap[mapLibreMap] ?: return
+            val map = synchronized(markersByMap) { markersByMap[mapLibreMap] } ?: return
             val featuresArray = JSONArray()
             synchronized(map) {
                 map.values.forEach { marker ->
@@ -75,7 +84,7 @@ class MapLibreDomMarker(
         }
 
         fun cleanupForMap(mapLibreMap: MapLibreMap) {
-            val markers = markersByMap.remove(mapLibreMap) ?: return
+            val markers = synchronized(markersByMap) { markersByMap.remove(mapLibreMap) } ?: return
             synchronized(markers) {
                 markers.values.forEach { it.remove() }
             }
@@ -304,11 +313,13 @@ class MapLibreDomMarker(
         if (!isAdded) return
 
         mapLibreMap.style?.removeImage("marker-icon-$id")
-        markersByMap[mapLibreMap]?.let { markers ->
-            synchronized(markers) {
-                markers.remove(id)
-                if (markers.isEmpty()) {
-                    markersByMap.remove(mapLibreMap)
+        synchronized(markersByMap) {
+            markersByMap[mapLibreMap]?.let { markers ->
+                synchronized(markers) {
+                    markers.remove(id)
+                    if (markers.isEmpty()) {
+                        markersByMap.remove(mapLibreMap)
+                    }
                 }
             }
         }

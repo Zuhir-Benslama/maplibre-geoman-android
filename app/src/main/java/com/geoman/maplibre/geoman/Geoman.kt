@@ -287,7 +287,10 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
     fun importGeoJson(json: String, sourceName: String = GeomanCoreConstants.SOURCE_POLYGONS): ImportResult {
         val result = GeoJsonCodec.decode(json, sourceName)
         result.features.forEach { featureData ->
-            features.addGeoJsonFeature(featureData.feature, sourceName)
+            // Preserve the id resolved during decode so the stored feature is
+            // addressable by the id returned in ImportResult.
+            val feature = featureData.feature.copy(id = featureData.feature.id ?: featureData.id)
+            features.addGeoJsonFeature(feature, sourceName)
         }
         return result
     }

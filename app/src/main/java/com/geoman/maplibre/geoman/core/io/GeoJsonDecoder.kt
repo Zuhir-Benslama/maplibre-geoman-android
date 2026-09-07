@@ -16,6 +16,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.longOrNull
 
 /**
  * Decodes GeoJSON documents from kotlinx JSON elements.
@@ -106,7 +107,7 @@ internal object GeoJsonDecoder {
         is JsonPrimitive -> when {
             element.isString -> element.content
             element.booleanOrNull != null -> element.booleanOrNull
-            else -> element.doubleOrNull
+            else -> element.longOrNull ?: element.doubleOrNull
         }
 
         is JsonArray -> element.map { jsonValue(it) }

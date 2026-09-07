@@ -76,6 +76,13 @@ open class CutEditor(geoman: GeomanApi) : BaseEdit(geoman) {
         val firstPart = coords.take(segmentIndex + 1) + cutPoint
         val secondPart = listOf(cutPoint) + coords.drop(segmentIndex + 1)
 
+        // A cut exactly on an endpoint would produce a degenerate zero-length
+        // part; abort instead of storing a broken line.
+        if (firstPart.distinct().size < 2 || secondPart.distinct().size < 2) {
+            GeomanLogger.w(TAG, "Cut aborted: split at endpoint would create a degenerate part")
+            return
+        }
+
         // Add both parts BEFORE removing the original so a validator rejection
         // can never destroy the source line; roll back partial adds on failure
         val addedParts = try {

@@ -104,17 +104,29 @@ class MapLibrePopup(
     }
 
     private fun showAtLocation(lngLat: LngLat) {
+        val position = anchorPosition(lngLat) ?: return
+        popupWindow?.showAtLocation(mapView, Gravity.TOP or Gravity.START, position.first, position.second)
+    }
+
+    private fun updatePosition() {
+        if (popupWindow?.isShowing != true) return
+        lngLat?.let { position ->
+            val (x, y) = anchorPosition(position) ?: return
+            popupWindow?.update(x, y, -1, -1)
+        }
+    }
+
+    private fun anchorPosition(lngLat: LngLat): Pair<Int, Int>? {
+        val content = contentView ?: return null
         val screenPoint = mapLibreMap.projection.toScreenLocation(
             LatLng(lngLat.latitude, lngLat.longitude),
         )
-        val content = contentView ?: return
 
         content.measure(
             View.MeasureSpec.makeMeasureSpec(options.maxWidth.toInt(), View.MeasureSpec.AT_MOST),
             View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
         )
 
-        val x = screenPoint.x.toInt()
         val y = when (options.anchor) {
             MarkerAnchor.BOTTOM, MarkerAnchor.BOTTOM_LEFT, MarkerAnchor.BOTTOM_RIGHT ->
                 (screenPoint.y - content.measuredHeight - ANCHOR_GAP_PX).toInt()
@@ -125,12 +137,7 @@ class MapLibrePopup(
             else -> screenPoint.y.toInt()
         }
 
-        popupWindow?.showAtLocation(mapView, Gravity.TOP or Gravity.START, x, y)
-    }
-
-    private fun updatePosition() {
-        if (popupWindow?.isShowing != true) return
-        lngLat?.let { showAtLocation(it) }
+        return screenPoint.x.toInt() to y
     }
 
     private fun updateContent() {

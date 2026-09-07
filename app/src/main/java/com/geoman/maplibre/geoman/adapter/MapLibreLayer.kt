@@ -166,6 +166,7 @@ class MapLibreLayer(private val geoman: Geoman, private val options: LayerOption
             is LineLayer -> layer.setProperties(property)
             is CircleLayer -> layer.setProperties(property)
             is SymbolLayer -> layer.setProperties(property)
+            else -> GeomanLogger.w("MapLibreLayer", "Cannot set property $name on ${layer::class.simpleName}")
         }
     }
 
@@ -180,6 +181,7 @@ class MapLibreLayer(private val geoman: Geoman, private val options: LayerOption
             is LineLayer -> layer.setProperties(property)
             is CircleLayer -> layer.setProperties(property)
             is SymbolLayer -> layer.setProperties(property)
+            else -> GeomanLogger.w("MapLibreLayer", "Cannot set property $name on ${layer::class.simpleName}")
         }
     }
 

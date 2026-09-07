@@ -99,7 +99,7 @@ class Features(
     @Volatile
     private var renderer: FeatureStoreRenderer? = null
 
-    private val updateScope: CoroutineScope = updateScope ?: CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val updateScope: CoroutineScope = updateScope ?: CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     private val ownsUpdateScope = updateScope == null
 
@@ -117,7 +117,9 @@ class Features(
     }
 
     fun addFeature(featureData: FeatureData) {
-        val sourceName = store.add(featureData)
+        // Store a deep copy so nested property maps shared with the caller can
+        // never be mutated through the stored feature.
+        val sourceName = store.add(featureData.deepCopy())
         syncSourceToMap(sourceName)
     }
 
@@ -151,10 +153,12 @@ class Features(
         return featureData
     }
 
-    fun updateFeature(sourceName: String, featureId: String, update: (FeatureData) -> FeatureData) {
-        if (store.update(sourceName, featureId, update)) {
+    fun updateFeature(sourceName: String, featureId: String, update: (FeatureData) -> FeatureData): Boolean {
+        val updated = store.update(sourceName, featureId, update)
+        if (updated) {
             syncSourceToMap(sourceName)
         }
+        return updated
     }
 
     /**

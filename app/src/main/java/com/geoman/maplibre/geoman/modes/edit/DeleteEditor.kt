@@ -35,10 +35,11 @@ open class DeleteEditor(geoman: GeomanApi) : BaseEdit(geoman) {
      * Delete a feature
      */
     private fun deleteFeature(feature: FeatureData) {
+        // Remove first so the Delete event unambiguously carries the deleted
+        // feature; event delivery stays async via the scope.
+        geoman.features.removeFeature(feature.sourceName, feature.id)
         geoman.scope.launch {
             fireEditEvent({ GmEditEvent.Delete(it) }, feature)
         }
-
-        geoman.features.removeFeature(feature.sourceName, feature.id)
     }
 }

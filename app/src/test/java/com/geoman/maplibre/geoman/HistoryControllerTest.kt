@@ -148,6 +148,20 @@ class HistoryControllerTest {
     }
 
     @Test
+    fun `undo returns false when the feature was deleted since the change was recorded`() {
+        addLine("f1", line(0.0, 0.0, 1.0, 1.0))
+
+        val before = line(0.0, 0.0, 1.0, 1.0)
+        val after = line(5.0, 5.0, 6.0, 6.0)
+        history.record(GeometryChange("gm_lines", "f1", before, after))
+        features.removeFeature("gm_lines", "f1")
+
+        val result = controller.undo()
+
+        assertFalse(result)
+    }
+
+    @Test
     fun `split change redo removes original and adds parts`() {
         val originalFeature = Feature(id = "line-1", geometry = line(0.0, 0.0, 4.0, 0.0))
         addLine("line-1", originalFeature.geometry as LineString)
@@ -155,7 +169,10 @@ class HistoryControllerTest {
         val part1 = Feature(id = "cut-a", geometry = line(0.0, 0.0, 2.0, 0.0))
         val part2 = Feature(id = "cut-b", geometry = line(2.0, 0.0, 4.0, 0.0))
 
-        // Record the split
+        // Record the split (parts present in the store, as a real cut leaves them)
+        features.addGeoJsonFeature(part1, "gm_lines")
+        features.addGeoJsonFeature(part2, "gm_lines")
+        features.removeFeature("gm_lines", "line-1")
         history.record(
             SplitChange(
                 sourceName = "gm_lines",

@@ -28,6 +28,7 @@ data class FeatureRemoval(val removed: FeatureData?, val sourcesToSync: List<Str
  * affected source names and let the owning `Features` facade decide when and
  * how to sync them to the map.
  */
+@Suppress("TooManyFunctions") // Bounding-box cache helpers are cohesive internals
 class InMemoryFeatureStore : FeatureStore {
 
     // Guarded by `this` — use plain HashMap since we always hold the lock
@@ -36,6 +37,11 @@ class InMemoryFeatureStore : FeatureStore {
     // Parent-child registry (web parity: FeatureData.parent/children).
     // Guarded by `this` like the store itself.
     private val relationships = FeatureRelationships()
+
+    // Cached per-feature bounding boxes (degrees) keyed by source, used to
+    // avoid recomputing the full-coordinate bbox on every bounds query.
+    // Guarded by `this`; invalidated on every geometry-affecting mutation.
+    private val bboxCache = HashMap<String, MutableMap<String, List<Double>>>()
 
     private val _featuresFlow = MutableStateFlow<Map<String, Map<String, FeatureData>>>(emptyMap())
 
@@ -60,12 +66,24 @@ class InMemoryFeatureStore : FeatureStore {
             val boundsBbox = GeometryUtils.bbox(bounds)
             sources.flatMap { sourceName ->
                 featuresMap[sourceName]?.values?.filter { feature ->
-                    val geometryBbox = GeometryUtils.bbox(GeometryUtils.extractAllCoordinates(feature.geometry))
+                    val geometryBbox = bboxOf(feature)
                     geometryBbox[0] <= boundsBbox[2] && geometryBbox[2] >= boundsBbox[0] &&
                         geometryBbox[1] <= boundsBbox[3] && geometryBbox[3] >= boundsBbox[1]
                 } ?: emptyList()
             }
         }
+    }
+
+    private fun bboxOf(feature: FeatureData): List<Double> {
+        val bySource = bboxCache.getOrPut(feature.sourceName) { HashMap() }
+        return bySource.getOrPut(feature.id) {
+            GeometryUtils.bbox(GeometryUtils.extractAllCoordinates(feature.geometry))
+        }
+    }
+
+    private fun cacheBbox(feature: FeatureData) {
+        val bySource = bboxCache.getOrPut(feature.sourceName) { HashMap() }
+        bySource[feature.id] = GeometryUtils.bbox(GeometryUtils.extractAllCoordinates(feature.geometry))
     }
 
     /**
@@ -75,6 +93,7 @@ class InMemoryFeatureStore : FeatureStore {
     fun add(featureData: FeatureData): String = synchronized(this) {
         val sourceFeatures = featuresMap.getOrPut(featureData.sourceName) { HashMap() }
         sourceFeatures[featureData.id] = featureData
+        cacheBbox(featureData)
         updateFeaturesFlow()
         featureData.sourceName
     }
@@ -100,6 +119,7 @@ class InMemoryFeatureStore : FeatureStore {
             // the update lambda ran outside the lock.
             if (featuresMap[sourceName]?.containsKey(featureId) == true) {
                 featuresMap[sourceName]?.put(featureId, updatedFeature)
+                cacheBbox(updatedFeature)
                 updateFeaturesFlow()
                 true
             } else {
@@ -146,6 +166,10 @@ class InMemoryFeatureStore : FeatureStore {
 
         cascadeIds.forEach { relationships.detach(it) }
         relationships.detach(featureId)
+        if (removed != null) {
+            bboxCache.remove(sourceName)
+        }
+        sourcesToSync.forEach { bboxCache.remove(it) }
         updateFeaturesFlow()
         FeatureRemoval(removed, sourcesToSync)
     }
@@ -157,6 +181,7 @@ class InMemoryFeatureStore : FeatureStore {
             // Detach within the same critical section so no reader can observe
             // features that are gone while their parent-child links remain.
             removedIds.forEach { relationships.detach(it) }
+            bboxCache.remove(sourceName)
             updateFeaturesFlow()
         }
     }
@@ -166,6 +191,7 @@ class InMemoryFeatureStore : FeatureStore {
         val sourceNames = featuresMap.keys.toList()
         featuresMap.clear()
         relationships.clear()
+        bboxCache.clear()
         updateFeaturesFlow()
         sourceNames
     }

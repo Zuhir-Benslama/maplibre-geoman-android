@@ -32,7 +32,7 @@ class FeaturesSourceSyncTest {
 
         override fun addSource(sourceId: String, geoJson: FeatureCollection): MapSource {
             createCount++
-            sources[sourceId] = geoJson
+            recordSetData(sourceId, geoJson)
             return FakeSource(sourceId)
         }
 
@@ -82,6 +82,7 @@ class FeaturesSourceSyncTest {
         runCurrent()
 
         assertEquals(1, renderer.createCount)
+        assertEquals(1, renderer.appliedUpdates.size)
         assertEquals(1, renderer.sources["gm_markers"]?.features?.size)
     }
 
@@ -95,12 +96,12 @@ class FeaturesSourceSyncTest {
             features.addGeoJsonFeature(pointFeature(3.0 + index, 4.0), "gm_markers")
         }
         runCurrent()
-        assertEquals(0, renderer.appliedUpdates.size)
+        assertEquals(1, renderer.appliedUpdates.size)
 
         advanceTimeBy(50)
         runCurrent()
 
-        assertEquals(1, renderer.appliedUpdates.size)
+        assertEquals(2, renderer.appliedUpdates.size)
         assertEquals(6, renderer.sources["gm_markers"]?.features?.size)
     }
 
@@ -114,7 +115,7 @@ class FeaturesSourceSyncTest {
 
         features.flushPendingUpdates()
 
-        assertEquals(1, renderer.appliedUpdates.size)
+        assertEquals(2, renderer.appliedUpdates.size)
         assertEquals(2, renderer.sources["gm_markers"]?.features?.size)
     }
 
@@ -128,13 +129,13 @@ class FeaturesSourceSyncTest {
 
         features.shutdown()
 
-        assertEquals(1, renderer.appliedUpdates.size)
+        assertEquals(2, renderer.appliedUpdates.size)
         assertEquals(2, renderer.sources["gm_markers"]?.features?.size)
 
         // Further mutations no longer touch the map
         features.addGeoJsonFeature(pointFeature(5.0, 6.0), "gm_markers")
         advanceTimeBy(200)
-        assertEquals(1, renderer.appliedUpdates.size)
+        assertEquals(2, renderer.appliedUpdates.size)
     }
 
     @Test
@@ -143,13 +144,13 @@ class FeaturesSourceSyncTest {
         val features = featuresWith(renderer, backgroundScope)
         val added = features.addGeoJsonFeature(pointFeature(1.0, 2.0), "gm_markers")
         runCurrent()
-        assertEquals(0, renderer.appliedUpdates.size)
+        assertEquals(1, renderer.appliedUpdates.size)
 
         features.removeFeature("gm_markers", added.id)
         advanceTimeBy(50)
         runCurrent()
 
-        assertEquals(1, renderer.appliedUpdates.size)
+        assertEquals(2, renderer.appliedUpdates.size)
         assertEquals(0, renderer.sources["gm_markers"]?.features?.size)
     }
 

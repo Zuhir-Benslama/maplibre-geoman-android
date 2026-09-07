@@ -56,6 +56,14 @@ class MapLibreAdapter private constructor(
     override fun getCanvas(): Any? = mapView.renderView
 
     override fun addControl(control: GmControl) {
+        // Drop any previously registered listeners so a repeated addControl
+        // call cannot leak duplicate handlers on the map.
+        mapClickListener?.let { map.removeOnMapClickListener(it) }
+        mapClickListener = null
+        mapLongClickListener?.let { map.removeOnMapLongClickListener(it) }
+        mapLongClickListener = null
+        mapView.renderView.setOnTouchListener(null)
+
         val clickListener = MapLibreMap.OnMapClickListener { point: LatLng ->
             val result = control.onMapClick(point)
             GeomanLogger.d("Geoman") { "Map click: $point handled=$result" }
