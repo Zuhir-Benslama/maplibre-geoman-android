@@ -1,22 +1,23 @@
 package com.geoman.maplibre.geoman.modes.helpers
 
 import com.geoman.maplibre.geoman.BaseAction
-import com.geoman.maplibre.geoman.Geoman
+import com.geoman.maplibre.geoman.GeomanApi
 import com.geoman.maplibre.geoman.GeomanLogger
 import com.geoman.maplibre.geoman.types.ModeType
-import org.maplibre.android.geometry.LatLng
+import com.geoman.maplibre.geoman.types.geojson.LngLat
 
 /**
  * Base class for all helper modes.
  *
- * Helpers use the full platform adapter (fitBounds, unproject, source/layer
- * management), so unlike edit modes they require the concrete [Geoman].
+ * Helpers operate on the [GeomanApi] surface like edit/draw modes; helpers
+ * that additionally need raw adapter source/layer access (e.g. [SnapHelper])
+ * keep the concrete adapter on their own constructor.
  */
-abstract class BaseHelper(protected override val geoman: Geoman) : BaseAction(geoman) {
+abstract class BaseHelper(geoman: GeomanApi) : BaseAction(geoman) {
 
     override val modeType: ModeType = ModeType.HELPER
 
-    open fun onMapClick(point: LatLng) {
+    open fun onMapClick(point: LngLat) {
         GeomanLogger.d("BaseHelper", "Unhandled map click for ${this::class.simpleName} at $point")
     }
 }

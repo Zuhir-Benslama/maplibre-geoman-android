@@ -88,9 +88,9 @@ class MapLibreContentStore(private val map: MapLibreMap, private val geoman: Geo
 
     override fun createPopup(options: PopupOptions, lngLat: LngLat?): Popup {
         val popup = MapLibrePopup(map, context, options, lngLat, mapView)
-        if (lngLat != null) {
-            popups.add(popup)
-        }
+        // Register regardless of position so [cleanup] can tear down every popup;
+        // a null position simply means the popup is added without being shown.
+        popups.add(popup)
         return popup
     }
 

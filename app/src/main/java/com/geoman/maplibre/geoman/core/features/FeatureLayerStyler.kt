@@ -2,21 +2,23 @@ package com.geoman.maplibre.geoman.core.features
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import com.geoman.maplibre.geoman.Geoman
 import com.geoman.maplibre.geoman.GeomanLogger
 import com.geoman.maplibre.geoman.adapter.FeatureStoreRenderer
 import com.geoman.maplibre.geoman.adapter.LayerOptions
 import com.geoman.maplibre.geoman.adapter.LayerType
+import com.geoman.maplibre.geoman.core.options.GmOptions
 import com.geoman.maplibre.geoman.core.options.LayerStyles
 import com.geoman.maplibre.geoman.utils.runCatchingRethrowCancellation
 
 /**
  * Creates the rendering layers that visualize stored features for each source,
- * resolving stroke/fill colors and widths from the Geoman options'
+ * resolving stroke/fill colors and widths from the [GmOptions]'
  * [LayerStyles] with per-source fallback defaults. Extracted from
- * [Features] to keep the store free of style-mapping concerns.
+ * [Features] to keep the store free of style-mapping concerns. Depends only on
+ * options, never on the owning [com.geoman.maplibre.geoman.Geoman] facade, so
+ * [Features] has no upward dependency to the map-facing layer.
  */
-internal class FeatureLayerStyler(private val geoman: Geoman?) {
+internal class FeatureLayerStyler(private val options: GmOptions?) {
 
     private companion object {
         const val RGB_MASK = 0xFFFFFF
@@ -61,7 +63,7 @@ internal class FeatureLayerStyler(private val geoman: Geoman?) {
         }
 
         if (sourceName == FeatureSources.CIRCLE_MARKER) {
-            val styles = geoman?.options?.layerStyles
+            val styles = options?.layerStyles
             val circleMarkerStyle = styles?.circleMarker
             val fillColor = resolveLineColor(styles, sourceName)
                 ?: circleMarkerStyle?.fillColor?.let { toHex(it) }
@@ -82,7 +84,7 @@ internal class FeatureLayerStyler(private val geoman: Geoman?) {
         }
 
         val (defaultColor, defaultWidth) = resolveDefaults(sourceName)
-        val layerStyles = geoman?.options?.layerStyles
+        val layerStyles = options?.layerStyles
         val color = resolveLineColor(layerStyles, sourceName) ?: defaultColor
         val width = resolveLineWidth(layerStyles, sourceName) ?: defaultWidth
 

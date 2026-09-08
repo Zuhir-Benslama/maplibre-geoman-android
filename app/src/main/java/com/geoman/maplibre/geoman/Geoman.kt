@@ -4,6 +4,7 @@ import android.view.MotionEvent
 import com.geoman.maplibre.geoman.adapter.BaseMapAdapter
 import com.geoman.maplibre.geoman.adapter.DomMarker
 import com.geoman.maplibre.geoman.adapter.DomMarkerOptions
+import com.geoman.maplibre.geoman.adapter.FitBoundsOptions
 import com.geoman.maplibre.geoman.adapter.MapLibreAdapter
 import com.geoman.maplibre.geoman.adapter.MapLibreDomMarker
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
@@ -16,11 +17,15 @@ import com.geoman.maplibre.geoman.core.io.GeoJsonCodec
 import com.geoman.maplibre.geoman.core.io.ImportResult
 import com.geoman.maplibre.geoman.core.options.GmOptions
 import com.geoman.maplibre.geoman.core.options.GmOptionsData
+import com.geoman.maplibre.geoman.types.DrawModeName
+import com.geoman.maplibre.geoman.types.EditModeName
+import com.geoman.maplibre.geoman.types.HelperModeName
 import com.geoman.maplibre.geoman.types.ModeKey
 import com.geoman.maplibre.geoman.types.ModeType
 import com.geoman.maplibre.geoman.types.events.GmMapEvent
 import com.geoman.maplibre.geoman.types.geojson.Feature
 import com.geoman.maplibre.geoman.types.geojson.FeatureCollection
+import com.geoman.maplibre.geoman.types.geojson.LatLngBounds
 import com.geoman.maplibre.geoman.types.geojson.LngLat
 import com.geoman.maplibre.geoman.types.geojson.ScreenPoint
 import kotlinx.coroutines.CancellationException
@@ -33,7 +38,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
-import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 
@@ -79,21 +83,18 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
     }
     override val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main + exceptionHandler)
 
-    override val features: Features = Features(this, updateScope = scope)
+    override val features: Features = Features(this.options, updateScope = scope)
     override val events: GmEventBus = GmEventBus()
     override val history: ChangeTracker = ChangeTracker()
 
-    // Map adapter
-    @Volatile
-    private var _mapAdapter: BaseMapAdapter<MapLibreMap>? = null
-    val mapAdapter: BaseMapAdapter<MapLibreMap>
-        get() = _mapAdapter ?: throw IllegalStateException("Map adapter not initialized")
+    // Map adapter — assigned in init(); never nulled by destroy(), so a plain
+    // property (definitely initialized in the constructor) is the honest model.
+    private var _mapAdapter: BaseMapAdapter<MapLibreMap>
+    val mapAdapter: BaseMapAdapter<MapLibreMap> get() = _mapAdapter
 
     // Control
-    @Volatile
-    private var _control: GmControl? = null
-    val control: GmControl
-        get() = _control ?: throw IllegalStateException("Control not initialized")
+    private var _control: GmControl
+    val control: GmControl get() = _control
 
     // State
     private val _destroyed = MutableStateFlow(false)
@@ -101,11 +102,9 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
 
     // Delegated collaboration
     private val modeController = ModeController(
-        geoman = this,
-        options = this.options,
+        modeFactory = ModeFactory(this),
         events = events,
         scope = scope,
-        control = { _control },
         isDestroyed = { _destroyed.value },
     )
     private val historyController = HistoryController(features, history)
@@ -120,7 +119,7 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
         isDestroyed = { _destroyed.value },
     )
 
-    /** Adapter-backed slice used by edit modes; safe to call after init. */
+    /** Adapter-backed slice used by modes; safe to call after init. */
     override val mapActions: EditorMapActions = object : EditorMapActions {
         override fun project(lngLat: LngLat): ScreenPoint = mapAdapter.project(lngLat)
 
@@ -131,6 +130,8 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
 
         override fun createDomMarker(options: DomMarkerOptions, position: LngLat): DomMarker =
             mapAdapter.createDomMarker(options, position)
+
+        override fun fitBounds(bounds: LatLngBounds, options: FitBoundsOptions?) = mapAdapter.fitBounds(bounds, options)
 
         override fun getContext(): android.content.Context = mapView.context
     }
@@ -164,7 +165,7 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
     /**
      * Toggle a mode.
      */
-    fun toggleMode(type: ModeType, name: String): Boolean = modeController.toggleMode(type, name)
+    override fun toggleMode(type: ModeType, name: String): Boolean = modeController.toggleMode(type, name)
 
     /**
      * Check if a mode is enabled
@@ -186,15 +187,15 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
     /**
      * Handle draw mode click
      */
-    fun handleDrawClick(modeName: String, point: LatLng) {
-        modeController.handleDrawClick(modeName, point)
+    fun handleDrawClick(mode: DrawModeName, point: LngLat) {
+        modeController.handleDrawClick(mode, point)
     }
 
     /**
      * Handle draw mode long press
      */
-    fun handleDrawLongPress(modeName: String, point: LatLng) {
-        modeController.handleDrawLongPress(modeName, point)
+    fun handleDrawLongPress(mode: DrawModeName, point: LngLat) {
+        modeController.handleDrawLongPress(mode, point)
     }
 
     /**
@@ -207,21 +208,21 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
     /**
      * Handle edit mode click
      */
-    fun handleEditClick(modeName: String, point: LatLng) {
-        modeController.handleEditClick(modeName, point)
+    fun handleEditClick(mode: EditModeName, point: LngLat) {
+        modeController.handleEditClick(mode, point)
     }
 
     /**
      * Handle edit mode touch events (currently used by DragEditor to prevent the
      * map from panning while a drag handle is being moved)
      */
-    fun handleEditTouch(modeName: String, event: MotionEvent): Boolean = modeController.handleEditTouch(modeName, event)
+    fun handleEditTouch(mode: EditModeName, event: MotionEvent): Boolean = modeController.handleEditTouch(mode, event)
 
     /**
      * Handle helper mode click
      */
-    fun handleHelperClick(modeName: String, point: LatLng) {
-        modeController.handleHelperClick(modeName, point)
+    fun handleHelperClick(mode: HelperModeName, point: LngLat) {
+        modeController.handleHelperClick(mode, point)
     }
 
     /**
@@ -231,17 +232,15 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
         features.addGeoJsonFeature(feature, sourceName)
 
     /**
-     * Add a GeoJSON feature collection.
+     * Add a GeoJSON feature collection as one batch.
      *
-     * Each feature is added to [sourceName]; features missing an ID get one
-     * generated before validation.
+     * Each feature is validated up front then stored in a single store
+     * mutation; features missing an ID get one generated before validation.
      *
      * @throws IllegalArgumentException if any feature is structurally invalid.
      */
     fun addFeatureCollection(collection: FeatureCollection, sourceName: String = GeomanCoreConstants.SOURCE_POLYGONS) {
-        collection.features.forEach { feature ->
-            addGeoJsonFeature(feature, sourceName)
-        }
+        features.addFeatureCollection(collection.features, sourceName)
     }
 
     /**
@@ -286,12 +285,13 @@ class Geoman(internal val mapView: MapView, private val map: MapLibreMap, option
      */
     fun importGeoJson(json: String, sourceName: String = GeomanCoreConstants.SOURCE_POLYGONS): ImportResult {
         val result = GeoJsonCodec.decode(json, sourceName)
-        result.features.forEach { featureData ->
-            // Preserve the id resolved during decode so the stored feature is
-            // addressable by the id returned in ImportResult.
-            val feature = featureData.feature.copy(id = featureData.feature.id ?: featureData.id)
-            features.addGeoJsonFeature(feature, sourceName)
-        }
+        // Preserve the id resolved during decode so the stored feature is
+        // addressable by the id returned in ImportResult; the batch is stored
+        // in a single mutation.
+        features.addFeatureCollection(
+            result.features.map { it.feature.copy(id = it.feature.id ?: it.id) },
+            sourceName,
+        )
         return result
     }
 

@@ -75,6 +75,11 @@ class EditorInteractionTest {
         override fun createDomMarker(options: DomMarkerOptions, position: LngLat): DomMarker =
             FakeDomMarker(position).also { markers.add(it) }
 
+        override fun fitBounds(
+            bounds: com.geoman.maplibre.geoman.types.geojson.LatLngBounds,
+            options: com.geoman.maplibre.geoman.adapter.FitBoundsOptions?,
+        ) = Unit
+
         override fun getContext(): android.content.Context =
             throw UnsupportedOperationException("No Android context in unit tests")
     }
@@ -96,6 +101,17 @@ class EditorInteractionTest {
 
         override fun disableMode(type: ModeType, name: String) {
             disabledModes.add(ModeKey(type, name))
+        }
+
+        override fun toggleMode(type: ModeType, name: String): Boolean {
+            val key = ModeKey(type, name)
+            return if (enabledModes.contains(key)) {
+                enabledModes.remove(key)
+                false
+            } else {
+                enabledModes.add(key)
+                true
+            }
         }
 
         override fun isModeEnabled(type: ModeType, name: String): Boolean = enabledModes.contains(ModeKey(type, name))
@@ -152,7 +168,7 @@ class EditorInteractionTest {
         editor.enable()
         geoman.mapActions.queryResult = listOf(original)
 
-        editor.onMapClick(org.maplibre.android.geometry.LatLng(0.5, 0.5))
+        editor.onMapClick(LngLat(0.5, 0.5))
         assertEquals(1, geoman.mapActions.markers.size)
 
         val handle = geoman.mapActions.markers.single()
@@ -195,7 +211,7 @@ class EditorInteractionTest {
         val editor = DragEditor(geoman)
         editor.enable()
         geoman.mapActions.queryResult = listOf(original)
-        editor.onMapClick(org.maplibre.android.geometry.LatLng(0.5, 0.5))
+        editor.onMapClick(LngLat(0.5, 0.5))
 
         geoman.mapActions.markers.single().onDragEnd?.invoke()
 
@@ -208,7 +224,7 @@ class EditorInteractionTest {
         editor.enable()
         geoman.mapActions.queryResult = emptyList()
 
-        editor.onMapClick(org.maplibre.android.geometry.LatLng(0.5, 0.5))
+        editor.onMapClick(LngLat(0.5, 0.5))
 
         assertTrue(geoman.mapActions.markers.isEmpty())
     }

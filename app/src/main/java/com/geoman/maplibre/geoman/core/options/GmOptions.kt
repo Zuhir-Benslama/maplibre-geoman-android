@@ -1,8 +1,6 @@
 package com.geoman.maplibre.geoman.core.options
 
 import androidx.compose.ui.graphics.Color
-import com.geoman.maplibre.geoman.types.ModeKey
-import com.geoman.maplibre.geoman.types.ModeType
 
 private const val COLOR_PRIMARY_LONG = 0xFF3388FF
 private const val COLOR_PRIMARY_FILL_LONG = 0x4D3388FF
@@ -199,8 +197,6 @@ class GmOptions(initialData: GmOptionsData = GmOptionsData()) {
     val helper: HelperOptions get() = _data.helperOptions
     val layerStyles: LayerStyles get() = _data.layerStyles
 
-    private val enabledModes = java.util.concurrent.ConcurrentHashMap.newKeySet<ModeKey>()
-
     /**
      * Update options.
      *
@@ -218,47 +214,5 @@ class GmOptions(initialData: GmOptionsData = GmOptionsData()) {
      */
     fun applyTheme(theme: StyleTheme) {
         update { copy(layerStyles = StyleThemes.resolve(theme)) }
-    }
-
-    /**
-     * Enable a mode
-     */
-    fun enableMode(type: ModeType, name: String) {
-        enabledModes.add(ModeKey(type, name))
-    }
-
-    /**
-     * Disable a mode
-     */
-    fun disableMode(type: ModeType, name: String) {
-        enabledModes.remove(ModeKey(type, name))
-    }
-
-    /**
-     * Toggle a mode
-     */
-    fun toggleMode(type: ModeType, name: String): Boolean = if (isModeEnabled(type, name)) {
-        disableMode(type, name)
-        false
-    } else {
-        enableMode(type, name)
-        true
-    }
-
-    /**
-     * Check if a mode is enabled
-     */
-    fun isModeEnabled(type: ModeType, name: String): Boolean = enabledModes.contains(ModeKey(type, name))
-
-    /**
-     * Get all enabled modes
-     */
-    fun getEnabledModes(): List<ModeKey> = enabledModes.toList()
-
-    /**
-     * Disable all modes
-     */
-    fun disableAllModes() {
-        enabledModes.clear()
     }
 }

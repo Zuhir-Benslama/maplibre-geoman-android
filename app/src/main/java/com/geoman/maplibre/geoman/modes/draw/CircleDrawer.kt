@@ -1,6 +1,6 @@
 package com.geoman.maplibre.geoman.modes.draw
 
-import com.geoman.maplibre.geoman.Geoman
+import com.geoman.maplibre.geoman.GeomanApi
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.types.DrawModeName
 import com.geoman.maplibre.geoman.types.geojson.Feature
@@ -13,7 +13,7 @@ import kotlinx.coroutines.launch
  * Circle drawing mode
  * First click sets center, second click sets radius
  */
-class CircleDrawer(geoman: Geoman) : BaseTwoClickDrawer(geoman) {
+class CircleDrawer(geoman: GeomanApi) : BaseTwoClickDrawer(geoman) {
 
     override val modeName: String = DrawModeName.CIRCLE.name
 

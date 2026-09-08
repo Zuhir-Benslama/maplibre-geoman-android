@@ -1,9 +1,8 @@
 package com.geoman.maplibre.geoman.modes.draw
 
 import androidx.annotation.MainThread
-import com.geoman.maplibre.geoman.Geoman
+import com.geoman.maplibre.geoman.GeomanApi
 import com.geoman.maplibre.geoman.types.geojson.LngLat
-import org.maplibre.android.geometry.LatLng
 
 /**
  * Shared two-click lifecycle for shape drawing modes (circle, rectangle):
@@ -11,28 +10,27 @@ import org.maplibre.android.geometry.LatLng
  * long press cancels). Subclasses implement [createFeature] to build and
  * store their shape from the two clicks.
  */
-abstract class BaseTwoClickDrawer(geoman: Geoman) : BaseDraw(geoman) {
+abstract class BaseTwoClickDrawer(geoman: GeomanApi) : BaseDraw(geoman) {
 
     private var firstClick: LngLat? = null
 
     @MainThread
-    override fun onMapClick(point: LatLng): Unit = synchronized(this) {
+    override fun onMapClick(point: LngLat): Unit = synchronized(this) {
         if (!enabled) return@synchronized
 
-        val clickLngLat = LngLat(point.longitude, point.latitude)
         val first = firstClick
 
         if (first == null) {
             // First click - anchor the shape
-            firstClick = clickLngLat
+            firstClick = point
         } else {
             // Second click - build the shape and finish
-            createFeature(first, clickLngLat)
+            createFeature(first, point)
             finishDrawing()
         }
     }
 
-    override fun onMapLongClick(point: LatLng): Unit = synchronized(this) {
+    override fun onMapLongClick(point: LngLat): Unit = synchronized(this) {
         if (!enabled || firstClick == null) return@synchronized
 
         // Cancel drawing

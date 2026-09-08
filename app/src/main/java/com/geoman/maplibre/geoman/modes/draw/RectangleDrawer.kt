@@ -1,6 +1,6 @@
 package com.geoman.maplibre.geoman.modes.draw
 
-import com.geoman.maplibre.geoman.Geoman
+import com.geoman.maplibre.geoman.GeomanApi
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.types.DrawModeName
 import com.geoman.maplibre.geoman.types.geojson.Feature
@@ -12,7 +12,7 @@ import kotlinx.coroutines.launch
  * Rectangle drawing mode
  * First click sets one corner, second click sets opposite corner
  */
-class RectangleDrawer(geoman: Geoman) : BaseTwoClickDrawer(geoman) {
+class RectangleDrawer(geoman: GeomanApi) : BaseTwoClickDrawer(geoman) {
 
     override val modeName: String = DrawModeName.RECTANGLE.name
 

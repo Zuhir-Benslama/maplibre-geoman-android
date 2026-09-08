@@ -15,7 +15,6 @@ import com.geoman.maplibre.geoman.types.geojson.LngLat
 import com.geoman.maplibre.geoman.types.geojson.Point
 import com.geoman.maplibre.geoman.types.geojson.Polygon
 import kotlinx.coroutines.launch
-import org.maplibre.android.geometry.LatLng
 
 /**
  * Drag editing mode - drags features by selecting them with a tap and then
@@ -27,7 +26,7 @@ open class DragEditor(geoman: GeomanApi) : BaseEdit(geoman) {
     override val modeName: String = EditModeName.DRAG.name
 
     private var isDragging = false
-    private var dragStartPoint: LatLng? = null
+    private var dragStartPoint: LngLat? = null
     private var dragHandle: DomMarker? = null
 
     @MainThread
@@ -41,11 +40,10 @@ open class DragEditor(geoman: GeomanApi) : BaseEdit(geoman) {
     }
 
     @MainThread
-    override fun onMapClick(point: LatLng) {
+    override fun onMapClick(point: LngLat) {
         if (!enabled) return
 
-        val clickPoint = LngLat(point.longitude, point.latitude)
-        val features = queryFeaturesAt(clickPoint, DRAG_SOURCES)
+        val features = queryFeaturesAt(point, DRAG_SOURCES)
 
         if (features.isNotEmpty()) {
             selectFeature(features.first())
@@ -59,7 +57,7 @@ open class DragEditor(geoman: GeomanApi) : BaseEdit(geoman) {
      * Start dragging a feature.
      * Creates a draggable handle at the press point that drives the drag.
      */
-    fun startDrag(point: LatLng) {
+    fun startDrag(point: LngLat) {
         if (!enabled || selectedFeature == null || isDragging) return
 
         val feature = selectedFeature ?: return
@@ -72,7 +70,7 @@ open class DragEditor(geoman: GeomanApi) : BaseEdit(geoman) {
                 draggable = true,
                 anchor = MarkerAnchor.CENTER,
             ),
-            LngLat(point.longitude, point.latitude),
+            point,
         ).also { handle ->
             handle.onDragStart = {
                 geoman.scope.launch {
@@ -80,7 +78,7 @@ open class DragEditor(geoman: GeomanApi) : BaseEdit(geoman) {
                 }
             }
             handle.onDrag = { newLngLat ->
-                dragTo(LatLng(newLngLat.latitude, newLngLat.longitude))
+                dragTo(newLngLat)
             }
             handle.onDragEnd = {
                 finishDrag()
@@ -92,7 +90,7 @@ open class DragEditor(geoman: GeomanApi) : BaseEdit(geoman) {
     /**
      * Continue dragging
      */
-    fun dragTo(point: LatLng) {
+    fun dragTo(point: LngLat) {
         if (!enabled || !isDragging || selectedFeature == null) return
 
         val startPoint = dragStartPoint ?: return

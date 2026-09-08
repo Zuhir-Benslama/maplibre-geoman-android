@@ -38,7 +38,7 @@ class MapLibreDomMarker(
         ?: throw IllegalArgumentException("Expected MapLibreMap but got ${map::class.simpleName}")
 
     val id: String = "marker_${java.util.UUID.randomUUID()}"
-    val sourceName: String = GeomanCoreConstants.SOURCE_MARKERS
+    val sourceName: String = GeomanCoreConstants.SOURCE_DOM_MARKERS
 
     private var view: View? = null
     private var isAdded = false
@@ -46,7 +46,6 @@ class MapLibreDomMarker(
     private var dragStartLngLat: LngLat? = null
     private var currentLngLat: LngLat = initialLngLat
     private var draggable = options.draggable
-    private var cameraMoveListener: MapLibreMap.OnCameraMoveListener? = null
 
     companion object {
         private const val DEFAULT_MARKER_MIN_SIZE_PX = 48
@@ -56,14 +55,46 @@ class MapLibreDomMarker(
         // WeakHashMap and the SDK exposes no map-destroy listener to drive
         // collection. Teardown is therefore explicit and total: Geoman.destroy()
         // calls MapLibreContentStore.cleanup(), which removes every marker (each
-        // deregistering its entry and emptying the per-map map), plus
-        // cleanupForMap() below as a flat sweep of any residual entry.
+        // deregistering its entry), plus cleanupForMap() below as a flat sweep of
+        // any residual entry.
         private val markersByMap =
             HashMap<MapLibreMap, MutableMap<String, MapLibreDomMarker>>()
 
+        // One shared camera-move listener per map. DOM marker overlays are Views
+        // positioned in screen space, so every camera move must re-apply their
+        // projection; the symbol sources themselves are anchor-fixed to their
+        // coordinates and must NOT be rebuilt per frame. This replaces an
+        // O(n^2) scheme of one-per-marker listeners that each rebuilt the whole
+        // source on every camera move.
+        private val cameraListeners =
+            HashMap<MapLibreMap, MapLibreMap.OnCameraMoveListener>()
+
         private fun markersFor(map: MapLibreMap): MutableMap<String, MapLibreDomMarker> = synchronized(markersByMap) {
             markersByMap.getOrPut(map) {
+                // First marker registered for this map: install the shared
+                // camera listener. Registration is atomic with entry creation so
+                // two racing addToMap calls cannot double-register.
+                registerCameraListenerLocked(map)
                 java.util.Collections.synchronizedMap(linkedMapOf())
+            }
+        }
+
+        private fun registerCameraListenerLocked(map: MapLibreMap) {
+            val listener = MapLibreMap.OnCameraMoveListener { repositionMarkerViews(map) }
+            cameraListeners[map] = listener
+            map.addOnCameraMoveListener(listener)
+        }
+
+        private fun deregisterCameraListener(map: MapLibreMap) {
+            cameraListeners.remove(map)?.let { map.removeOnCameraMoveListener(it) }
+        }
+
+        private fun repositionMarkerViews(map: MapLibreMap) {
+            // Lock order is always markersByMap -> per-map markers (never the
+            // reverse), matching remove()/rebuildSource() so no AB-BA inversion.
+            val markers = synchronized(markersByMap) { markersByMap[map] } ?: return
+            synchronized(markers) {
+                markers.values.forEach { it.updateViewPosition() }
             }
         }
 
@@ -84,10 +115,19 @@ class MapLibreDomMarker(
         }
 
         fun cleanupForMap(mapLibreMap: MapLibreMap) {
-            val markers = synchronized(markersByMap) { markersByMap.remove(mapLibreMap) } ?: return
-            synchronized(markers) {
-                markers.values.forEach { it.remove() }
-            }
+            // Remove the registry entry and its shared camera listener together,
+            // then drop the markers outside any lock (platform work under locks
+            // is avoided). Each marker's remove() re-enters markersByMap, which
+            // no longer contains this map, so it cannot re-acquire the inner
+            // lock while the outer one is held — the previous nested locking
+            // here (inner -> markersByMap) inverted remove()'s order and could
+            // deadlock with a concurrent remove()/rebuildSource().
+            val markers = synchronized(markersByMap) {
+                val inner = markersByMap.remove(mapLibreMap)
+                deregisterCameraListener(mapLibreMap)
+                inner
+            } ?: return
+            markers.values.toList().forEach { it.remove() }
         }
     }
 
@@ -221,12 +261,6 @@ class MapLibreDomMarker(
         }
         updateViewPosition()
 
-        val cameraListener = MapLibreMap.OnCameraMoveListener {
-            if (isAdded) updateViewPosition()
-        }
-        cameraMoveListener = cameraListener
-        mapLibreMap.addOnCameraMoveListener(cameraListener)
-
         isAdded = true
         rebuildSource(mapLibreMap, sourceName)
         return this
@@ -319,13 +353,13 @@ class MapLibreDomMarker(
                     markers.remove(id)
                     if (markers.isEmpty()) {
                         markersByMap.remove(mapLibreMap)
+                        // Last marker for the map: tear down the shared camera
+                        // listener registered by markersFor().
+                        deregisterCameraListener(mapLibreMap)
                     }
                 }
             }
         }
-
-        cameraMoveListener?.let { mapLibreMap.removeOnCameraMoveListener(it) }
-        cameraMoveListener = null
 
         view?.let { (it.parent as? ViewGroup)?.removeView(it) }
 

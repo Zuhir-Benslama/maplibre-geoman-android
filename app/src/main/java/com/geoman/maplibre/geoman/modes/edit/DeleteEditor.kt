@@ -8,7 +8,6 @@ import com.geoman.maplibre.geoman.types.EditModeName
 import com.geoman.maplibre.geoman.types.events.GmEditEvent
 import com.geoman.maplibre.geoman.types.geojson.LngLat
 import kotlinx.coroutines.launch
-import org.maplibre.android.geometry.LatLng
 
 /**
  * Delete editing mode - allows deleting features by clicking on them
@@ -18,11 +17,11 @@ open class DeleteEditor(geoman: GeomanApi) : BaseEdit(geoman) {
     override val modeName: String = EditModeName.DELETE.name
 
     @MainThread
-    override fun onMapClick(point: LatLng) {
+    override fun onMapClick(point: LngLat) {
         if (!enabled) return
 
         val features = queryFeaturesAt(
-            LngLat(point.longitude, point.latitude),
+            point,
             FeatureSources.ALL_EDITABLE,
         )
 

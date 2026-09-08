@@ -11,7 +11,6 @@ import com.geoman.maplibre.geoman.types.events.GmEditEvent
 import com.geoman.maplibre.geoman.types.geojson.LngLat
 import com.geoman.maplibre.geoman.types.geojson.Polygon
 import kotlinx.coroutines.launch
-import org.maplibre.android.geometry.LatLng
 
 /**
  * Change editing mode - allows editing vertices of polygons and lines
@@ -55,7 +54,7 @@ open class ChangeEditor(geoman: GeomanApi) : BaseEdit(geoman) {
     }
 
     @MainThread
-    override fun onMapClick(point: LatLng) {
+    override fun onMapClick(point: LngLat) {
         if (!enabled) return
 
         if (isEditing) {
@@ -67,8 +66,7 @@ open class ChangeEditor(geoman: GeomanApi) : BaseEdit(geoman) {
         // the other editors, so selection tolerance follows the map zoom level
         val targetSources = FeatureSources.EDITABLE_WITHOUT_MARKERS
 
-        val clickPoint = LngLat(point.longitude, point.latitude)
-        queryFeaturesAt(clickPoint, targetSources).firstOrNull()?.let { startEditing(it) }
+        queryFeaturesAt(point, targetSources).firstOrNull()?.let { startEditing(it) }
     }
 
     private fun startEditing(feature: FeatureData) {
@@ -123,7 +121,7 @@ open class ChangeEditor(geoman: GeomanApi) : BaseEdit(geoman) {
 
         vertices.forEach { vertex ->
             val domMarker = createDraggableMarker(vertex.lngLat) { newLngLat ->
-                moveVertex(vertex.index, LatLng(newLngLat.latitude, newLngLat.longitude))
+                moveVertex(vertex.index, newLngLat)
             }
             vertexMarkers.add(VertexMarker(vertex.index, domMarker))
         }
@@ -170,7 +168,7 @@ open class ChangeEditor(geoman: GeomanApi) : BaseEdit(geoman) {
 
         midpoints.forEach { data ->
             val domMarker = createClickableMarker(data.lngLat) {
-                addVertex(data.segmentIndex, LatLng(data.lngLat.latitude, data.lngLat.longitude))
+                addVertex(data.segmentIndex, data.lngLat)
             }
             midpointMarkers.add(MidpointMarker(data.segmentIndex, domMarker))
         }
@@ -186,7 +184,7 @@ open class ChangeEditor(geoman: GeomanApi) : BaseEdit(geoman) {
     /**
      * Move a vertex to a new position
      */
-    private fun moveVertex(index: Int, newPoint: LatLng) {
+    private fun moveVertex(index: Int, newPoint: LngLat) {
         val feature = editingFeature ?: return
         val coord = listOf(newPoint.longitude, newPoint.latitude)
 
@@ -221,7 +219,7 @@ open class ChangeEditor(geoman: GeomanApi) : BaseEdit(geoman) {
      *
      * @param segmentIndex index of the segment to split (0-based, between vertex i and i+1)
      */
-    private fun addVertex(segmentIndex: Int, newPoint: LatLng) {
+    private fun addVertex(segmentIndex: Int, newPoint: LngLat) {
         val feature = editingFeature ?: return
         val coord = listOf(newPoint.longitude, newPoint.latitude)
 

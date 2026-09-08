@@ -34,6 +34,12 @@ class InMemoryFeatureStore : FeatureStore {
     // Guarded by `this` — use plain HashMap since we always hold the lock
     private val featuresMap = HashMap<String, MutableMap<String, FeatureData>>()
 
+    // Reverse id -> source index maintained alongside [featuresMap] so cascade
+    // removal can locate a descendant's source in O(1) instead of rescanning
+    // every source. Feature ids are globally unique (generated collision-free),
+    // so each id maps to exactly one source. Guarded by `this`.
+    private val featureSourceIndex = HashMap<String, String>()
+
     // Parent-child registry (web parity: FeatureData.parent/children).
     // Guarded by `this` like the store itself.
     private val relationships = FeatureRelationships()
@@ -93,9 +99,30 @@ class InMemoryFeatureStore : FeatureStore {
     fun add(featureData: FeatureData): String = synchronized(this) {
         val sourceFeatures = featuresMap.getOrPut(featureData.sourceName) { HashMap() }
         sourceFeatures[featureData.id] = featureData
+        featureSourceIndex[featureData.id] = featureData.sourceName
         cacheBbox(featureData)
         updateFeaturesFlow()
         featureData.sourceName
+    }
+
+    /**
+     * Store [featureDataList] as one atomic batch: a single [featuresFlow]
+     * snapshot is emitted and every source index entry is maintained in place.
+     * Returns the distinct affected source names so the caller can sync each
+     * of them exactly once.
+     */
+    fun addAll(featureDataList: List<FeatureData>): List<String> = synchronized(this) {
+        if (featureDataList.isEmpty()) return emptyList()
+        val touchedSources = LinkedHashSet<String>()
+        featureDataList.forEach { featureData ->
+            val sourceFeatures = featuresMap.getOrPut(featureData.sourceName) { HashMap() }
+            sourceFeatures[featureData.id] = featureData
+            featureSourceIndex[featureData.id] = featureData.sourceName
+            cacheBbox(featureData)
+            touchedSources.add(featureData.sourceName)
+        }
+        updateFeaturesFlow()
+        touchedSources.toList()
     }
 
     /**
@@ -136,32 +163,22 @@ class InMemoryFeatureStore : FeatureStore {
      */
     fun remove(sourceName: String, featureId: String): FeatureRemoval = synchronized(this) {
         val removed = featuresMap[sourceName]?.remove(featureId)
+        featureSourceIndex.remove(featureId)
         if (featuresMap[sourceName]?.isEmpty() == true) {
             featuresMap.remove(sourceName)
         }
 
         // Cascade removal of all descendants. The parent, its children, and
-        // their transitively-linked descendants may live across sources, so
-        // build a reverse id->source index once and remove each id in place.
+        // their transitively-linked descendants may live across sources; the
+        // maintained id->source index locates each descendant in O(1).
         val cascadeIds = relationships.descendantsOf(featureId)
-        val sourcesToSync = if (cascadeIds.isNotEmpty()) {
-            val idToSource = buildMap {
-                featuresMap.forEach { (source, features) ->
-                    features.keys.forEach { id ->
-                        if (id !in this) this[id] = source
-                    }
-                }
+        val sourcesToSync = cascadeIds.mapNotNull { id ->
+            val owningSource = featureSourceIndex.remove(id) ?: return@mapNotNull null
+            featuresMap[owningSource]?.remove(id)
+            if (featuresMap[owningSource]?.isEmpty() == true) {
+                featuresMap.remove(owningSource)
             }
-            cascadeIds.mapNotNull { id ->
-                val owningSource = idToSource[id] ?: return@mapNotNull null
-                featuresMap[owningSource]?.remove(id)
-                if (featuresMap[owningSource]?.isEmpty() == true) {
-                    featuresMap.remove(owningSource)
-                }
-                owningSource
-            }
-        } else {
-            emptyList()
+            owningSource
         }
 
         cascadeIds.forEach { relationships.detach(it) }
@@ -180,7 +197,10 @@ class InMemoryFeatureStore : FeatureStore {
             val removedIds = featuresMap.remove(sourceName)?.keys.orEmpty()
             // Detach within the same critical section so no reader can observe
             // features that are gone while their parent-child links remain.
-            removedIds.forEach { relationships.detach(it) }
+            removedIds.forEach {
+                relationships.detach(it)
+                featureSourceIndex.remove(it)
+            }
             bboxCache.remove(sourceName)
             updateFeaturesFlow()
         }
@@ -190,6 +210,7 @@ class InMemoryFeatureStore : FeatureStore {
     fun clearAll(): List<String> = synchronized(this) {
         val sourceNames = featuresMap.keys.toList()
         featuresMap.clear()
+        featureSourceIndex.clear()
         relationships.clear()
         bboxCache.clear()
         updateFeaturesFlow()

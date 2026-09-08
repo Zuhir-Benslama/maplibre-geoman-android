@@ -21,9 +21,18 @@ import com.geoman.maplibre.geoman.types.EditModeName
 import com.geoman.maplibre.geoman.types.HelperModeName
 import com.geoman.maplibre.geoman.types.ModeType
 
-class ModeFactory(private val geoman: Geoman) {
+/**
+ * Creates mode actions by [ModeType] name. Abstracted from [ModeFactory] so
+ * [ModeController] can be exercised on the JVM against fakes instead of a
+ * concrete [Geoman].
+ */
+fun interface ModeActionFactory {
+    fun create(type: ModeType, name: String): BaseAction?
+}
 
-    fun create(type: ModeType, name: String): BaseAction? = when (type) {
+class ModeFactory(private val geoman: Geoman) : ModeActionFactory {
+
+    override fun create(type: ModeType, name: String): BaseAction? = when (type) {
         ModeType.DRAW -> createDraw(name)
         ModeType.EDIT -> createEdit(name)
         ModeType.HELPER -> createHelper(name)

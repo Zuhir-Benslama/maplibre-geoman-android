@@ -1,6 +1,6 @@
 package com.geoman.maplibre.geoman.modes.draw
 
-import com.geoman.maplibre.geoman.Geoman
+import com.geoman.maplibre.geoman.GeomanApi
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.types.DrawModeName
 
@@ -8,7 +8,7 @@ import com.geoman.maplibre.geoman.types.DrawModeName
  * Circle marker drawing mode: places a point rendered as a circle via the
  * map's circle layer (as opposed to [MarkerDrawer], which renders an icon).
  */
-class CircleMarkerDrawer(geoman: Geoman) : BaseMarkerDrawer(geoman) {
+class CircleMarkerDrawer(geoman: GeomanApi) : BaseMarkerDrawer(geoman) {
 
     override val modeName: String = DrawModeName.CIRCLE_MARKER.name
 

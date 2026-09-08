@@ -16,7 +16,6 @@ import com.geoman.maplibre.geoman.types.ModeType
 import com.geoman.maplibre.geoman.types.events.GmEditEvent
 import com.geoman.maplibre.geoman.types.geojson.Geometry
 import com.geoman.maplibre.geoman.types.geojson.LngLat
-import org.maplibre.android.geometry.LatLng
 
 /**
  * Base class for all edit modes
@@ -34,7 +33,7 @@ abstract class BaseEdit(geoman: GeomanApi) : BaseAction(geoman) {
     }
 
     @MainThread
-    abstract fun onMapClick(point: LatLng)
+    abstract fun onMapClick(point: LngLat)
 
     /**
      * Query features under a geographic point. Seam over the map adapter so

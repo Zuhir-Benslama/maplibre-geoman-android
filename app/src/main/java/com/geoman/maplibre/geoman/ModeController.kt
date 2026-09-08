@@ -1,25 +1,25 @@
 package com.geoman.maplibre.geoman
 
 import android.view.MotionEvent
-import com.geoman.maplibre.geoman.core.controls.GmControl
 import com.geoman.maplibre.geoman.core.events.GmEventBus
 import com.geoman.maplibre.geoman.core.features.FeatureData
-import com.geoman.maplibre.geoman.core.options.GmOptions
 import com.geoman.maplibre.geoman.modes.draw.BaseDraw
 import com.geoman.maplibre.geoman.modes.edit.BaseEdit
 import com.geoman.maplibre.geoman.modes.edit.ChangeEditor
 import com.geoman.maplibre.geoman.modes.edit.DragEditor
 import com.geoman.maplibre.geoman.modes.helpers.BaseHelper
+import com.geoman.maplibre.geoman.types.DrawModeName
 import com.geoman.maplibre.geoman.types.EditModeName
+import com.geoman.maplibre.geoman.types.HelperModeName
 import com.geoman.maplibre.geoman.types.ModeKey
 import com.geoman.maplibre.geoman.types.ModeType
 import com.geoman.maplibre.geoman.types.events.GmModeEvent
+import com.geoman.maplibre.geoman.types.geojson.LngLat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import org.maplibre.android.geometry.LatLng
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -30,31 +30,32 @@ import java.util.concurrent.ConcurrentHashMap
  * dispatch that reads from the currently enabled actions. [Geoman] delegates
  * its public mode API here.
  *
+ * The action registry ([actionInstances]) is the single source of truth for
+ * which modes are enabled; the [activeModesFlow] is derived from it and every
+ * other consumer reads through us. There is no separate mirror (e.g. in
+ * GmControl or GmOptions) left to drift.
+ *
  * Mode switching is synchronized on this instance to prevent races between
  * concurrent calls (e.g. rapid UI taps); [toggleMode] nests inside the same
  * monitor as [enableMode]/[disableMode] (reentrant).
  */
 class ModeController(
-    geoman: Geoman,
-    private val options: GmOptions,
+    private val modeFactory: ModeActionFactory,
     private val events: GmEventBus,
     private val scope: CoroutineScope,
-    private val control: () -> GmControl?,
     private val isDestroyed: () -> Boolean,
 ) {
     private companion object {
         const val TAG = "Geoman"
     }
 
-    // Mode factory
-    private val modeFactory = ModeFactory(geoman)
-
     // Action instances (modes) — guarded by `this` lock for atomic mode switching.
     // Keyed by a typed (ModeType, name) pair so mode names need not be
     // restricted to delimiter-free strings.
     private val actionInstances = ConcurrentHashMap<ModeKey, BaseAction>()
 
-    // Single source of truth for the set of currently enabled modes
+    // Derived from actionInstances whenever it changes; readers of the UI can
+    // observe mode state without touching the map.
     private val _activeModesFlow = MutableStateFlow<List<ModeKey>>(emptyList())
     val activeModesFlow: StateFlow<List<ModeKey>> = _activeModesFlow.asStateFlow()
 
@@ -84,18 +85,17 @@ class ModeController(
             // Create and enable the mode
             val action = modeFactory.create(type, name)
             action?.let {
+                // A previous instance of the same key is replaced, not left
+                // running: disable it so it stops consuming map events.
+                actionInstances[key]?.disable()
                 actionInstances[key] = it
                 it.enable()
 
                 // A one-shot action may have disabled itself during enable()
                 // (e.g. ZoomToFitHelper). In that case disableMode() already
-                // cleaned up bookkeeping, so only refresh it when the action
-                // is still registered.
+                // cleaned up bookkeeping, so only refresh the flow when the
+                // action is still registered.
                 if (actionInstances[key] === it) {
-                    control()?.activeModes?.removeAll { active -> active.type == type }
-                    control()?.activeModes?.add(ModeKey(type, name))
-
-                    options.enableMode(type, name)
                     _activeModesFlow.value = getEnabledModes()
                     true
                 } else {
@@ -124,8 +124,6 @@ class ModeController(
         val action = synchronized(this) {
             actionInstances.remove(key)?.also {
                 it.disable()
-                control()?.activeModes?.remove(ModeKey(type, name))
-                options.disableMode(type, name)
                 _activeModesFlow.value = getEnabledModes()
             }
         }
@@ -171,8 +169,6 @@ class ModeController(
         synchronized(this) {
             toDisable = actionInstances.values.toList()
             actionInstances.clear()
-            control()?.activeModes?.clear()
-            options.disableAllModes()
             _activeModesFlow.value = emptyList()
         }
         // Disable actions outside the lock to avoid holding it during mode cleanup
@@ -182,8 +178,8 @@ class ModeController(
     /**
      * Handle draw mode click
      */
-    fun handleDrawClick(modeName: String, point: LatLng) {
-        val key = modeKey(ModeType.DRAW, modeName)
+    fun handleDrawClick(mode: DrawModeName, point: LngLat) {
+        val key = modeKey(ModeType.DRAW, mode.name)
         val action = actionInstances[key] as? BaseDraw
         action?.onMapClick(point)
     }
@@ -191,8 +187,8 @@ class ModeController(
     /**
      * Handle draw mode long press
      */
-    fun handleDrawLongPress(modeName: String, point: LatLng) {
-        val key = modeKey(ModeType.DRAW, modeName)
+    fun handleDrawLongPress(mode: DrawModeName, point: LngLat) {
+        val key = modeKey(ModeType.DRAW, mode.name)
         val action = actionInstances[key] as? BaseDraw
         action?.onMapLongClick(point)
     }
@@ -210,8 +206,8 @@ class ModeController(
     /**
      * Handle edit mode click
      */
-    fun handleEditClick(modeName: String, point: LatLng) {
-        val key = modeKey(ModeType.EDIT, modeName)
+    fun handleEditClick(mode: EditModeName, point: LngLat) {
+        val key = modeKey(ModeType.EDIT, mode.name)
         val action = actionInstances[key] as? BaseEdit
         action?.onMapClick(point)
     }
@@ -220,8 +216,8 @@ class ModeController(
      * Handle edit mode touch events (currently used by DragEditor to prevent the
      * map from panning while a drag handle is being moved)
      */
-    fun handleEditTouch(modeName: String, event: MotionEvent): Boolean {
-        val key = modeKey(ModeType.EDIT, modeName)
+    fun handleEditTouch(mode: EditModeName, event: MotionEvent): Boolean {
+        val key = modeKey(ModeType.EDIT, mode.name)
         val action = actionInstances[key] as? DragEditor
         return action?.onTouchEvent(event) ?: false
     }
@@ -229,8 +225,8 @@ class ModeController(
     /**
      * Handle helper mode click
      */
-    fun handleHelperClick(modeName: String, point: LatLng) {
-        val key = modeKey(ModeType.HELPER, modeName)
+    fun handleHelperClick(mode: HelperModeName, point: LngLat) {
+        val key = modeKey(ModeType.HELPER, mode.name)
         (actionInstances[key] as? BaseHelper)?.onMapClick(point)
     }
 }

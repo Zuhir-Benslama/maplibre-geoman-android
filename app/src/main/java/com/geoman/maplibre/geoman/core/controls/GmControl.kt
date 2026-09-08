@@ -40,8 +40,8 @@ import com.geoman.maplibre.geoman.GeomanLogger
 import com.geoman.maplibre.geoman.types.DrawModeName
 import com.geoman.maplibre.geoman.types.EditModeName
 import com.geoman.maplibre.geoman.types.HelperModeName
-import com.geoman.maplibre.geoman.types.ModeKey
 import com.geoman.maplibre.geoman.types.ModeType
+import com.geoman.maplibre.geoman.types.geojson.LngLat
 import org.maplibre.android.geometry.LatLng
 
 /**
@@ -50,8 +50,6 @@ import org.maplibre.android.geometry.LatLng
  */
 class GmControl(private val geoman: Geoman) {
     private var controlView: View? = null
-
-    val activeModes: MutableSet<ModeKey> = java.util.concurrent.ConcurrentHashMap.newKeySet()
 
     /**
      * Create the control panel UI using traditional Android Views
@@ -195,14 +193,19 @@ class GmControl(private val geoman: Geoman) {
      * Called when map is clicked
      */
     fun onMapClick(point: LatLng): Boolean {
-        GeomanLogger.d("GmControl", "onMapClick called, activeModes: $activeModes")
-        // Handle map click for active drawing modes
-        activeModes.forEach { (type, name) ->
+        GeomanLogger.d("GmControl", "onMapClick called, activeModes: ${geoman.getEnabledModes()}")
+        // Handle map click for active drawing modes. Mode state is read from the
+        // single authority (Geoman/ModeController), not a local mirror. The
+        // map-facing LatLng is converted to the geoman LngLat at this boundary;
+        // dispatch below is typed by mode enum, so unknown names are rejected
+        // by the compiler.
+        val lngLat = LngLat(point.longitude, point.latitude)
+        geoman.getEnabledModes().forEach { (type, name) ->
             GeomanLogger.d("GmControl", "Forwarding click to $type.$name")
             when (type) {
-                ModeType.DRAW -> geoman.handleDrawClick(name, point)
-                ModeType.EDIT -> geoman.handleEditClick(name, point)
-                ModeType.HELPER -> geoman.handleHelperClick(name, point)
+                ModeType.DRAW -> drawMode(name)?.let { geoman.handleDrawClick(it, lngLat) }
+                ModeType.EDIT -> editMode(name)?.let { geoman.handleEditClick(it, lngLat) }
+                ModeType.HELPER -> helperMode(name)?.let { geoman.handleHelperClick(it, lngLat) }
             }
         }
         return false
@@ -212,12 +215,13 @@ class GmControl(private val geoman: Geoman) {
      * Called when map is long clicked
      */
     fun onMapLongClick(point: LatLng): Boolean {
-        GeomanLogger.d("GmControl", "onMapLongClick called, activeModes: $activeModes")
+        GeomanLogger.d("GmControl", "onMapLongClick called, activeModes: ${geoman.getEnabledModes()}")
         // Handle long press for finishing shapes
-        activeModes.forEach { (type, name) ->
+        val lngLat = LngLat(point.longitude, point.latitude)
+        geoman.getEnabledModes().forEach { (type, name) ->
             if (type == ModeType.DRAW) {
                 GeomanLogger.d("GmControl", "Forwarding long click to $type.$name")
-                geoman.handleDrawLongPress(name, point)
+                drawMode(name)?.let { geoman.handleDrawLongPress(it, lngLat) }
             }
         }
         return false
@@ -228,13 +232,7 @@ class GmControl(private val geoman: Geoman) {
      * Forwards to the active DragEditor, which consumes events while a drag handle
      * is being moved so the map does not pan underneath it.
      */
-    fun onTouchEvent(event: MotionEvent): Boolean {
-        val dragMode = activeModes.firstOrNull { it.type == ModeType.EDIT && it.name == EditModeName.DRAG.name }
-        if (dragMode != null) {
-            return geoman.handleEditTouch(dragMode.name, event)
-        }
-        return false
-    }
+    fun onTouchEvent(event: MotionEvent): Boolean = geoman.handleEditTouch(EditModeName.DRAG, event)
 
     /**
      * Called when control is detached
@@ -347,6 +345,17 @@ private fun EditModeName.icon(): ImageVector = when (this) {
 private fun HelperModeName.icon(): ImageVector = when (this) {
     HelperModeName.SNAP, HelperModeName.ZOOM_TO_FEATURES -> Icons.Default.CenterFocusStrong
 }
+
+/**
+ * Resolve a registered mode name back to its typed enum for dispatch. The
+ * single place (outside [ModeController]) that maps name strings to enums;
+ * every other dispatch site is compiler-checked.
+ */
+private fun drawMode(name: String): DrawModeName? = DrawModeName.entries.firstOrNull { it.name == name }
+
+private fun editMode(name: String): EditModeName? = EditModeName.entries.firstOrNull { it.name == name }
+
+private fun helperMode(name: String): HelperModeName? = HelperModeName.entries.firstOrNull { it.name == name }
 
 @Composable
 private fun ControlSection(title: String, content: @Composable () -> Unit) {

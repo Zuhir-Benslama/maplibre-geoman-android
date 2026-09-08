@@ -98,6 +98,26 @@ class GeoJsonCodecTest {
     }
 
     @Test
+    fun `document-level errors are typed Document with no feature index`() {
+        val result = GeoJsonCodec.decode("""{"type":"NotGeoJson"}""", "gm_markers")
+
+        val error = result.errors.single()
+        assertTrue("document errors must be ImportError.Document, was $error", error is ImportError.Document)
+        assertNull(error.index)
+        assertTrue(error.message.contains("FeatureCollection or Feature"))
+    }
+
+    @Test
+    fun `document-level json errors carry no feature index`() {
+        val result = GeoJsonCodec.decode("not json at all {", "gm_markers")
+
+        val error = result.errors.single()
+        assertTrue("document errors must be ImportError.Document, was $error", error is ImportError.Document)
+        assertNull(error.index)
+        assertTrue(error.message.contains("invalid JSON"))
+    }
+
+    @Test
     fun `non-geojson documents are rejected`() {
         val result = GeoJsonCodec.decode("""{"type":"NotGeoJson"}""", "gm_markers")
 
@@ -139,6 +159,8 @@ class GeoJsonCodecTest {
         assertEquals(1, result.features.size)
         assertEquals("good", result.features[0].id)
         assertEquals(2, result.errors.size)
+        assertTrue("per-feature errors must be ImportError.Feature", result.errors[0] is ImportError.Feature)
+        assertTrue("per-feature errors must be ImportError.Feature", result.errors[1] is ImportError.Feature)
         assertEquals(1, result.errors[0].index)
         assertEquals(2, result.errors[1].index)
         assertTrue(result.errors[1].message.contains("closed"))

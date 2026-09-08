@@ -12,9 +12,27 @@ import kotlinx.serialization.json.jsonObject
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants.FEATURE_PROPERTY_PREFIX as SYSTEM_PROPERTY_PREFIX
 
 /**
- * Error for a single rejected feature in a batch import.
+ * Error produced while decoding a GeoJSON document.
+ *
+ * Document-level failures (unparseable JSON, wrong root type) are reported as
+ * [ImportError.Document] with no feature index; per-feature rejections are
+ * reported as [ImportError.Feature] carrying the feature's document index.
  */
-data class ImportError(val index: Int, val message: String)
+sealed class ImportError {
+    /** Human-readable explanation of the rejection. */
+    abstract val message: String
+
+    /** Position of the rejected feature in the document, or null for document-level errors. */
+    abstract val index: Int?
+
+    /** The document as a whole could not be interpreted as GeoJSON. */
+    data class Document(override val message: String) : ImportError() {
+        override val index: Int? = null
+    }
+
+    /** A single feature at [index] was structurally invalid or failed validation. */
+    data class Feature(override val index: Int, override val message: String) : ImportError()
+}
 
 /**
  * Result of decoding a GeoJSON document.
@@ -66,14 +84,14 @@ object GeoJsonCodec {
         } catch (e: IllegalArgumentException) {
             return ImportResult(
                 emptyList(),
-                listOf(ImportError(-1, "invalid JSON document: ${e.message}")),
+                listOf(ImportError.Document("invalid JSON document: ${e.message}")),
             )
         }
 
         val featureElements = GeoJsonDecoder.featureCollection(root)
             ?: return ImportResult(
                 emptyList(),
-                listOf(ImportError(-1, "document must be a FeatureCollection or Feature")),
+                listOf(ImportError.Document("document must be a FeatureCollection or Feature")),
             )
 
         val features = mutableListOf<FeatureData>()
@@ -82,7 +100,7 @@ object GeoJsonCodec {
         featureElements.forEach { (index, element) ->
             val feature = GeoJsonDecoder.feature(element)
             if (feature == null) {
-                errors.add(ImportError(index, "malformed feature structure"))
+                errors.add(ImportError.Feature(index, "malformed feature structure"))
                 return@forEach
             }
 
@@ -109,7 +127,7 @@ object GeoJsonCodec {
                     ),
                 )
             } else {
-                errors.add(ImportError(index, validation.errors.joinToString("; ")))
+                errors.add(ImportError.Feature(index, validation.errors.joinToString("; ")))
             }
         }
 

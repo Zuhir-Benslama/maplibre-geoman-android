@@ -1,6 +1,6 @@
 package com.geoman.maplibre.geoman.modes.draw
 
-import com.geoman.maplibre.geoman.Geoman
+import com.geoman.maplibre.geoman.GeomanApi
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.types.DrawModeName
 import com.geoman.maplibre.geoman.types.geojson.Geometry
@@ -10,7 +10,7 @@ import com.geoman.maplibre.geoman.types.geojson.Polygon
 /**
  * Polygon drawing mode
  */
-class PolygonDrawer(geoman: Geoman) : BasePathDrawer(geoman) {
+class PolygonDrawer(geoman: GeomanApi) : BasePathDrawer(geoman) {
 
     override val modeName: String = DrawModeName.POLYGON.name
 

@@ -1,13 +1,13 @@
 package com.geoman.maplibre.geoman.modes.draw
 
-import com.geoman.maplibre.geoman.Geoman
+import com.geoman.maplibre.geoman.GeomanApi
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.types.DrawModeName
 
 /**
  * Marker drawing mode
  */
-class MarkerDrawer(geoman: Geoman) : BaseMarkerDrawer(geoman) {
+class MarkerDrawer(geoman: GeomanApi) : BaseMarkerDrawer(geoman) {
 
     override val modeName: String = DrawModeName.MARKER.name
 

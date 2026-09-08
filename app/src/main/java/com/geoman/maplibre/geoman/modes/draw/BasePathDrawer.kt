@@ -1,14 +1,13 @@
 package com.geoman.maplibre.geoman.modes.draw
 
 import androidx.annotation.MainThread
-import com.geoman.maplibre.geoman.Geoman
+import com.geoman.maplibre.geoman.GeomanApi
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
 import com.geoman.maplibre.geoman.core.features.FeatureData
 import com.geoman.maplibre.geoman.types.geojson.Feature
 import com.geoman.maplibre.geoman.types.geojson.Geometry
 import com.geoman.maplibre.geoman.types.geojson.LngLat
 import kotlinx.coroutines.launch
-import org.maplibre.android.geometry.LatLng
 
 /**
  * Shared multi-click lifecycle for path drawing modes (polyline/polygon):
@@ -20,7 +19,7 @@ import org.maplibre.android.geometry.LatLng
  * ([minRenderPoints]) and to finish ([minFinishPoints]), and how the
  * accumulated vertices become a geometry.
  */
-abstract class BasePathDrawer(geoman: Geoman) : BaseDraw(geoman) {
+abstract class BasePathDrawer(geoman: GeomanApi) : BaseDraw(geoman) {
 
     /** Source the finished path feature is added to. */
     protected abstract val sourceName: String
@@ -46,16 +45,16 @@ abstract class BasePathDrawer(geoman: Geoman) : BaseDraw(geoman) {
     private var currentFeature: FeatureData? = null
 
     @MainThread
-    override fun onMapClick(point: LatLng): Unit = synchronized(this) {
+    override fun onMapClick(point: LngLat): Unit = synchronized(this) {
         if (!enabled) return
 
-        coordinates.add(LngLat(point.longitude, point.latitude))
+        coordinates.add(point)
 
         // Update or create the feature (kept stable across clicks)
         updateFeature()
     }
 
-    override fun onMapLongClick(point: LatLng): Unit = synchronized(this) {
+    override fun onMapLongClick(point: LngLat): Unit = synchronized(this) {
         if (!enabled || coordinates.size < minFinishPoints) return
 
         finishDrawing()

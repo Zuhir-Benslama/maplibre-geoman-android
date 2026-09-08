@@ -41,13 +41,19 @@ class SourceUpdateManager(
      * but not yet applied update for that source.
      */
     fun schedule(sourceName: String, collection: FeatureCollection) {
-        val job = scope.launch {
-            delay(debounceMs)
-            flush(sourceName)
-        }
+        val job: Job
         synchronized(lock) {
+            // Record the latest collection BEFORE the debounce job is queued so a
+            // zero-delay or immediately-dispatched flush can never observe a
+            // stale/absent collection (write-then-launch ordering). The cancel/add
+            // of the pending job stays under the same monitor as the collection
+            // write, so bookkeeping is atomic relative to a concurrent flush.
             latestCollections[sourceName] = collection
             pendingJobs.remove(sourceName)?.cancel()
+            job = scope.launch {
+                delay(debounceMs)
+                flush(sourceName)
+            }
             pendingJobs[sourceName] = job
         }
     }

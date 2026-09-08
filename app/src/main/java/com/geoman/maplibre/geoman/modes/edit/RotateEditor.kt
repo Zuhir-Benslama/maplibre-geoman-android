@@ -12,7 +12,6 @@ import com.geoman.maplibre.geoman.types.geojson.Point
 import com.geoman.maplibre.geoman.types.geojson.Polygon
 import com.geoman.maplibre.geoman.utils.GeometryUtils
 import kotlinx.coroutines.launch
-import org.maplibre.android.geometry.LatLng
 import kotlin.math.atan2
 import kotlin.math.cos
 
@@ -42,14 +41,14 @@ open class RotateEditor(geoman: GeomanApi) : BaseEdit(geoman) {
     }
 
     @MainThread
-    override fun onMapClick(point: LatLng) {
+    override fun onMapClick(point: LngLat) {
         if (!enabled) return
 
         if (isRotating) {
             updateRotation(point)
         } else {
             val features = queryFeaturesAt(
-                LngLat(point.longitude, point.latitude),
+                point,
                 FeatureSources.EDITABLE_WITHOUT_MARKERS,
             )
 
@@ -62,13 +61,13 @@ open class RotateEditor(geoman: GeomanApi) : BaseEdit(geoman) {
         }
     }
 
-    private fun startRotation(feature: FeatureData, startPoint: LatLng) {
+    private fun startRotation(feature: FeatureData, startPoint: LngLat) {
         rotatingFeature = feature
         isRotating = true
 
         val c = calculateCentroid(feature)
         centroid = c
-        lastPointerAngle = calculateAngle(c, LngLat(startPoint.longitude, startPoint.latitude))
+        lastPointerAngle = calculateAngle(c, startPoint)
         totalRotation = 0.0
 
         geoman.scope.launch {
@@ -76,11 +75,11 @@ open class RotateEditor(geoman: GeomanApi) : BaseEdit(geoman) {
         }
     }
 
-    private fun updateRotation(point: LatLng) {
+    private fun updateRotation(point: LngLat) {
         val feature = rotatingFeature ?: return
         val c = centroid ?: return
 
-        val currentAngle = calculateAngle(c, LngLat(point.longitude, point.latitude))
+        val currentAngle = calculateAngle(c, point)
         val frameDelta = GeometryUtils.normalizeAngleDegrees(currentAngle - lastPointerAngle)
         if (frameDelta == 0.0) return
 

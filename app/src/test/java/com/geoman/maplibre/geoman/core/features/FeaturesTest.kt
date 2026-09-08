@@ -108,6 +108,65 @@ class FeaturesTest {
     }
 
     @Test
+    fun `addFeatureCollection stores the whole batch`() {
+        val features = Features()
+
+        val added = features.addFeatureCollection(
+            listOf(
+                pointFeature(1.0, 1.0, id = "a"),
+                pointFeature(2.0, 2.0, id = "b"),
+                pointFeature(3.0, 3.0, id = "c"),
+            ),
+            "gm_lines",
+        )
+
+        assertEquals(listOf("a", "b", "c"), added.map { it.id })
+        assertEquals(3, features.getFeatures("gm_lines").size)
+        assertNotNull(features.getFeature("gm_lines", "a"))
+        assertNotNull(features.getFeature("gm_lines", "c"))
+    }
+
+    @Test
+    fun `addFeatureCollection generates ids for features missing them`() {
+        val features = Features()
+
+        val added = features.addFeatureCollection(listOf(pointFeature(1.0, 1.0)), "gm_markers")
+
+        val stored = added.single()
+        assertTrue(stored.id.isNotBlank())
+        assertNotNull(features.getFeature("gm_markers", stored.id))
+    }
+
+    @Test
+    fun `addFeatureCollection aborts atomically when any feature is invalid`() {
+        val features = Features()
+        val valid = pointFeature(1.0, 1.0, id = "ok")
+        val invalid = Feature(id = "bad", geometry = Point.fromLngLat(LngLat(Double.NaN, 2.0)))
+
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            features.addFeatureCollection(listOf(valid, invalid), "gm_markers")
+        }
+
+        assertTrue("invalid batch must store nothing", features.getFeatures("gm_markers").isEmpty())
+    }
+
+    @Test
+    fun `removeFeature cascades to descendants added via a batch`() {
+        val features = Features()
+        val parent = features.addGeoJsonFeature(pointFeature(1.0, 1.0), "gm_polygons")
+        val child = features.addFeatureCollection(listOf(pointFeature(2.0, 2.0)), "gm_markers").single()
+        val grandChild = features.addFeatureCollection(listOf(pointFeature(3.0, 3.0)), "gm_lines").single()
+        features.setFeatureParent(child.id, parent.id)
+        features.setFeatureParent(grandChild.id, child.id)
+
+        features.removeFeature("gm_polygons", parent.id)
+
+        assertNull(features.getFeature("gm_markers", child.id))
+        assertNull(features.getFeature("gm_lines", grandChild.id))
+        assertTrue(features.getAllFeatures().isEmpty())
+    }
+
+    @Test
     fun `updateFeature replaces stored state and reports no-op for unknown ids`() {
         val features = Features()
         val data = features.addGeoJsonFeature(pointFeature(1.0, 2.0), "gm_polygons")

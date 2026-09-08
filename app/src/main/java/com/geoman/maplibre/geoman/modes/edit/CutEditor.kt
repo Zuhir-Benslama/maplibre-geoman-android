@@ -14,7 +14,6 @@ import com.geoman.maplibre.geoman.types.geojson.LineString
 import com.geoman.maplibre.geoman.types.geojson.LngLat
 import com.geoman.maplibre.geoman.utils.GeometryUtils
 import kotlinx.coroutines.launch
-import org.maplibre.android.geometry.LatLng
 
 /**
  * Cut editing mode - splits a line feature into two features at the click point.
@@ -25,7 +24,7 @@ open class CutEditor(geoman: GeomanApi) : BaseEdit(geoman) {
     override val modeName: String = EditModeName.CUT.name
 
     @MainThread
-    override fun onMapClick(point: LatLng) {
+    override fun onMapClick(point: LngLat) {
         if (!enabled) return
 
         val feature = findLineAt(point) ?: return
@@ -33,18 +32,16 @@ open class CutEditor(geoman: GeomanApi) : BaseEdit(geoman) {
         val coords = geometry.toLngLats()
         if (coords.size < 2) return
 
-        val clickPoint = LngLat(point.longitude, point.latitude)
-        val segmentIndex = findSplitSegment(coords, clickPoint)
+        val segmentIndex = findSplitSegment(coords, point)
         val cutPoint = GeometryUtils.nearestPointOnPolyline(
-            clickPoint,
+            point,
             listOf(coords[segmentIndex], coords[segmentIndex + 1]),
         )
         splitFeature(feature, coords, segmentIndex, cutPoint)
     }
 
-    private fun findLineAt(point: LatLng): FeatureData? {
-        val clickPoint = LngLat(point.longitude, point.latitude)
-        val features = queryFeaturesAt(clickPoint, listOf(FeatureSources.LINE))
+    private fun findLineAt(point: LngLat): FeatureData? {
+        val features = queryFeaturesAt(point, listOf(FeatureSources.LINE))
         return features.firstOrNull()
     }
 

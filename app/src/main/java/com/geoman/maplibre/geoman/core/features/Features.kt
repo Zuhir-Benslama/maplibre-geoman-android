@@ -1,8 +1,8 @@
 package com.geoman.maplibre.geoman.core.features
 
-import com.geoman.maplibre.geoman.Geoman
 import com.geoman.maplibre.geoman.adapter.FeatureStoreRenderer
 import com.geoman.maplibre.geoman.core.GeomanCoreConstants
+import com.geoman.maplibre.geoman.core.options.GmOptions
 import com.geoman.maplibre.geoman.types.geojson.Feature
 import com.geoman.maplibre.geoman.types.geojson.FeatureCollection
 import com.geoman.maplibre.geoman.types.geojson.Geometry
@@ -87,14 +87,15 @@ object FeatureSources {
  * its own `Dispatchers.Main` scope so debounced updates coalesce on the UI
  * thread; tests pass a test dispatcher and use a fake renderer.
  */
+@Suppress("TooManyFunctions") // Facade over validation, batching and sync; cohesive per-source methods
 class Features(
-    private val geoman: Geoman? = null,
+    options: GmOptions? = null,
     updateScope: CoroutineScope? = null,
     debounceMs: Long = SourceUpdateManager.DEFAULT_DEBOUNCE_MS,
     private val store: InMemoryFeatureStore = InMemoryFeatureStore(),
 ) : FeatureStore by store {
 
-    private val styler = FeatureLayerStyler(geoman)
+    private val styler = FeatureLayerStyler(options)
 
     @Volatile
     private var renderer: FeatureStoreRenderer? = null
@@ -134,6 +135,30 @@ class Features(
      * polygon rings, malformed IDs). The feature is not stored in that case.
      */
     fun addGeoJsonFeature(feature: Feature, sourceName: String = FeatureSources.POLYGON): FeatureData {
+        val featureData = toFeatureData(feature, sourceName)
+        addFeature(featureData)
+        return featureData
+    }
+
+    /**
+     * Add a batch of GeoJSON features atomically: every feature is validated
+     * up front, stored in one store mutation (a single flow emission), then
+     * each affected source is synced to the map exactly once.
+     *
+     * @throws IllegalArgumentException if any feature is structurally invalid;
+     * nothing is stored in that case.
+     */
+    fun addFeatureCollection(
+        features: Collection<Feature>,
+        sourceName: String = FeatureSources.POLYGON,
+    ): List<FeatureData> {
+        if (features.isEmpty()) return emptyList()
+        val featureDataList = features.map { toFeatureData(it, sourceName) }
+        store.addAll(featureDataList.map { it.deepCopy() }).forEach { syncSourceToMap(it) }
+        return featureDataList
+    }
+
+    private fun toFeatureData(feature: Feature, sourceName: String): FeatureData {
         val featureId = feature.id ?: generateFeatureId("feature")
         val resolved = feature.copy(id = featureId)
 
@@ -142,15 +167,13 @@ class Features(
             "Invalid GeoJSON feature: ${result.errors.joinToString("; ")}"
         }
 
-        val featureData = FeatureData(
+        return FeatureData(
             id = featureId,
             sourceName = sourceName,
             feature = resolved,
             properties = feature.properties.toMutableMap(),
             shape = FeatureShape.fromSourceName(sourceName),
         )
-        addFeature(featureData)
-        return featureData
     }
 
     fun updateFeature(sourceName: String, featureId: String, update: (FeatureData) -> FeatureData): Boolean {

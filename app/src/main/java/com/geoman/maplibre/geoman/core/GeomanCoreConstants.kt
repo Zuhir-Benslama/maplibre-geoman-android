@@ -33,6 +33,13 @@ object GeomanCoreConstants {
     const val SOURCE_EDIT = "${GM_PREFIX}_edit"
     const val SOURCE_HELPER = "${GM_PREFIX}_helper"
 
+    /**
+     * Dedicated map source for DOM (View-based) markers. Kept distinct from
+     * [SOURCE_MARKERS] so the DOM marker layer never overwrites the feature
+     * store's marker source (and vice versa) when both write GeoJSON to the map.
+     */
+    const val SOURCE_DOM_MARKERS = "${GM_PREFIX}_dom_markers"
+
     /** Event names */
     object Events {
         const val LOADED = "${GM_PREFIX}:loaded"
